@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db, require_any_permission, require_permission
+from app.core.capabilities import require_page_permission
 from app.extended.models import User
 from app.services.ai.graph.graph_query_service import GraphQueryService
 from app.schemas.knowledge_graph import (
@@ -53,7 +54,7 @@ router = APIRouter()
 @router.post("/graph/code-wiki", response_model=KGCodeWikiResponse)
 async def get_code_wiki_graph(
     request: KGCodeWikiRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/code-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得 Code Wiki 代碼圖譜（nodes + edges）"""
@@ -68,7 +69,7 @@ async def get_code_wiki_graph(
 
 @router.post("/graph/module-overview", response_model=KGModuleOverviewResponse)
 async def get_module_overview(
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/code-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -89,7 +90,7 @@ async def get_module_overview(
 @router.post("/graph/unified-search", response_model=UnifiedGraphSearchResponse)
 async def unified_graph_search(
     request: UnifiedGraphSearchRequest,
-    current_user: User = Depends(require_any_permission("admin:settings", "reports:erp_graph:view", "reports:erp:view")),
+    current_user: User = Depends(require_page_permission("/ai/erp-graph", "/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """跨圖譜統一搜尋 — 同時搜尋 7 大圖譜 (KG + Code + DB + ERP + Tender)"""
@@ -267,7 +268,7 @@ async def unified_graph_search(
 
 @router.post("/graph/module-mappings")
 async def get_module_mappings(
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/code-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -316,7 +317,7 @@ async def smart_graph_search(
     # 2026-08-21：這條原本**沒有任何認證**（同檔其他端點有，唯獨它漏了）。
     # 實測公網未登入、帶一枚公開可取的 CSRF token 就回 200 —— 而它是
     # 自然語言知識圖譜搜尋（走 LLM），等於把公司的圖譜與算力一起開放。
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
 ):
     """自然語言知識圖譜搜尋 (Gemma 4 powered)"""
     body = await request.json()
@@ -338,7 +339,7 @@ async def smart_graph_search(
 
 @router.post("/graph/erp-network", summary="ERP 財務圖譜關係網路")
 async def get_erp_graph_network(
-    current_user: User = Depends(require_any_permission("admin:settings", "reports:erp_graph:view", "reports:erp:view")),
+    current_user: User = Depends(require_page_permission("/ai/erp-graph", "/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """ERP 實體關係網路 — nodes + links for force-directed graph"""
@@ -377,7 +378,7 @@ async def get_erp_graph_network(
 @router.post("/graph/case-flow", summary="案件全流程鏈查詢")
 async def get_case_flow(
     request: Request,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """

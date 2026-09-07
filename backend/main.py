@@ -115,6 +115,12 @@ async def lifespan(app: FastAPI):
         )
         sys.exit(1)
 
+    # ⭐ 2026-09-07 收斂 B：頁面能力快取（選單表＝選單／路由守衛／API 三邊的唯一來源）
+    #    啟動時載入，並對照程式碼裡引用過的頁面 —— 路徑打錯會安靜退回「只要求登入」，
+    #    失效方向是放行，所以在這裡就要出聲（見 capabilities.refresh 的 WARNING）。
+    from app.core import capabilities as _capabilities
+    await _capabilities.refresh()
+
     # L51 (2026-05-29) LINE notify chain startup probe — 防 PM2 廢除型 silent disabled 反覆
     # 同型事故 (L48 SSO + L51 LINE) 都是治理動作切換 runtime 後 env 缺失但 silent skip。
     # production 啟動時驗 LINE chain critical config，缺即 critical log（不 raise，避 hard-fail prod）

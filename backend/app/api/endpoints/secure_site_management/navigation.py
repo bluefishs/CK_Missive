@@ -110,154 +110,160 @@ async def navigation_action(
     nav_repo = NavigationRepository(session)
 
     try:
-        action = action.lower()
-        data = data or {}
+        try:
+            action = action.lower()
+            data = data or {}
 
-        if action == "list":
-            root_items = await nav_repo.get_root_items()
+            if action == "list":
+                root_items = await nav_repo.get_root_items()
 
-            items = []
-            for item in root_items:
-                item_dict = _item_to_dict(item)
-                item_dict["level"] = 1
-                item_dict["children"] = await nav_repo.get_children_recursive(item.id)
-                items.append(item_dict)
+                items = []
+                for item in root_items:
+                    item_dict = _item_to_dict(item)
+                    item_dict["level"] = 1
+                    item_dict["children"] = await nav_repo.get_children_recursive(item.id)
+                    items.append(item_dict)
 
-            return {
-                "success": True,
-                "message": "Navigation items retrieved successfully",
-                "data": {"items": items, "total": len(items)},
-                "csrf_token": await generate_csrf_token(),
-            }
+                return {
+                    "success": True,
+                    "message": "Navigation items retrieved successfully",
+                    "data": {"items": items, "total": len(items)},
+                    "csrf_token": await generate_csrf_token(),
+                }
 
-        elif action == "create":
-            path = data.get("path")
-            is_valid, error_msg = validate_navigation_path(path)
-            if not is_valid:
-                raise HTTPException(status_code=400, detail=error_msg)
-
-            nav_data = NavigationItemCreate(**data)
-            new_item = await nav_repo.create(nav_data.model_dump())
-
-            return {
-                "success": True,
-                "message": "Navigation item created successfully",
-                "data": {"item": _item_to_dict(new_item)},
-                "csrf_token": await generate_csrf_token(),
-            }
-
-        elif action == "update":
-            item_id = data.get("id")
-            if not item_id:
-                raise HTTPException(status_code=400, detail="Item ID is required")
-
-            if "path" in data:
+            elif action == "create":
                 path = data.get("path")
                 is_valid, error_msg = validate_navigation_path(path)
                 if not is_valid:
                     raise HTTPException(status_code=400, detail=error_msg)
 
-            item = await nav_repo.get_by_id(item_id)
-            if not item:
+                nav_data = NavigationItemCreate(**data)
+                new_item = await nav_repo.create(nav_data.model_dump())
+
+                return {
+                    "success": True,
+                    "message": "Navigation item created successfully",
+                    "data": {"item": _item_to_dict(new_item)},
+                    "csrf_token": await generate_csrf_token(),
+                }
+
+            elif action == "update":
+                item_id = data.get("id")
+                if not item_id:
+                    raise HTTPException(status_code=400, detail="Item ID is required")
+
+                if "path" in data:
+                    path = data.get("path")
+                    is_valid, error_msg = validate_navigation_path(path)
+                    if not is_valid:
+                        raise HTTPException(status_code=400, detail=error_msg)
+
+                item = await nav_repo.get_by_id(item_id)
+                if not item:
+                    raise HTTPException(
+                        status_code=404, detail="Navigation item not found"
+                    )
+
+                old_parent_id = item.parent_id
+                old_sort_order = item.sort_order
+
+                excluded_fields = {"id", "created_at", "updated_at"}
+                update_data = {
+                    k: v for k, v in data.items() if k not in excluded_fields
+                }
+
+                if "sort_order" in update_data and update_data["sort_order"] is not None:
+                    update_data["sort_order"] = int(update_data["sort_order"])
+                if "level" in update_data and update_data["level"] is not None:
+                    update_data["level"] = int(update_data["level"])
+                if "parent_id" in update_data and update_data["parent_id"] is not None:
+                    update_data["parent_id"] = int(update_data["parent_id"])
+
+                new_parent_id = update_data.get("parent_id", old_parent_id)
+                new_sort_order = update_data.get("sort_order", old_sort_order)
+
+                for key, value in update_data.items():
+                    if value is not None or key in ("parent_id", "path"):
+                        setattr(item, key, value)
+
+                item.updated_at = datetime.utcnow()
+
+                if old_parent_id != new_parent_id or old_sort_order != new_sort_order:
+                    await _reorder_siblings_after_move(
+                        nav_repo,
+                        item_id,
+                        old_parent_id,
+                        new_parent_id,
+                        new_sort_order,
+                    )
+
+                await session.commit()
+                await session.refresh(item)
+
+                return {
+                    "success": True,
+                    "message": "Navigation item updated successfully",
+                    "data": {"item": _item_to_dict(item)},
+                    "csrf_token": await generate_csrf_token(),
+                }
+
+            elif action == "reorder":
+                reorder_data = data.get("items", [])
+                if not reorder_data:
+                    raise HTTPException(
+                        status_code=400, detail="Items list is required"
+                    )
+
+                updated_count = await nav_repo.reorder_items(reorder_data)
+
+                return {
+                    "success": True,
+                    "message": f"Successfully reordered {len(reorder_data)} items",
+                    "csrf_token": await generate_csrf_token(),
+                }
+
+            elif action == "delete":
+                item_id = data.get("id")
+                if not item_id:
+                    raise HTTPException(
+                        status_code=400, detail="Item ID is required"
+                    )
+
+                item = await nav_repo.get_by_id(item_id)
+                if not item:
+                    raise HTTPException(
+                        status_code=404, detail="Navigation item not found"
+                    )
+
+                if await nav_repo.has_children(item_id):
+                    raise HTTPException(
+                        status_code=400, detail="Cannot delete item with children"
+                    )
+
+                await nav_repo.delete(item_id)
+
+                return {
+                    "success": True,
+                    "message": "Navigation item deleted successfully",
+                    "csrf_token": await generate_csrf_token(),
+                }
+
+            else:
                 raise HTTPException(
-                    status_code=404, detail="Navigation item not found"
+                    status_code=400, detail=f"Unknown action: {action}"
                 )
 
-            old_parent_id = item.parent_id
-            old_sort_order = item.sort_order
-
-            excluded_fields = {"id", "created_at", "updated_at"}
-            update_data = {
-                k: v for k, v in data.items() if k not in excluded_fields
-            }
-
-            if "sort_order" in update_data and update_data["sort_order"] is not None:
-                update_data["sort_order"] = int(update_data["sort_order"])
-            if "level" in update_data and update_data["level"] is not None:
-                update_data["level"] = int(update_data["level"])
-            if "parent_id" in update_data and update_data["parent_id"] is not None:
-                update_data["parent_id"] = int(update_data["parent_id"])
-
-            new_parent_id = update_data.get("parent_id", old_parent_id)
-            new_sort_order = update_data.get("sort_order", old_sort_order)
-
-            for key, value in update_data.items():
-                if value is not None or key in ("parent_id", "path"):
-                    setattr(item, key, value)
-
-            item.updated_at = datetime.utcnow()
-
-            if old_parent_id != new_parent_id or old_sort_order != new_sort_order:
-                await _reorder_siblings_after_move(
-                    nav_repo,
-                    item_id,
-                    old_parent_id,
-                    new_parent_id,
-                    new_sort_order,
-                )
-
-            await session.commit()
-            await session.refresh(item)
-
-            return {
-                "success": True,
-                "message": "Navigation item updated successfully",
-                "data": {"item": _item_to_dict(item)},
-                "csrf_token": await generate_csrf_token(),
-            }
-
-        elif action == "reorder":
-            reorder_data = data.get("items", [])
-            if not reorder_data:
-                raise HTTPException(
-                    status_code=400, detail="Items list is required"
-                )
-
-            updated_count = await nav_repo.reorder_items(reorder_data)
-
-            return {
-                "success": True,
-                "message": f"Successfully reordered {len(reorder_data)} items",
-                "csrf_token": await generate_csrf_token(),
-            }
-
-        elif action == "delete":
-            item_id = data.get("id")
-            if not item_id:
-                raise HTTPException(
-                    status_code=400, detail="Item ID is required"
-                )
-
-            item = await nav_repo.get_by_id(item_id)
-            if not item:
-                raise HTTPException(
-                    status_code=404, detail="Navigation item not found"
-                )
-
-            if await nav_repo.has_children(item_id):
-                raise HTTPException(
-                    status_code=400, detail="Cannot delete item with children"
-                )
-
-            await nav_repo.delete(item_id)
-
-            return {
-                "success": True,
-                "message": "Navigation item deleted successfully",
-                "csrf_token": await generate_csrf_token(),
-            }
-
-        else:
+        except HTTPException:
+            raise
+        except Exception as e:
             raise HTTPException(
-                status_code=400, detail=f"Unknown action: {action}"
+                status_code=500, detail="Internal server error"
             )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail="Internal server error"
-        )
+    finally:
+        # ⭐ 2026-09-07 收斂 B：選單表是選單／路由守衛／API 三邊的唯一來源。
+        #    儲存後刷新 API 端的能力快取，改一次三邊同時生效（失敗也刷，重載的是 DB 現況）。
+        from app.core import capabilities as _cap
+        await _cap.refresh()
 
 
 @router.post("/test-navigation")

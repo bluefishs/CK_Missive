@@ -11,6 +11,7 @@ Created: 2026-04-09
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import require_auth, require_any_permission, require_permission
+from app.core.capabilities import require_page_permission
 from app.extended.models import User
 
 # ⭐ 2026-09-07 owner：「為何 erp 與政府標案仍綁定圖譜？」→「請接續完成前述議題」。
@@ -29,7 +30,7 @@ router = APIRouter()
 
 @router.post("/graph/skill-evolution")
 async def get_skill_evolution_tree(
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/skills-map", "/ai/skill-evolution")),
 ):
     """
     取得技能能力地圖資料（⚠️ 2026-07-18 誠實化：這是**靜態能力地圖 v1.0**，
@@ -46,7 +47,7 @@ async def get_skill_evolution_tree(
 
 @router.post("/graph/skills-map")
 async def get_skills_capability_map(
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/skills-map", "/ai/skill-evolution")),
 ):
     """
     回傳乾坤智能體能力圖譜 — 3 層階層式架構。

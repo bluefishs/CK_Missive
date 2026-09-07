@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db, require_any_permission, require_permission
+from app.core.capabilities import require_page_permission
 from app.extended.models import User
 from app.services.ai.graph.graph_query_service import GraphQueryService
 from app.schemas.knowledge_graph import (
@@ -62,7 +63,7 @@ router = APIRouter()
 @router.post("/graph/entity/search", response_model=KGEntitySearchResponse)
 async def search_entities(
     request: KGEntitySearchRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """搜尋正規化實體"""
@@ -78,7 +79,7 @@ async def search_entities(
 @router.post("/graph/entity/neighbors", response_model=KGNeighborsResponse)
 async def get_entity_neighbors(
     request: KGNeighborsRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體的 K 跳鄰居"""
@@ -94,7 +95,7 @@ async def get_entity_neighbors(
 @router.post("/graph/entity/shortest-path", response_model=KGShortestPathResponse)
 async def find_shortest_path(
     request: KGShortestPathRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """查詢兩實體間的最短路徑"""
@@ -112,7 +113,7 @@ async def find_shortest_path(
 @router.post("/graph/entity/detail", response_model=KGEntityDetailResponse)
 async def get_entity_detail(
     request: KGEntityDetailRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體詳情（含別名、公文、關係）"""
@@ -126,7 +127,7 @@ async def get_entity_detail(
 @router.post("/graph/entity/timeline", response_model=KGTimelineResponse)
 async def get_entity_timeline(
     request: KGTimelineRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體的關係時間軸"""
@@ -138,7 +139,7 @@ async def get_entity_timeline(
 @router.post("/graph/timeline/aggregate", response_model=KGTimelineAggregateResponse)
 async def get_timeline_aggregate(
     request: KGTimelineAggregateRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """跨實體時序聚合：按月/季/年統計關係數量趨勢"""
@@ -154,7 +155,7 @@ async def get_timeline_aggregate(
 @router.post("/graph/entity/top", response_model=KGTopEntitiesResponse)
 async def get_top_entities(
     request: KGTopEntitiesRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """高頻實體排名"""
@@ -170,7 +171,7 @@ async def get_top_entities(
 @router.post("/graph/entity/graph", response_model=KGEntityGraphResponse)
 async def get_entity_graph(
     request: KGEntityGraphRequest,
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """以實體為中心的公文知識圖譜（排除 code entities）"""
@@ -187,7 +188,7 @@ async def get_entity_graph(
 
 @router.post("/graph/stats", response_model=KGGraphStatsResponse)
 async def get_graph_stats(
-    current_user: User = Depends(require_any_permission("admin:settings", "reports:erp_graph:view", "reports:erp:view")),
+    current_user: User = Depends(require_page_permission("/ai/erp-graph", "/ai/knowledge-graph")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """圖譜統計"""
@@ -198,7 +199,7 @@ async def get_graph_stats(
 
 @router.post("/graph/db-schema", response_model=KGDbSchemaResponse)
 async def get_db_schema(
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/db-graph")),
 ):
     """
     取得完整資料庫 Schema 反射結果。
@@ -218,7 +219,7 @@ async def get_db_schema(
 
 @router.post("/graph/db-graph", response_model=KGDbGraphResponse)
 async def get_db_graph(
-    current_user: User = Depends(require_permission("admin:settings")),
+    current_user: User = Depends(require_page_permission("/ai/db-graph")),
 ):
     """
     取得資料庫 ER 圖譜資料（nodes + edges 格式）。
