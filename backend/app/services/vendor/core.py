@@ -225,7 +225,43 @@ class VendorService(AuditableServiceMixin):
         vendor = await self.repository.update(vendor_id, changes)
         if vendor:
             await self.audit_update(vendor_id, changes)
+            await self._propagate_name_change(vendor_id, changes)
         return vendor
+
+    async def _propagate_name_change(self, vendor_id: int, changes: dict) -> None:
+        """改了主檔名稱，把掛著這個鍵的**名稱快照**一起更新。
+
+        ⚠️ 2026-09-07 owner：「委託單位『何明利』已修正為『汎宇藥業股份有限公司』，
+        但檢索仍僅對應何明利」＋「即時刷新紀錄機制？」
+
+        委託單位的名字存在三個地方：主檔 `partner_vendors.vendor_name`（權威），
+        以及建案當下抄下來的兩個快照 `pm_cases.client_name`／
+        `contract_projects.client_agency`。改主檔不會動快照，於是列表、下拉、
+        匯出各自顯示新舊不一，而**沒有任何一方會報錯**。
+
+        顯示面已改成「主檔優先」（`quotation_service._get_client_names_batch`），
+        但全庫還有約 90 處在讀快照（匯出、AI 工具、文件產生…）。
+        ⇒ 改名時直接把快照推平，讓那些路徑也一致。
+
+        只更新**鍵指得到**的那些列：純文字客戶（沒有 `client_vendor_id`）不動，
+        它們沒有主檔可依循，動了就是憑空改資料。
+        """
+        new_name = (changes.get("vendor_name") or "").strip()
+        if not new_name:
+            return
+        from sqlalchemy import text as _t
+        for sql in (
+            "UPDATE pm_cases SET client_name = :n, updated_at = now() "
+            "WHERE client_vendor_id = :vid AND COALESCE(btrim(client_name), '') <> :n",
+            "UPDATE contract_projects SET client_agency = :n, updated_at = now() "
+            "WHERE client_vendor_id = :vid AND COALESCE(btrim(client_agency), '') <> :n",
+        ):
+            try:
+                await self.db.execute(_t(sql), {"n": new_name, "vid": int(vendor_id)})
+            except Exception:  # noqa: BLE001
+                # 快照推不動不該讓改名本身失敗；顯示面已經以主檔為準，這裡是額外的一致性
+                logger.warning("委託單位改名後快照同步失敗 vendor_id=%s", vendor_id, exc_info=True)
+        await self.db.commit()
 
     async def delete(self, vendor_id: int) -> bool:
         """
