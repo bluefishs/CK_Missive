@@ -594,6 +594,12 @@ run_step "114" "前端 vitest 基線比對（同 24 的形狀；新失敗才紅�
 run_step "115" "路由成本趨勢（僅報告：每路由 API 支數與 wall；與上次比對，>50% 或多 3 支才提）" "scripts/checks/route_cost_trend_report.py"
 run_step "116" "視覺走查拍圖（僅報告：人看圖才看得出的截字／遮蔽／配色，存 docs/health/visual/<日期>/）" "scripts/checks/visual_walk_weekly.sh"
 run_step "117" "填報守衛存在性（事後稽核抓到的錯，入口有沒有擋；執行時驗證含負向控制）" "scripts/checks/entry_time_guard_audit.py"
+run_step "118" "角色列舉 vs role_permissions（DB 有而列舉沒有＝指派一律 422 且無訊息；卡了 11 天）" "scripts/checks/role_enum_drift_audit.py"
+run_step "119" "權限目錄漂移（①前端目錄↔DB 碼 ②耦合基線 ③角色↔使用者 ④旗標 ⑤父階擋子項）" "scripts/checks/permission_catalog_drift_audit.py"
+run_step "120" "報價單總表 vs DB 差異（版次去尾比對、無編號列、軟刪列；公式快取守衛）" "scripts/checks/quotation_master_table_diff.py"
+run_step "121" "稽催時間錨點唯一定義（第四份 billing_date 時間運算即紅）" "scripts/checks/billing_dunning_ssot_audit.py"
+run_step "122" "基礎設施事實漂移（活文件不得再描述 sqlite／8003／8080／GeminiCli／claude_plant）" "scripts/checks/infra_facts_drift_audit.py"
+run_step "123" "民國年解析唯一定義（手寫 +1911 而不認得 app/core/roc_date ⇒ 第九份實作）" "scripts/checks/roc_date_ssot_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

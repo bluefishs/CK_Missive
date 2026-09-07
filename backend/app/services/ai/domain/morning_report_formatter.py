@@ -14,6 +14,7 @@ Responsibility:
 
 Version: 1.0.0 (拆分自 morning_report_service.py)
 """
+from app.core.roc_date import parse_roc_date, roc_to_iso
 import re
 from datetime import date, datetime
 from typing import Any, Dict, Optional, Set
@@ -409,14 +410,8 @@ class MorningReportFormatter:
 
     @staticmethod
     def _parse_roc_date(s: str) -> Optional[date]:
-        """Parse ROC date string like '115/04/17' or '115年01月15日' to date."""
-        m = re.match(r'(\d{2,3})\D+(\d{1,2})\D+(\d{1,2})', s or '')
-        if m:
-            try:
-                return date(int(m.group(1)) + 1911, int(m.group(2)), int(m.group(3)))
-            except (ValueError, TypeError):
-                pass
-        return None
+        """委派唯一定義 `app.core.roc_date`（2026-09-08 A119；此前 8 份各自實作）。"""
+        return parse_roc_date(s)
 
     @staticmethod
     def _format_dispatch_progress(

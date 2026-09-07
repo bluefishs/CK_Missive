@@ -3,6 +3,7 @@
 Version: 1.0.0
 - v1.0.0: 從 quotation_service.py 拆分 (CSV/Excel export + import)
 """
+from app.core.roc_date import roc_year_to_ad
 import csv
 import io
 import logging
@@ -254,7 +255,7 @@ class ERPQuotationIOService:
                     year = int(str(year_val).strip()) if year_val else None
                 # 民國年自動轉西元
                 if year and year < 1911:
-                    year = year + 1911
+                    year = roc_year_to_ad(year)
 
                 data = {
                     "case_code": case_code,

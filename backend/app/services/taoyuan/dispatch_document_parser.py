@@ -12,6 +12,7 @@
 
 這些都是無狀態的工具函數，可獨立測試與複用。
 """
+from app.core.roc_date import roc_year_to_ad
 import re
 from datetime import date
 from typing import Optional, Dict, Any
@@ -44,7 +45,7 @@ def parse_roc_date(raw: Any) -> Optional[date]:
     if not m:
         return None
     try:
-        year = int(m.group(1)) + 1911
+        year = roc_year_to_ad(int(m.group(1)))
         month = int(m.group(2))
         day = int(m.group(3))
         return date(year, month, day)
@@ -111,7 +112,7 @@ def parse_doc_line(line: str) -> Optional[Dict[str, Any]]:
             return None
 
     try:
-        doc_date = date(int(m.group(1)) + 1911, int(m.group(2)), int(m.group(3)))
+        doc_date = date(roc_year_to_ad(int(m.group(1))), int(m.group(2)), int(m.group(3)))
     except (ValueError, OverflowError):
         return None
 

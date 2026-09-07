@@ -9,6 +9,7 @@
 Version: 1.0.0
 Created: 2026-03-21
 """
+from app.core.roc_date import roc_year_to_ad
 import re
 import logging
 from datetime import date as date_type
@@ -195,7 +196,7 @@ class InvoiceOCRService:
                 month = int(m.group(2))
                 day = int(m.group(3))
                 if year < 200:  # 民國年
-                    year += 1911
+                    year = roc_year_to_ad(year)
                 if 1 <= month <= 12 and 1 <= day <= 31:
                     return date_type(year, month, day)
             except (ValueError, OverflowError):

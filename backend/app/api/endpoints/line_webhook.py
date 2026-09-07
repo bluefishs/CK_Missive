@@ -34,15 +34,24 @@ _DEDUP_TTL = 10.0  # 10 秒內的重複事件忽略
 _DEDUP_MAX_SIZE = 500  # 快取上限
 
 
-def _is_duplicate_event(message_id: str) -> bool:
-    """檢查是否為重複訊息（LRU 風格去重）"""
+async def _is_duplicate_event(message_id: str) -> bool:
+    """LINE 會重送同一事件；去重必須跨行程、跨重啟。
+
+    2026-09-08（A117）之前是行程內 dict：重啟即忘、多 worker 各一份（與 A51 限流器同形狀）。
+    改為 redis `SET NX EX`；redis 不在時退回行程內快取並照舊運作（去重變弱，不是整個失效）。
+    """
+    try:
+        from app.core.redis_client import get_redis
+        r = await get_redis()
+        if r is not None:
+            ok = await r.set(f"line:webhook:seen:{message_id}", "1", nx=True, ex=int(_DEDUP_TTL))
+            return not ok  # NX 設不進去 ⇒ 已經看過
+    except Exception as e:  # noqa: BLE001 —— 去重層失效只降級，不擋 webhook
+        logger.warning("LINE dedup redis unavailable, fallback to in-process: %s", e)
     now = time.time()
-    # 清理過期條目
     if len(_DEDUP_CACHE) > _DEDUP_MAX_SIZE:
-        expired = [k for k, v in _DEDUP_CACHE.items() if now - v > _DEDUP_TTL]
-        for k in expired:
+        for k in [k for k, v in _DEDUP_CACHE.items() if now - v > _DEDUP_TTL]:
             del _DEDUP_CACHE[k]
-    # 檢查重複
     if message_id in _DEDUP_CACHE and now - _DEDUP_CACHE[message_id] < _DEDUP_TTL:
         return True
     _DEDUP_CACHE[message_id] = now
@@ -101,7 +110,7 @@ async def line_webhook(
 
         # 訊息去重 (防止 LINE 重發同一事件)
         msg_id = msg.get("id", "")
-        if msg_id and _is_duplicate_event(msg_id):
+        if msg_id and await _is_duplicate_event(msg_id):
             logger.debug("Duplicate LINE message ignored: %s", msg_id)
             continue
 

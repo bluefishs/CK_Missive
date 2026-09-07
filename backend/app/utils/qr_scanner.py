@@ -1,3 +1,4 @@
+from app.core.roc_date import roc_year_to_ad
 import cv2
 import numpy as np
 from pyzbar.pyzbar import decode
@@ -23,7 +24,7 @@ def roc_to_iso(roc_date_str: str) -> date:
     """將民國年 (e.g. 1130515) 轉為 date(2024, 5, 15)"""
     if len(roc_date_str) != 7:
         raise ValueError("日期格式不正確，應為 7 位碼")
-    year = int(roc_date_str[0:3]) + 1911
+    year = roc_year_to_ad(int(roc_date_str[0:3]))
     month = int(roc_date_str[3:5])
     day = int(roc_date_str[5:7])
     return date(year, month, day)

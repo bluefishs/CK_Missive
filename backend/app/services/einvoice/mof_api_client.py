@@ -14,6 +14,7 @@
 Version: 1.0.0
 Created: 2026-03-21
 """
+from app.core.roc_date import parse_roc_date, roc_to_iso
 import hashlib
 import hmac
 import logging
@@ -91,14 +92,11 @@ class MofApiClient:
         return f"{roc_year}/{d.month:02d}/{d.day:02d}"
 
     def _roc_to_date(self, roc_str: str) -> date:
-        """民國年字串轉西元日期 (YYY/MM/DD 或 YYYMMDD)"""
-        cleaned = roc_str.replace("/", "")
-        if len(cleaned) == 7:
-            roc_year = int(cleaned[0:3])
-            month = int(cleaned[3:5])
-            day = int(cleaned[5:7])
-            return date(roc_year + 1911, month, day)
-        raise ValueError(f"無法解析民國日期: {roc_str}")
+        """委派唯一定義 `app.core.roc_date`（2026-09-08 A119；此前 8 份各自實作）。"""
+        d = parse_roc_date(roc_str)
+        if d is None:
+            raise ValueError(f"無法解析民國日期: {roc_str}")
+        return d
 
     def _build_period(self, d: date) -> str:
         """計算發票期別 (民國年+月份雙月制: 01-02, 03-04, ...)

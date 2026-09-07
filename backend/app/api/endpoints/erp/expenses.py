@@ -2,6 +2,7 @@
 
 IO 相關端點 (QR/OCR/匯入匯出/收據/AI) 已拆分至 expenses_io.py
 """
+from app.core.roc_date import roc_year_to_ad
 import logging
 from decimal import Decimal
 
@@ -65,9 +66,9 @@ async def grouped_expense_summary(
     if isinstance(year, int) and 0 < year < 1911:
         logger.warning(
             "grouped-summary 收到民國年 %s —— 系統已統一西元（§2.5），"
-            "請修正呼叫端；本次轉換為 %s", year, year + 1911,
+            "請修正呼叫端；本次轉換為 %s", year, roc_year_to_ad(year),
         )
-        year = year + 1911
+        year = roc_year_to_ad(year)
     result = await service.grouped_summary(
         attribution_type=attribution_type, year=year,
     )

@@ -8,6 +8,7 @@ Updated: 2026-03-06 - 狀態/機關映射改委託 SynonymExpander (DB SSOT)
 Layer 1 規則引擎 -- 處理常見、明確的查詢模式。
 高信心度 (>=0.85) 才直接返回，否則返回部分匹配結果供 Layer 2 (LLM) 合併。
 """
+from app.core.roc_date import roc_year_to_ad
 import logging
 import re
 from datetime import date, timedelta
@@ -207,7 +208,7 @@ class IntentRuleEngine:
             return None
         try:
             roc_year = int(roc_str)
-            western_year = roc_year + 1911
+            western_year = roc_year_to_ad(roc_year)
             return f"{western_year}-01-01"
         except ValueError:
             return None
@@ -218,7 +219,7 @@ class IntentRuleEngine:
             return None
         try:
             roc_year = int(roc_str)
-            western_year = roc_year + 1911
+            western_year = roc_year_to_ad(roc_year)
             return f"{western_year}-12-31"
         except ValueError:
             return None

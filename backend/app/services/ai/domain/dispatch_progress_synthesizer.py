@@ -13,6 +13,7 @@ Version: 1.0.0
 Created: 2026-03-27
 """
 
+from app.core.roc_date import parse_roc_date, roc_to_iso
 import logging
 import re
 from dataclasses import dataclass, field
@@ -54,20 +55,8 @@ class DispatchProgressReport:
 
 
 def _parse_roc_date(deadline_text: Optional[str]) -> Optional[date]:
-    """解析民國年日期字串 → date 物件"""
-    if not deadline_text:
-        return None
-    m = re.search(r'(\d{2,3})年(\d{1,2})月(\d{1,2})日', deadline_text)
-    if not m:
-        return None
-    try:
-        roc_year = int(m.group(1))
-        month = int(m.group(2))
-        day = int(m.group(3))
-        return date(roc_year + 1911, month, day)
-    except (ValueError, OverflowError):
-        return None
-
+    """委派唯一定義 `app.core.roc_date`（2026-09-08 A119；此前 8 份各自實作）。"""
+    return parse_roc_date(deadline_text)
 
 class DispatchProgressSynthesizer:
     """派工進度彙整合成器"""

@@ -5,6 +5,7 @@
 確保與資料庫模型完全對應的CSV匯入處理器。
 使用共用驗證器確保資料一致性。
 """
+from app.core.roc_date import roc_year_to_ad
 import logging
 import pandas as pd
 import io
@@ -117,7 +118,7 @@ class DocumentCSVProcessor:
         match_roc = re.search(r'中華民國(\d{2,3})年(\d{1,2})月(\d{1,2})日', date_str)
         if match_roc:
             roc_year, month, day = map(int, match_roc.groups())
-            ad_year = roc_year + 1911
+            ad_year = roc_year_to_ad(roc_year)
             try:
                 return datetime(ad_year, month, day).strftime('%Y-%m-%d')
             except ValueError:

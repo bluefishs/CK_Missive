@@ -238,6 +238,7 @@
 | `quotation_master_table_diff.py` | 報價單彙整總表 vs 資料庫——owner 09-07「苗栗大山…系統查詢不到」。真因：那一列**沒有報價單編號**而匯入以編號為鍵 ⇒ 必然略過且不報錯（同型 4 筆，含 218 萬那筆）。RED＝總表無編號／總表有而 DB 沒有；YELLOW＝同案不同版次（逐字比對會把版次差異誤報成缺件）、DB 有而總表沒有。檔案不在回 YELLOW 不回 GREEN | weekly 120 |
 | `billing_dunning_ssot_audit.py` | 稽催時間錨點的唯一定義——「這筆逾期幾天」原有三份各自實作，09-07 請款日改留白時，漏改一處那 86 筆佔位就從該消費端整批消失（實測逾期 198→118）。定義收在 `services/erp/billing_dunning.py`，這支盯第四份實作。⚠️ 只認真正的 import：首版認字串出現，而三個消費端註解裡都寫著模組名 ⇒ 負向控制不會紅 | weekly 121 |
 | `infra_facts_drift_audit.py` | 活文件不得再描述已不存在的基礎設施（sqlite／8003／Adminer 8080／GeminiCli／相對路徑憑證教學）——owner 09-08 從舊附件讀到「三套資料庫、兩套後端、兩條行事曆認證」，實查出處是 5 份未作廢的活文件。對過期宣告的處置是刪除不是同步。⚠️ 首版把掃描迴圈縮排到 continue 底下＝永遠綠，負向控制抓到 | weekly 122 |
+| `roc_date_ssot_audit.py` | 民國年解析只能有一份：`backend/app/` 裡手寫 `+ 1911` 而該檔不 import `app.core.roc_date` ⇒ RED（AST 掃、註解不算；豁免 `case_code.py` 輸入容錯）。收斂前 8 份 `_roc_to_date/_parse_roc_date` ＋ 19 處散裝 `+1911`，09-08 全部收到一份 | weekly 123 |
 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（AST；一支卡全站）；基線 `.async_sync_io_baseline.txt`（weekly 112） |
 | `testing_map_report.py` | 自主測試機制圖（僅報告，產出 docs/health/TESTING_MAP.md）（weekly 113） |
 | `frontend_test_suite_health.py` | 前端 vitest 全套跑一次對基線 `frontend/tests/known_failures.json`：新失敗 RED、已修未除名 YELLOW；跑不起來（通過 <500／JSON 與解析不一致）不寫基線也不回綠（weekly 114） |

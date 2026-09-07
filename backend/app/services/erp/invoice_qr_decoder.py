@@ -8,6 +8,7 @@
 
 Version: 1.0.0 (拆分自 invoice_recognizer v2.0.0)
 """
+from app.core.roc_date import roc_year_to_ad
 import base64
 import logging
 from datetime import date
@@ -56,7 +57,7 @@ def parse_head_qr(raw: str, result: RecognitionResult):
     roc_y = int(raw[10:13])
     m = int(raw[13:15])
     d = int(raw[15:17])
-    result.date = date(roc_y + 1911, m, d)
+    result.date = date(roc_year_to_ad(roc_y), m, d)
 
     result.random_code = raw[17:21]
 

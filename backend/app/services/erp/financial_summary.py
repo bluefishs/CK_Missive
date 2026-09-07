@@ -1,4 +1,5 @@
 """跨模組財務彙總 Service — 專案 + 全公司總覽"""
+from app.core.roc_date import roc_year_to_ad
 import logging
 from datetime import date
 from decimal import Decimal
@@ -52,7 +53,7 @@ class FinancialSummaryService:
                 logger.warning(
                     "get_company_overview 收到民國年 %s —— 系統已統一西元"
                     "（owner 2026-08-29 裁示），請修正呼叫端；本次自動轉換為 %s",
-                    year, year + 1911,
+                    year, roc_year_to_ad(year),
                 )
                 year = year + 1911
             date_from = date(year, 1, 1)

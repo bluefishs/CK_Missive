@@ -4,6 +4,7 @@
 
 提供統一的資料驗證規則，確保所有服務使用相同的驗證邏輯。
 """
+from app.core.roc_date import parse_roc_date, roc_to_iso
 from typing import Any, Optional, List, Union
 from datetime import datetime, date
 from decimal import Decimal, InvalidOperation
@@ -390,23 +391,5 @@ class DateParsers:
 
     @classmethod
     def _parse_roc_date(cls, value_str: str) -> Optional[date]:
-        """解析民國日期格式"""
-        # 格式：中華民國114年1月8日 或 民國114年1月8日
-        roc_patterns = [
-            r'中華民國(\d{2,3})年(\d{1,2})月(\d{1,2})日',
-            r'民國(\d{2,3})年(\d{1,2})月(\d{1,2})日',
-            r'(\d{2,3})年(\d{1,2})月(\d{1,2})日',
-        ]
-
-        for pattern in roc_patterns:
-            match = re.search(pattern, value_str)
-            if match:
-                try:
-                    year = int(match.group(1)) + 1911
-                    month = int(match.group(2))
-                    day = int(match.group(3))
-                    return date(year, month, day)
-                except ValueError:
-                    continue
-
-        return None
+        """委派唯一定義 `app.core.roc_date`（2026-09-08 A119；此前 8 份各自實作）。"""
+        return parse_roc_date(value_str)

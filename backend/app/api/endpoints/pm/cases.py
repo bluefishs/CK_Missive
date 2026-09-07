@@ -1,4 +1,5 @@
 """PM 案件 API 端點 (POST-only)"""
+from app.core.roc_date import roc_year_to_ad
 import io
 import logging
 
@@ -373,7 +374,7 @@ async def batch_update_cases(
                 if field == "year" and isinstance(new_val, (int, float)):
                     new_val = int(new_val)
                     if new_val < 1911:
-                        new_val = new_val + 1911
+                        new_val = roc_year_to_ad(new_val)
                 if field == "category":
                     cat_str = str(new_val).strip()[:2]
                     new_val = "01" if cat_str == "01" else "02"
@@ -469,7 +470,7 @@ async def import_cases_xlsx(
                     if field == "year" and isinstance(new_val, (int, float)):
                         new_val = int(new_val)
                         if new_val < 1911:
-                            new_val = new_val + 1911
+                            new_val = roc_year_to_ad(new_val)
                     # 計畫類別歸併 (03/04/05/06/07/99 → 02承攬報價, 01 → 01委辦招標)
                     if field == "category":
                         cat_str = str(new_val).strip()[:2]

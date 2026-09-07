@@ -5,6 +5,7 @@
 
 Version: 1.0.0
 """
+from app.core.roc_date import roc_year_to_ad
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Tuple
 from decimal import Decimal
@@ -50,7 +51,7 @@ class ExpenseImportService:
         roc_year = int(date_str[0:3])
         month = int(date_str[3:5])
         day = int(date_str[5:7])
-        inv_date = date_type(roc_year + 1911, month, day)
+        inv_date = date_type(roc_year_to_ad(roc_year), month, day)
 
         # 隨機碼
         random_code = raw_qr[17:21]

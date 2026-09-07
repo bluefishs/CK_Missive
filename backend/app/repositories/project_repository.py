@@ -13,6 +13,7 @@ ProjectRepository - 專案資料存取層
 更新日期: 2026-02-04
 """
 
+from app.core.roc_date import roc_year_to_ad
 import logging
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import date
@@ -764,7 +765,7 @@ class ProjectRepository(BaseRepository[ContractProject]):
         Returns:
             新的專案編號
         """
-        year_str = str(year) if year > 1911 else str(year + 1911)
+        year_str = str(year) if year > 1911 else str(roc_year_to_ad(year))
         category_code = (category[:2] if category else "01").zfill(2)
         nature_code = (case_nature[:2] if case_nature else "01").zfill(2)
         prefix = f"CK{year_str}_{category_code}_{nature_code}_"

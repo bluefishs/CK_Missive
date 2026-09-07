@@ -10,6 +10,7 @@ ezbid.tw 標案爬蟲 — 即時資料補充源
 
 Version: 1.0.0
 """
+from app.core.roc_date import parse_roc_date, roc_to_iso
 import asyncio
 import logging
 import re
@@ -412,12 +413,8 @@ class EzbidScraper:
 
     @staticmethod
     def _roc_to_date(roc_str: str) -> str:
-        """ROC 日期 (115/04/07) → 西元 (2026-04-07)"""
-        match = re.match(r"(\d{2,3})/(\d{2})/(\d{2})", roc_str)
-        if not match:
-            return ""
-        year = int(match.group(1)) + 1911
-        return f"{year}-{match.group(2)}-{match.group(3)}"
+        """委派唯一定義 `app.core.roc_date`（2026-09-08 A119；此前 8 份各自實作）。"""
+        return roc_to_iso(roc_str)
 
     @staticmethod
     def _parse_budget(budget_str: str) -> Optional[int]:

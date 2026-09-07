@@ -38,6 +38,8 @@ owner 2026-08-19：
 """
 from __future__ import annotations
 
+from app.core.roc_date import parse_roc_date, roc_to_iso
+
 import io
 import logging
 import re
@@ -131,29 +133,8 @@ def _to_decimal(v: Any) -> Optional[Decimal]:
 
 
 def _roc_to_date(v: Any) -> Optional[date]:
-    """報價日期是民國格式 `114.02.03`；也吃 Excel 原生日期。
-
-    ⚠️ 不要用 `int(y) + 1911` 之前先判斷位數 —— `114` 是民國、
-    `2025` 是西元，兩者都可能出現在同一欄（不同人填的）。
-    """
-    if v is None or v == "":
-        return None
-    if isinstance(v, datetime):
-        return v.date()
-    if isinstance(v, date):
-        return v
-    s = str(v).strip().replace("/", ".").replace("-", ".")
-    m = re.match(r"^(\d{2,4})\.(\d{1,2})\.(\d{1,2})$", s)
-    if not m:
-        return None
-    y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-    if y < 1911:  # 民國
-        y += 1911
-    try:
-        return date(y, mo, d)
-    except ValueError:
-        return None
-
+    """委派唯一定義 `app.core.roc_date`（2026-09-08 A119；此前 8 份各自實作）。"""
+    return parse_roc_date(v)
 
 def _year_from_legacy(legacy_no: str, quoted: Optional[date]) -> Optional[int]:
     """年度優先從舊案號取（`B115-C013-0` → 民國 115 → 2026）。

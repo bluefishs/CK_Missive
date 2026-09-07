@@ -9,6 +9,7 @@ Created: 2026-03-18
 Extracted from: graph_query_service.py v1.3.0
 """
 
+from app.core.roc_date import roc_year_to_ad
 import json
 import logging
 from sqlalchemy import select
@@ -113,9 +114,9 @@ class GraphEntityGraphBuilder:
                 logger.warning(
                     "entity graph 收到民國年 %s —— 系統已統一西元"
                     "（owner 2026-08-29 裁示），請修正呼叫端；本次轉換為 %s",
-                    year, year + 1911,
+                    year, roc_year_to_ad(year),
                 )
-                ad_year = year + 1911
+                ad_year = roc_year_to_ad(year)
             year_docs = await self.db.execute(
                 select(OfficialDocument.id)
                 .where(sa_extract('year', OfficialDocument.doc_date) == ad_year)
