@@ -752,17 +752,34 @@ try:
 except RuntimeError:
     logger.warning("Static directory not found, skipping.")
 
-# 證照附件等上傳檔案目錄
-try:
-    import os
-    uploads_dir = getattr(settings, 'ATTACHMENT_STORAGE_PATH', None) or os.getenv('ATTACHMENT_STORAGE_PATH', 'uploads')
-    if os.path.exists(uploads_dir):
-        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
-    else:
-        os.makedirs(uploads_dir, exist_ok=True)
-        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
-except RuntimeError as e:
-    logger.warning(f"Uploads directory mount failed: {e}")
+# 證照／派工等上傳檔案目錄
+# ⛔ 2026-09-08 之前這裡是 `app.mount("/uploads", StaticFiles(...))`：
+#    容器內 1,642 個附件（派工 PDF、證照掃描）**未登入即可從公網讀取**
+#    （實測 https://missive.cksurvey.tw/uploads/2026/01/dispatch_1/… → 200，10 MB）。
+#    StaticFiles 沒有任何 dependency 掛點，所以「所有端點都 require_auth」這句話
+#    對它從來不成立 —— 它不是端點。改為帶認證的路由；前端連結不必改
+#    （同源 <a href> 會帶 httpOnly cookie，`get_current_user` 接受 cookie）。
+import os as _os
+from pathlib import Path as _Path
+from fastapi import Depends as _Depends, HTTPException as _HTTPException
+from fastapi.responses import FileResponse as _FileResponse
+from app.core.dependencies import require_auth as _require_auth
+
+UPLOADS_DIR = _Path(getattr(settings, 'ATTACHMENT_STORAGE_PATH', None)
+                    or _os.getenv('ATTACHMENT_STORAGE_PATH', 'uploads')).resolve()
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.get("/uploads/{path:path}", include_in_schema=False)
+async def serve_upload(path: str, _user=_Depends(_require_auth())):
+    """附件下載：登入即可（附件層級的 RLS 是下一步，先把「未登入可讀」關掉）。"""
+    target = (UPLOADS_DIR / path).resolve()
+    # 路徑穿越：resolve 後必須仍在 uploads 底下
+    if UPLOADS_DIR not in target.parents:
+        raise _HTTPException(status_code=404, detail="檔案不存在")
+    if not target.is_file():
+        raise _HTTPException(status_code=404, detail="檔案不存在")
+    return _FileResponse(str(target))
 
 
 # --- 健康檢查端點 ---
