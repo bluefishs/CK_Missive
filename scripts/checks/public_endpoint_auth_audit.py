@@ -159,8 +159,17 @@ for r in app.routes:
     # 實例：`/metrics` 公網未認證回 200、1,013,354 字元，含 kg_entities_total
     # 與 341 條端點路徑 —— 那是 08-21 外洩的側門，而本檔當時看不到它。
     # 排除純前端靜態與 SPA catch-all（它們本來就該公開，且不是端點）。
-    if p in ("/", "/{full_path:path}") or p.startswith(("/assets", "/uploads",
-                                                        "/static", "/{spa_path")):
+    # ⚠️ 2026-09-08 之前這裡把 `/uploads` 也排除了——註解說「純前端靜態、本來就該公開」，
+    # 而 /uploads 裝的是派工 PDF 與證照掃描（1,642 個檔），owner D6 一問才發現它公網未登入 200。
+    # 它被排除的理由是「它是 StaticFiles 掛載、不是端點」——**那正是它沒有認證的原因，不是豁免的理由。**
+    if p in ("/", "/{full_path:path}") or p.startswith(("/assets", "/static", "/{spa_path")):
+        continue
+    # StaticFiles 掛載沒有 dependency 樹可走：除了前端資產以外，一律 RED
+    from starlette.routing import Mount
+    from starlette.staticfiles import StaticFiles
+    if isinstance(r, Mount):
+        if isinstance(getattr(r, "app", None), StaticFiles):
+            rows.append({"path": p, "methods": ["MOUNT"], "authed": False})
         continue
     names = deps(r)
     # 帶上 method：同一路徑可能 GET 有認證而 POST 沒有，只以 path 為單位

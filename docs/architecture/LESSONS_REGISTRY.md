@@ -1822,3 +1822,27 @@ Python 端直接 TypeError，SQL 端回 interval（畫面印「逾期 557 days �
 
 > 此檔 v1.0（2026-04-28）首發 20 條 lesson，主要源自 v5.9.9~v5.10.1 累積。
 > 跨 repo 引用 FQID：`CK_Missive#LESSONS_REGISTRY_v1.0`
+
+## L148 — 「所有端點都要認證」守不到不是端點的東西：StaticFiles 掛載讓 1,642 個附件公網未登入可讀
+
+**2026-09-08。** owner 讀一份舊規劃文件時問 D6：「附件的權限往往比 metadata 更敏感，目前架構完全沒提到。」
+我本來要回「附件走 `UPLOADS_DIR`、有備份、端點都 `require_auth`」——量了才知道：
+
+* `backend/main.py` 用 `app.mount("/uploads", StaticFiles(...))` 掛附件目錄；容器內 **1,642 個檔**（派工 PDF、證照掃描）
+* 公網未登入 `GET /uploads/2026/01/dispatch_1/…pdf` → **200，10 MB**
+* weekly 64（`public_endpoint_auth_audit`）**明文把 `/uploads` 排除**，註解寫「純前端靜態、本來就該公開」
+
+三層都沒有錯報，因為三層問的都是同一個問題的變形——「端點有沒有認證」——而 StaticFiles **不是端點**：
+它沒有 dependency 掛點，`require_auth` 沒有地方可以掛，weekly 64 走 dependency 樹也走不到它。
+**它被豁免的理由（「它是靜態掛載」）正是它沒有認證的原因。**
+
+修法：改成 `GET /uploads/{path:path}` 帶 `require_auth()`＋resolve 後必須在 uploads 底下；前端連結不用改
+（同源 `<a href>` 帶 httpOnly cookie）。weekly 64 移除豁免並加「StaticFiles 掛載除前端資產外一律 RED」——
+用尚未部署的舊容器做負向控制：exit 1、`[RED] 新增 1 條` ＝ `/uploads`。
+
+⚠️ 測試第一版驗不到 401：`ASGITransport` 的 peer 是 127.0.0.1，會走「內網可信網段」的 mock 放行（設計如此，
+內網免認證）。要模擬公網得帶 `CF-Connecting-IP`／`CF-Ray`——**驗「公網未登入」時，先確認你的請求在系統眼裡是公網。**
+
+判準句：**列舉「有沒有守門」的時候，把不在守門機制管轄範圍內的東西當成第一個要看的，不是第一個要跳過的。**
+同族：L112（hook 規則帶 `^` 錨點永不命中）、weekly 64 對 `/metrics` 的盲區（2026-08-24）。
+附件層級的 RLS（誰能看哪個案的附件）尚未做＝A116。

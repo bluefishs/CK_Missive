@@ -1951,3 +1951,17 @@ CK_AaaP session 把上一輪那個「只探 GET」的路標走完了，用極保
 `/api/documents/list` 有 `Depends(require_auth())`，所以稽核看到的是「已保護」。
 **權威來源也有邊界：它回答「會不會跑認證」，不回答「那個認證會不會放行」。**
 要補的話，判準得是「未帶憑證實打一次看回什麼」，而那必須在容器內對自己打。
+
+### A116～A119 — 2026-09-08 owner A/B/C/D 清單實查後的真缺口（其餘項目實查不成立，見 `CONSOLIDATION_20260907.md` §六）
+
+| # | 項目 | 現況（量到的） | 建議 | 待誰 |
+|---|---|---|---|---|
+| A116 | **附件層級 RLS** | `/uploads` 09-08 已從「未登入可讀」改成「登入即可讀」（L148）；但 1,642 個附件裡派工 PDF 該只給該案承辦／管理員 | 附件路由查 `document_attachments`→公文→`RLSFilter`；證照附件只給本人與 admin | owner 排序 |
+| A117 | **LINE webhook 去重在行程內** | `line_webhook.py` `_DEDUP_CACHE` 是 dict——重啟即忘、多 worker 各一份（同 A51 限流器形狀） | 換 redis `SET NX EX`；webhook 已先回 200 再 `BackgroundTasks` 處理（D5 另一半是對的） | 可直接做 |
+| A118 | **文件生命週期標頭** | `docs/` 172 份活文件只有 32 份帶狀態欄；09-08 一天作廢 8 份 2025 規劃文件都是因為「沒人知道它過期」 | 每份文件檔頭 `狀態：現行／待驗證／已作廢＋最後核對日`；weekly 122 只抓得到「描述不存在的東西」，抓不到「描述已改變的東西」 | owner 拍板格式 |
+| A119 | **民國年解析 8 份實作** | `def _roc_to_date(` ×4、`def _parse_roc_date(` ×4（B6 疑點為真） | 收到 `lib/roc_date.py` 一份；與 L147 #7 逾期日期同型 | 可直接做 |
+
+同日實查**不成立**、不立項的：D1 稽核軌跡（`audit_logs` 12,351 筆、每日在寫，含 LOGIN／UPDATE／DELETE／ROLE_USERS_SYNC；缺的是「誰看過」）／
+D3 SQLite（不存在）／D4 排程（APScheduler 68 job）／D7 備份（月度還原演練 08-10，**此前無守門**，offsite 稽核 09-08 加 `check_restore_drill`）／
+D8 環境（`.env`＋`.env.production`、五份 compose）／D9 服務層 logging（412 檔中 277 有 logger）／B3 權限過濾在後端（`RLSFilter`）／B4 Alembic 143 支。
+D10 G2B2C 欄位對照：不做實作，owner 要的話另開一次對照。
