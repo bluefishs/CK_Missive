@@ -1,3 +1,7 @@
+> ⛔ **已作廢（2026-09-08）**：本檔描述的是 2025-09 規劃期的目錄樹（`claude_plant/` 規劃區、`data/database/` SQLite），
+> 兩者現在都不存在。現行結構的權威是 `.claude/rules/architecture.md`（職責）與 `ls`（目錄）；
+> 設定目錄只允許 `configs/` 與 `backend/config/`（weekly 96）。留檔是為了讓「舊附件回流」時能對照出它是哪一版。
+
 # 📁 CK_Missive 專案結構標準
 
 ## 🎯 第一階段核心架構

@@ -4,35 +4,25 @@
 
 ## 核心設計理念
 
-本專案遵循一個核心理念：**保持根目錄的整潔，並將核心應用與開發工具徹底分離**。
-
-- **核心區 (`CK_Missive/`)**: 僅保留生產環境必需的檔案，包括 `frontend`, `backend`, `configs`, `data`。
-- **規劃區 (`claude_plant/`)**: 統一管理所有與開發、測試、維護相關的工具、腳本和文件。
+**同一件事只能有一份宣告。** 這條比目錄整潔更重要——2026-09-07 的收斂覆盤（`docs/architecture/CONSOLIDATION_20260907.md`）
+列了十個「兩份宣告、沒有一方會報錯」的事故，每一個都比放錯目錄貴。
 
 ## 目錄結構規範
 
-所有新檔案都必須嚴格遵守以下結構。在新增檔案前，請先思考它應該屬於哪個分類。
+現行頂層（`ls` 即得，這裡只寫**職責**）：
 
-```
-CK_Missive/
-├── frontend/          # React 前端應用
-├── backend/           # FastAPI 後端應用
-├── configs/           # 生產環境配置 (Docker, Nginx)
-├── data/              # 核心資料檔案 (例如 SQLite 資料庫)
-│   └── database/
-└── claude_plant/      # 開發規劃與工具區
-    ├── development_logs/
-    ├── development_tools/
-    │   ├── tests/     # 各類測試腳本
-    │   ├── scripts/   # 自動化輔助腳本
-    │   ├── deployment/ # 部署相關工具
-    │   ├── maintenance/ # 維護工具
-    │   ├── backup/    # 備份工具或檔案
-    │   └── docs/      # **所有開發文檔放這裡**
-    └── archive/       # 歷史歸檔
-```
+| 目錄 | 職責 | 不該放的東西 |
+|---|---|---|
+| `backend/`／`frontend/` | 應用本體 | 一次性腳本 |
+| `scripts/` | 排程、部署、備份、檢核（`scripts/checks/README.md` 按「誰在跑它」分組） | 沒有 runner 的腳本（weekly 39 會抓） |
+| `configs/` | 基礎設施設定（compose、nginx、prometheus） | 應用層設定 |
+| `backend/config/` | 應用層設定 | **第三個設定目錄不允許**（weekly 96） |
+| `docs/` | 現行文件；`docs/archived/` 已作廢 | 描述已不存在架構的文件（weekly 122） |
+| `uploads/`／`backups/`／`logs/`／`secrets/` | 執行時資料（皆 git-ignored） | 任何要進版控的東西 |
+| `data/` | 匯入用原始資料 | 資料庫檔（**沒有 SQLite**，資料庫是 PostgreSQL 容器） |
 
-**黃金規則：如果您不確定檔案該放哪裡，優先考慮放在 `claude_plant` 的某個子目錄下。**
+> ⛔ 舊版本檔寫的 `claude_plant/` 規劃區與 `data/database/` SQLite **已不存在**（2026-09-08 作廢，原文在 `docs/archived/PROJECT_STRUCTURE_STANDARD_2025.md`）。
+> 不確定放哪：先問「它有沒有 runner／消費端」——沒有的話多半不該新增。
 
 ## 開發流程
 

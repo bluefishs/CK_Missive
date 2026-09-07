@@ -44,6 +44,7 @@ pg_dump 的輸出結尾一定是 `PostgreSQL database dump complete`。
 from __future__ import annotations
 
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -442,6 +443,29 @@ def _print_scope_limits() -> None:
     print("      2026-08-28 實例：某目錄少了簽章私鑰且全未加密，本檔仍報 [ok]。")
 
 
+def check_restore_drill(reds: list[str], rows: list[str]) -> None:
+    """還原演練有沒有真的在做（owner 09-08 D7：「沒還原測試過的備份等於沒有備份」）。
+
+    `docs/runbooks/disaster-recovery.md` 檔頭寫著「上次完整還原測試：**YYYY-MM-DD**」與
+    「月度演練」。此前這個日期沒有任何檢核在讀 —— 演練程序寫得再完整，過期了也不會有人知道。
+    判準：> 45 天（月度＋兩週寬限）RED；讀不到日期 RED（不得因「沒寫」而綠）。
+    """
+    from datetime import date
+    rb = REPO / "docs" / "runbooks" / "disaster-recovery.md"
+    head = rb.read_text(encoding="utf-8", errors="replace")[:2000] if rb.exists() else ""
+    m = re.search(r"上次完整還原測試[：:]\s*\*{0,2}(\d{4}-\d{2}-\d{2})", head)
+    if not m:
+        reds.append("還原演練：runbook 檔頭讀不到「上次完整還原測試」日期")
+        rows.append("  ✗ 還原演練：日期缺（不得讀成沒問題）")
+        return
+    last = date.fromisoformat(m.group(1)); age = (date.today() - last).days
+    if age > 45:
+        reds.append(f"還原演練：上次 {last}，已 {age} 天（月度演練逾期）")
+        rows.append(f"  ✗ 還原演練：上次 {last}（{age} 天前）—— 沒還原測試過的備份等於沒有備份")
+    else:
+        rows.append(f"  ✓ 還原演練：上次 {last}（{age} 天前）")
+
+
 def main() -> int:
     if "--self-test" in sys.argv:
         return self_test()
@@ -461,6 +485,7 @@ def main() -> int:
     check_milestones(reds, rows)
     check_attachments(reds, rows)
     check_secrets(reds, rows)
+    check_restore_drill(reds, rows)
     portfolio_notes = check_portfolio(rows)
 
     print()

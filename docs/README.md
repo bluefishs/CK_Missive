@@ -49,9 +49,9 @@
 |------|------|
 | [ARCHITECTURE_REVIEW_2026-04-15.md](./reports/ARCHITECTURE_REVIEW_2026-04-15.md) | 最新架構健康度 (8.0/10) |
 | [Architecture_Optimization_Recommendations.md](./reports/Architecture_Optimization_Recommendations.md) | 架構優化建議 |
-| [PROJECT_STRUCTURE_STANDARD.md](./PROJECT_STRUCTURE_STANDARD.md) | 專案結構標準 |
+| [.claude/rules/architecture.md](../.claude/rules/architecture.md) | 專案結構（現行；2025 規劃版已作廢入 `archived/`） |
 | [SERVICE_ARCHITECTURE_STANDARDS.md](./SERVICE_ARCHITECTURE_STANDARDS.md) | 服務架構標準 |
-| [STRUCTURE.md](./STRUCTURE.md) | 結構總覽 |
+| ~~STRUCTURE.md~~（2025 版已作廢入 `archived/`） | 結構總覽 |
 | [DOCUMENT_AI_ARCHITECTURE.md](./DOCUMENT_AI_ARCHITECTURE.md) | 文件 AI 架構 |
 | [DOCUMENT_CENTER_DESIGN.md](./DOCUMENT_CENTER_DESIGN.md) | 文管中心設計 |
 | [CALENDAR_ARCHITECTURE.md](./CALENDAR_ARCHITECTURE.md) | 行事曆架構 |

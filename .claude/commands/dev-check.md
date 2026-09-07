@@ -25,7 +25,7 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents -c "SELE
 
 ### 4. 專案結構檢查
 ```bash
-python claude_plant/development_tools/validation/validate_structure.py
+python scripts/checks/verify_architecture.py   # 原 claude_plant/… 目錄已不存在（2026-09-08 作廢）
 ```
 
 ## 快速檢查腳本

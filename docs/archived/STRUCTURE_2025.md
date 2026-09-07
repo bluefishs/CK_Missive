@@ -1,3 +1,5 @@
+> ⛔ **已作廢（2026-09-08）**：2025-09 規劃期目錄樹（`claude_plant/`、SQLite），現況見 `.claude/rules/architecture.md` 與 `docs/CONTRIBUTING.md`。
+
 # CK Missive 專案架構 - 第一階段核心
 
 ## 🏗️ 專案目錄結構 (已優化)

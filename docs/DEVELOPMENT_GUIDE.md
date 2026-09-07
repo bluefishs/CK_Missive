@@ -240,7 +240,7 @@ docker system prune -f
 
 ## 📚 相關文檔
 
-- [專案架構文檔](./PROJECT_STRUCTURE_STANDARD.md)
+- [專案架構](../.claude/rules/architecture.md)（2025 規劃版 `PROJECT_STRUCTURE_STANDARD.md` 已作廢）
 - [API 文檔](http://localhost:8001/api/docs)
 - [Docker 官方文檔](https://docs.docker.com/)
 - [Vite 文檔](https://vitejs.dev/)

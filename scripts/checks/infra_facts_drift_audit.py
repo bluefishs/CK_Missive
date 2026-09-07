@@ -28,9 +28,12 @@ PATTERNS = {
     "後端 8003（不存在的『優化版』）": re.compile(r"(?<![\d.])8003(?![\d])"),
     "Adminer/pgAdmin 8080（已退場）": re.compile(r"localhost:8080|pgadmin", re.I),
     "遷移前路徑 C:/GeminiCli": re.compile(r"GeminiCli"),
+    "規劃期目錄 claude_plant/（不存在）": re.compile(r"claude_plant/"),
     "相對路徑憑證／資料庫教學（./credentials.json、./documents.db）": re.compile(r"\./(credentials\.json|documents\.db)"),
 }
-SKIP_DIRS = ("archived", "backups", ".git", "node_modules", "__pycache__", "dist", ".claude/code_graph")
+SKIP_DIRS = ("archive",  # docs/reports/archive 等歷史報告
+    "_shared",  # shared-modules 鏡像，pre-commit 禁改；殘留由 shared-modules 收
+    "archived", "backups", ".git", "node_modules", "__pycache__", "dist", ".claude/code_graph")
 SKIP_FILES = ("CHANGELOG.md", "scripts/checks/README.md", "LESSONS_REGISTRY.md", "CONSOLIDATION_20260907.md", "infra_facts_drift_audit.py",
               "code_graph_mtime.json", "quick-fix.md", "mandatory-checklist.md",
               "README.md" if False else "scripts_checks_README_placeholder")

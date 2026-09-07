@@ -10,7 +10,7 @@
    - 新增API端點對照表
    - 包含重要提醒和配置說明
 
-2. **STRUCTURE.md** - 專案架構文件
+2. **`.claude/rules/architecture.md`** - 專案架構（2025 版 STRUCTURE.md 已作廢入 `docs/archived/`）
    - 更新了資料庫架構說明 (PostgreSQL)
    - 詳細說明了模型與資料庫對應關係
    - 新增API架構說明
@@ -69,7 +69,7 @@ fetch('/api/documents/documents-years')  // ✅
 ### 1. 定期執行檢查
 ```bash
 # 每次重大修改後執行
-cd claude_plant/development_tools/scripts
+cd scripts   # 原 claude_plant/… 已不存在（2026-09-08）
 python check_model_db_consistency.py
 ```
 
@@ -116,7 +116,7 @@ curl http://localhost:3006  # 前端
 
 ### 步驟3: 執行自動檢查
 ```bash
-cd claude_plant/development_tools/scripts
+cd scripts   # 原 claude_plant/… 已不存在（2026-09-08）
 python check_model_db_consistency.py
 ```
 
@@ -130,7 +130,7 @@ python check_model_db_consistency.py
 | 文檔 | 用途 | 使用時機 |
 |------|------|----------|
 | `README.md` | 系統概覽、快速啟動 | 初次使用、故障排除 |
-| `STRUCTURE.md` | 專案架構理解 | 開發規劃、架構確認 |
+| `.claude/rules/architecture.md` | 專案架構理解 | 開發規劃、架構確認 |
 | `docs/DATABASE_SCHEMA.md` | 資料庫結構詳情 | 資料庫操作、欄位確認 |
 | `docs/DEVELOPMENT_GUIDE.md` | 開發指南 | 日常開發、問題解決 |
 | `docs/SYSTEM_MAINTENANCE.md` | 維護指南 | 系統維護、預防措施 |
