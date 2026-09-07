@@ -116,6 +116,32 @@ def role_user_drift():
     return json.loads(line[-1][2:]) if line else None
 
 
+def admin_flag_mismatch():
+    """`is_admin` 旗標與角色矛盾的帳號。
+
+    ⚠️ 2026-09-07：`is_admin` 是**凌駕權限清單的第三層** —— 權限清單改成財務、
+    角色也改成 finance，而旗標仍是 true 的話，那個人在系統裡實際上仍是管理員
+    （使用者管理、備份、部署、資料庫都進得去），**而權限管理頁上完全看不出來**。
+
+    實測當時有兩位：賴秀玲（finance）與李昭德（staff）。owner 09-07 裁示清除。
+
+    判定 RED：角色不是 admin／superuser，旗標卻是 true。
+    """
+    out = python_in(
+        "import asyncio, json\n"
+        "from sqlalchemy import text\n"
+        "from app.db.database import AsyncSessionLocal\n"
+        'SQL = ' + repr("SELECT coalesce(full_name,username), role, is_admin FROM users WHERE is_active AND is_admin AND role NOT IN ('admin','superuser')") + '\n'
+        "async def m():\n"
+        "    async with AsyncSessionLocal() as db:\n"
+        "        rows = (await db.execute(text(SQL))).all()\n"
+        "    print('@@' + json.dumps([[r[0], r[1]] for r in rows]))\n"
+        "asyncio.run(m())\n"
+    )
+    line = [l for l in (out or "").splitlines() if l.startswith("@@")]
+    return json.loads(line[-1][2:]) if line else None
+
+
 def main() -> int:
     print("=== 權限目錄漂移與獨立勾選（weekly 119）===")
     if not CONSTANTS.exists():
@@ -206,8 +232,21 @@ def main() -> int:
                 print(f"    {nm}（{role}）多 {n} 項：{ou.replace('|', '、')[:80]}…")
             rc = max(rc, 1)
 
+    # ④ `is_admin` 旗標與角色矛盾（09-07 owner 裁示清除賴秀玲與李昭德之後的守門）
+    flags = admin_flag_mismatch()
+    if flags is None:
+        print("[YELLOW] is_admin 旗標比對：連不到資料庫，未驗")
+        rc = max(rc, 1)
+    elif flags:
+        print(f"[RED] {len(flags)} 個帳號的角色不是管理員、`is_admin` 旗標卻是 true —— "
+              f"旗標**凌駕權限清單**，這些人實際上仍是管理員，而權限管理頁看不出來：")
+        for nm, role in flags:
+            print(f"    {nm}（{role}）")
+        rc = 2
+
     if rc == 0:
-        print("[GREEN] 兩份目錄一致、沒有新增的權限耦合，角色與使用者權限也對齊")
+        print("[GREEN] 兩份目錄一致、沒有新增的權限耦合，角色與使用者權限對齊，"
+              "且沒有旗標與角色矛盾的帳號")
     return rc
 
 
