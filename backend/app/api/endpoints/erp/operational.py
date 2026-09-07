@@ -5,7 +5,7 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.dependencies import get_service, require_auth, optional_auth
+from app.core.dependencies import get_service, require_auth, require_permission, optional_auth
 from app.extended.models import User
 from app.services.erp.operational_service import OperationalAccountService
 from app.schemas.erp.operational import (
@@ -25,6 +25,17 @@ from app.schemas.common import PaginatedResponse, SuccessResponse
 
 logger = logging.getLogger(__name__)
 
+
+# ⭐ 2026-09-07 owner：「財務管理這角色與高階主管核心差異，請落實複查」。
+#
+# 複查結果：**兩個角色的核心差異在 API 層不成立**。
+# 高階主管（exec）的設計是「全域唯讀」（角色自己的註解寫著「刻意做成唯讀的全部，
+# 不是 admin 減掉幾項」），而實測它**寫得了營運帳目** —— 因為這裡的寫入端點只有
+# `require_auth()`，`operational:write`／`operational:approve` 這兩個權限
+# **從來沒有任何地方在檢查**（全庫只在權限清單的字面上出現）。
+#
+# 也就是說：財務與高階主管的差別此前只存在於權限管理頁的勾選，不在系統行為裡。
+# ⇒ 寫入接 `operational:write`、審批接 `operational:approve`。
 router = APIRouter()
 
 
@@ -51,7 +62,7 @@ async def list_accounts(
 async def create_account(
     data: OperationalAccountCreate,
     service: OperationalAccountService = Depends(get_service(OperationalAccountService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("operational:write")),
 ):
     """建立營運帳目 (自動產生編號)"""
     try:
@@ -78,7 +89,7 @@ async def get_account_detail(
 async def update_account(
     params: OperationalAccountUpdateRequest,
     service: OperationalAccountService = Depends(get_service(OperationalAccountService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("operational:write")),
 ):
     """更新營運帳目"""
     try:
@@ -94,7 +105,7 @@ async def update_account(
 async def delete_account(
     params: ERPIdRequest,
     service: OperationalAccountService = Depends(get_service(OperationalAccountService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("operational:write")),
 ):
     """刪除營運帳目"""
     result = await service.delete_account(params.id)
@@ -139,7 +150,7 @@ async def list_expenses(
 async def create_expense(
     data: OperationalExpenseCreate,
     service: OperationalAccountService = Depends(get_service(OperationalAccountService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("operational:write")),
 ):
     """建立營運費用"""
     try:
@@ -153,7 +164,7 @@ async def create_expense(
 async def approve_expense(
     params: OperationalExpenseApproveRequest,
     service: OperationalAccountService = Depends(get_service(OperationalAccountService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("operational:approve")),
 ):
     """核准營運費用"""
     result = await service.approve_expense(params.id, approved_by=current_user.id)
