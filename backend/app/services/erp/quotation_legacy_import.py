@@ -194,6 +194,10 @@ _LEGACY_CODE_TO_NAME = {
     "B": "洪慶忠",
     "C": "邱元宏",
     "D": "曾廷睿",
+    # 2026-09-07 owner 指認：「E 曾廷睿」——115 年新開的一組序（B115-E001~E003，
+    # UAV 光達／空拍檢查／地形測量）。代碼對不到時會退回用工作表名比對，
+    # 而「系統報價單」這張表名對不到任何人 ⇒ 不補這一行，那三筆就沒有承辦。
+    "E": "曾廷睿",
     "Y": "洪慶忠",
 }
 
@@ -263,7 +267,20 @@ def parse_workbook(content: bytes) -> list[dict[str, Any]]:
                 header = [_clean_header(c) for c in next(it)]
             except StopIteration:
                 continue
-            idx = {HEADER_MAP[h]: i for i, h in enumerate(header) if h in HEADER_MAP}
+            # ⚠️ 2026-09-07：同一個表頭可能出現**兩次**。115 總表的「系統報價單」
+            # 右側（第 38–43 欄）另有一個彙總區塊：年度／承辦同仁／筆數／報價金額／
+            # 總價／PDF已對應 —— 那是**各承辦的年度小計**，不是這一列的資料。
+            #
+            # 原本用 dict 生成式 `{HEADER_MAP[h]: i ...}`，**後面的會覆蓋前面的**
+            # ⇒ 讀到第 41 欄的小計當成該列的報價金額。實測 `B110-020-0A` 因此
+            # 被寫成 351,200（賴柏霖 2026 年度小計），正確值是 39,000。
+            # 其餘各列該欄是空的 ⇒ 總價變 None ⇒ 成案被擋（缺合約金額）。
+            #
+            # ⇒ 同名表頭**取最左邊那一個**：主表在左，右側是後來貼上去的輔助區塊。
+            idx: dict[str, int] = {}
+            for i, h in enumerate(header):
+                if h in HEADER_MAP and HEADER_MAP[h] not in idx:
+                    idx[HEADER_MAP[h]] = i
             if "legacy_no" not in idx:
                 continue  # 這張表不是報價彙整（例如統計表）
             for raw in it:

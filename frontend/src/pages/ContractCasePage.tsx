@@ -265,7 +265,12 @@ export const ContractCasePage: React.FC = () => {
                 在哪邊改，另一邊同步顯示；查詢一律進後端參數。不是兩套機制，是同一個狀態的兩個入口。 */}
             <Col xs={12} sm={6} md={4} lg={3}>
               <Select placeholder="年度" value={yearFilter} onChange={(v) => { setYearFilter(v); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
-                options={availableYears.map((y) => ({ value: y, label: `${y}年` }))} />
+                // 2026-09-07 owner：「/contract-cases 年度篩選無『全部年度』？」
+                // 此前只能靠 allowClear 的叉叉清掉——那要先知道叉掉等於全部，
+                // 而其他頁（委託／協力帳款）都有明確的「全部年度」選項。
+                // 值用 0：查詢是 `yearFilter && { year }`，0 是 falsy ⇒ 不帶年度參數＝全部。
+                options={[{ value: 0, label: '全部年度' },
+                          ...availableYears.map((y) => ({ value: y, label: `${y}年` }))]} />
             </Col>
             <Col xs={12} sm={6} md={5} lg={4}>
               <Select placeholder="計畫類別" value={categoryFilter || undefined} onChange={(v) => { setCategoryFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}

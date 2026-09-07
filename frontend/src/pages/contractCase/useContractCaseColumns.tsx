@@ -147,9 +147,12 @@ export function useContractCaseColumns(
       render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-',
       sorter: true,
       defaultSortOrder: 'descend',
-      filters: availableYears.map(y => ({ text: `${y < 1911 ? y + 1911 : y}`, value: y })),
+      // 表頭漏斗與工具列下拉共用同一份狀態，所以「全部年度」兩邊都要有，
+      // 否則從漏斗看不出「現在是全部年度」還是「沒選」。0＝不帶年度參數。
+      filters: [{ text: '全部年度', value: 0 },
+                ...availableYears.map(y => ({ text: `${y < 1911 ? y + 1911 : y}`, value: y }))],
       filterMultiple: false,
-      filteredValue: serverFilters.year ? [serverFilters.year] : null,
+      filteredValue: serverFilters.year !== undefined ? [serverFilters.year] : null,
     },
     {
       title: '專案名稱',
