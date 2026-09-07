@@ -33,6 +33,7 @@ import { ResponsiveContent } from '@ck-shared/ui-components';
 import type { SuccessResponse } from '../../api/types';
 import type { PMCase } from '../../types/pm';
 import { useClientOptions, useUsersDropdown } from '../../hooks/business/useDropdownData';
+import { usePMCasesDropdown } from '../../hooks/business/useDropdownData';
 import { vendorsApi } from '../../api/vendorsApi';
 import { authService } from '../../services/authService';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -45,6 +46,7 @@ const QuotationTemplateCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
   const [searchParams] = useSearchParams();
+  const { pmCases, isLoading: pmLoading } = usePMCasesDropdown();
   const qc = useQueryClient();
   const { clients } = useClientOptions();
   const { users: staffUsers, isError: staffLoadError } = useUsersDropdown();
@@ -59,8 +61,13 @@ const QuotationTemplateCreatePage: React.FC = () => {
   });
 
   // 入口 2（PM 案件詳情頁）帶進來的既有案件
-  const presetCaseCode = searchParams.get('case_code') || undefined;
-  const presetPmCaseId = searchParams.get('pm_case_id') || undefined;
+  // 2026-09-07 owner：「新增報價時就應提供完整報價填寫，不要讓填報同仁重複填寫」。
+  // 此前只有帶 case_code 進來（從案件頁點新增）才不必重打；從 /erp/quotations/create 直接進來
+  // **沒有任何選既有案件的入口** ⇒ PM 已經建好的案，案名與委託單位要再打一次。
+  // 這裡補上「選擇既有案件」：選了就等同從案件頁進來（帶案號、案名、委託單位，欄位鎖定）。
+  const [pickedCase, setPickedCase] = React.useState<PMCase | undefined>();
+  const presetCaseCode = searchParams.get('case_code') || pickedCase?.case_code || undefined;
+  const presetPmCaseId = searchParams.get('pm_case_id') || (pickedCase ? String(pickedCase.id) : undefined);
 
   const [caseName, setCaseName] = React.useState(searchParams.get('case_name') ?? '');
   // 2026-08-29：委託單位改用**主檔 Select**（原本是自由文字，只送
@@ -246,6 +253,31 @@ const QuotationTemplateCreatePage: React.FC = () => {
 
         {/* 案首 —— 對應範本抬頭下方的案件資訊區 */}
         <Card size="small" title="案件資訊">
+          {/* 既有案件優先：選了就不必重打案名與委託單位（那些資料 PM 案件裡已經有了） */}
+          {!searchParams.get('case_code') && (
+            <Form.Item label="既有案件（選了就不必重打案名與委託單位）" style={{ marginBottom: 12 }}>
+              <Select
+                allowClear
+                showSearch
+                loading={pmLoading}
+                placeholder="輸入案號或案名搜尋；沒有既有案件才往下自行填寫"
+                value={pickedCase?.id}
+                optionFilterProp="label"
+                onChange={(id) => {
+                  const c = pmCases.find((x) => x.id === id);
+                  setPickedCase(c);
+                  if (c) {
+                    setCaseName(c.case_name ?? '');
+                    if (c.year) setYear(Number(c.year));
+                  }
+                }}
+                options={pmCases.map((c) => ({
+                  value: c.id,
+                  label: `${c.case_code ?? ''} ${c.case_name ?? ''}`.trim(),
+                }))}
+              />
+            </Form.Item>
+          )}
           <Form layout="vertical">
             <Row gutter={16}>
               <Col xs={24} md={presetCaseCode ? 16 : 10}>
