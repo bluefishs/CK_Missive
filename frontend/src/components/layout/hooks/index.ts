@@ -5,7 +5,6 @@
 export { useNavigationData, type NavigationItem } from './useNavigationData';
 export {
   convertToMenuItems,
-  getStaticMenuItems,
   getIcon,
   getCurrentMenuKey,
   getDefaultOpenKeys

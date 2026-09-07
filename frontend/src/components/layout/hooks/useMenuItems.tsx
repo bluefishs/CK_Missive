@@ -12,7 +12,6 @@ import {
   BankOutlined,
   TeamOutlined,
   SettingOutlined,
-  ProfileOutlined,
   NumberOutlined,
   ApiOutlined,
   ShopOutlined,
@@ -32,7 +31,6 @@ import {
   GoogleOutlined,
   ScheduleOutlined,
   FolderOutlined,
-  LinkOutlined,
   RocketOutlined,
   CloudServerOutlined,
   ExperimentOutlined,
@@ -43,7 +41,6 @@ import {
   AccountBookOutlined,
   NodeIndexOutlined,
 } from '@ant-design/icons';
-import { ROUTES } from '../../../router/types';
 import type { NavigationItem } from './types';
 
 // 圖標映射表
@@ -157,187 +154,8 @@ export const convertToMenuItems = (items: NavigationItem[]): MenuItem[] => {
 /**
  * 取得靜態選單項目 (備用)
  */
-export const getStaticMenuItems = (): MenuItem[] => [
-  {
-    key: ROUTES.DASHBOARD,
-    icon: <DashboardOutlined />,
-    label: '儀表板',
-    path: ROUTES.DASHBOARD,
-  },
-  // 1. 公文管理
-  {
-    key: 'documents-menu',
-    icon: <FileTextOutlined />,
-    label: '公文管理',
-    children: [
-      {
-        key: ROUTES.DOCUMENTS,
-        icon: <EyeOutlined />,
-        label: '文件瀏覽',
-        path: ROUTES.DOCUMENTS,
-      },
-      {
-        key: ROUTES.DOCUMENT_NUMBERS,
-        icon: <NumberOutlined />,
-        label: '文號管理',
-        path: ROUTES.DOCUMENT_NUMBERS,
-      },
-    ],
-  },
-  // 2. 案件資料
-  {
-    key: 'case-data-menu',
-    icon: <ProjectOutlined />,
-    label: '案件資料',
-    children: [
-      {
-        key: ROUTES.CONTRACT_CASES,
-        icon: <ProjectOutlined />,
-        label: '專案管理',
-        path: ROUTES.CONTRACT_CASES,
-      },
-      {
-        key: ROUTES.AGENCIES,
-        icon: <BankOutlined />,
-        label: '機關管理',
-        path: ROUTES.AGENCIES,
-      },
-      {
-        key: ROUTES.VENDORS,
-        icon: <ShopOutlined />,
-        label: '廠商管理',
-        path: ROUTES.VENDORS,
-      },
-      {
-        key: ROUTES.STAFF,
-        icon: <TeamOutlined />,
-        label: '承辦同仁',
-        path: ROUTES.STAFF,
-      },
-      {
-        key: ROUTES.PM_CASES,
-        icon: <AuditOutlined />,
-        label: 'PM 案件管理',
-        path: ROUTES.PM_CASES,
-      },
-      {
-        key: ROUTES.ERP_QUOTATIONS,
-        icon: <AccountBookOutlined />,
-        label: 'ERP 財務管理',
-        path: ROUTES.ERP_QUOTATIONS,
-      },
-    ],
-  },
-  // 3. 行事曆
-  {
-    key: ROUTES.CALENDAR,
-    icon: <CalendarOutlined />,
-    label: '行事曆',
-    path: ROUTES.CALENDAR,
-  },
-  // 4. 報表分析
-  {
-    key: 'reports-menu',
-    icon: <BarChartOutlined />,
-    label: '報表分析',
-    children: [
-      {
-        key: ROUTES.REPORTS,
-        icon: <LineChartOutlined />,
-        label: '統計報表',
-        path: ROUTES.REPORTS,
-      },
-      {
-        key: ROUTES.API_DOCS,
-        icon: <ApiOutlined />,
-        label: 'API文件',
-        path: ROUTES.API_DOCS,
-      },
-      {
-        key: ROUTES.UNIFIED_FORM_DEMO,
-        icon: <FormOutlined />,
-        label: '統一表單示例',
-        path: ROUTES.UNIFIED_FORM_DEMO,
-      },
-      {
-        key: ROUTES.API_MAPPING,
-        icon: <LinkOutlined />,
-        label: 'API對應表',
-        path: ROUTES.API_MAPPING,
-      },
-    ],
-  },
-  // 5. 系統管理
-  {
-    key: 'admin-menu',
-    icon: <SettingOutlined />,
-    label: '系統管理',
-    children: [
-      {
-        key: ROUTES.USER_MANAGEMENT,
-        icon: <UserOutlined />,
-        label: '使用者管理',
-        path: ROUTES.USER_MANAGEMENT,
-      },
-      {
-        key: ROUTES.PERMISSION_MANAGEMENT,
-        icon: <SecurityScanOutlined />,
-        label: '權限管理',
-        path: ROUTES.PERMISSION_MANAGEMENT,
-      },
-      {
-        key: ROUTES.DATABASE,
-        icon: <DatabaseOutlined />,
-        label: '資料庫管理',
-        path: ROUTES.DATABASE,
-      },
-      {
-        key: ROUTES.SITE_MANAGEMENT,
-        icon: <GlobalOutlined />,
-        label: '網站管理',
-        path: ROUTES.SITE_MANAGEMENT,
-      },
-      {
-        key: ROUTES.ADMIN_DASHBOARD,
-        icon: <DashboardOutlined />,
-        label: '管理員面板',
-        path: ROUTES.ADMIN_DASHBOARD,
-      },
-      {
-        key: ROUTES.GOOGLE_AUTH_DIAGNOSTIC,
-        icon: <GoogleOutlined />,
-        label: 'Google認證診斷',
-        path: ROUTES.GOOGLE_AUTH_DIAGNOSTIC,
-      },
-      {
-        key: ROUTES.BACKUP_MANAGEMENT,
-        icon: <CloudServerOutlined />,
-        label: '備份管理',
-        path: ROUTES.BACKUP_MANAGEMENT,
-      },
-      {
-        key: ROUTES.DEPLOYMENT_MANAGEMENT,
-        icon: <RocketOutlined />,
-        label: '部署管理',
-        path: ROUTES.DEPLOYMENT_MANAGEMENT,
-      },
-    ],
-  },
-  // 6. 個人設定
-  {
-    key: 'personal-menu',
-    icon: <UserOutlined />,
-    label: '個人設定',
-    children: [
-      {
-        key: ROUTES.PROFILE,
-        icon: <ProfileOutlined />,
-        label: '個人設定',
-        path: ROUTES.PROFILE,
-      },
-    ],
-  },
-];
+// getStaticMenuItems 已於 2026-09-08 刪除：它是選單的第二份宣告（DB 選單表才是唯一來源），
+// 且其 ERP 項目沒有權限碼，導覽 API 失敗時對所有人露出。
 
 /**
  * 根據路徑取得當前選中的選單 key
@@ -367,4 +185,4 @@ export const getDefaultOpenKeys = (pathname: string): string[] => {
   return [];
 };
 
-export default { convertToMenuItems, getStaticMenuItems, getIcon, getCurrentMenuKey, getDefaultOpenKeys };
+export default { convertToMenuItems, getIcon, getCurrentMenuKey, getDefaultOpenKeys };

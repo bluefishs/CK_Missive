@@ -12,8 +12,10 @@ import { isAuthDisabled, isInternalIP, shouldUseDevMockUser } from '../../../con
 import { navigationService } from '../../../services/navigationService';
 import { secureApiService } from '../../../services/secureApiService';
 import { logger } from '../../../utils/logger';
-import { convertToMenuItems, getStaticMenuItems, MenuItem } from './useMenuItems';
+import { convertToMenuItems, MenuItem } from './useMenuItems';
 import type { NavigationItem } from './types';
+
+const DASHBOARD_ONLY_MENU: MenuItem[] = [{ key: '/dashboard', label: '個人儀表板', path: '/dashboard' } as MenuItem];
 export type { NavigationItem } from './types';
 
 interface UseNavigationDataReturn {
@@ -116,21 +118,6 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   }, []);
 
   // 舊版權限過濾 (保留相容性)
-  const filterMenuItemsByPermissionLegacy = useCallback((items: MenuItem[]): MenuItem[] => {
-    return items.filter(item => {
-      if (item.permission_required && !hasPermission(item.permission_required)) {
-        return false;
-      }
-      if (item.key === 'admin' || item.key === 'admin-menu') {
-        return isAdmin();
-      }
-      if (item.children) {
-        item.children = filterMenuItemsByPermissionLegacy(item.children);
-        return item.children.length > 0;
-      }
-      return true;
-    });
-  }, [hasPermission, isAdmin]);
 
   // 使用 React Query 載入導覽資料
   const {
@@ -169,12 +156,12 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   // 從 query 結果計算 menuItems (取代 setState)
   const menuItems = useMemo(() => {
     if (navigationError) {
-      const staticItems = getStaticMenuItems();
-      // P-58：dev mock 才顯示全部；真用戶（即使在 dev 內網）走 perm filter
-      const useDevMock = shouldUseDevMockUser();
-      return useDevMock
-        ? staticItems
-        : filterMenuItemsByPermissionLegacy(staticItems);
+      // 2026-09-08：此前退回一份寫死的 `getStaticMenuItems()`——那是選單的**第二份宣告**
+      // （L147 #3 家族），裡面的「ERP 財務管理」沒帶任何權限碼，導覽 API 一失敗
+      // （SSO 到期 401 就會）每個人都看得到它。選單表是唯一來源；拿不到就只給儀表板，
+      // React Query 會重試，成功後自然換回完整選單。
+      logger.warn('Navigation query failed; showing dashboard only until retry succeeds');
+      return DASHBOARD_ONLY_MENU;
     }
 
     if (!navigationItems) {
@@ -205,7 +192,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
     const convertedItems = convertToMenuItems(filteredItems);
     logger.debug('Dynamic menu items loaded:', convertedItems.length, 'items');
     return convertedItems;
-  }, [navigationItems, navigationError, userPermissions, filterNavigationByRole, filterMenuItemsByPermissionLegacy]);
+  }, [navigationItems, navigationError, userPermissions, filterNavigationByRole]);
 
   const navigationLoading = navigationQueryLoading || permissionsLoading;
 

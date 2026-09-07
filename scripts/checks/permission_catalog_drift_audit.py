@@ -39,6 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.paths import repo_root  # noqa: E402
 from lib.docker_exec import python_in  # noqa: E402
+from lib.nav_parent_gate import fetch_rows as _gate_rows, parent_gate_blocks, self_test as _gate_self_test  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -246,6 +247,21 @@ def main() -> int:
         for nm, role in flags:
             print(f"    {nm}（{role}）")
         rc = max(rc, 1)
+
+    # ⑤ 父階擋住角色拿得到的子項（2026-09-08：業務同仁的專案帳款就是這樣在選單上消失的；
+    #    判準與負向控制在 lib/nav_parent_gate.py）
+    _gate_self_test()
+    _rows = _gate_rows()
+    if _rows is None:
+        print("[YELLOW] 父階擋子項比對：連不到資料庫，未驗")
+        rc = max(rc, 1)
+    else:
+        blocked = parent_gate_blocks(_rows)
+        if blocked:
+            print(f"[RED] {len(blocked)} 處：角色有子項的碼，卻被父群組的碼擋在選單外（每層單獨看都對，鏈是斷的）：")
+            for role, path, par in blocked[:15]:
+                print(f"    {role}  {path}  ← 父階「{par}」")
+            rc = 2
 
     if rc == 0:
         print("[GREEN] 兩份目錄一致、沒有新增的權限耦合，角色與使用者權限對齊，"

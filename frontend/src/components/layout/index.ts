@@ -9,7 +9,6 @@ export { default as Header } from './Header';
 export { useNavigationData, type NavigationItem } from './hooks/useNavigationData';
 export {
   convertToMenuItems,
-  getStaticMenuItems,
   getIcon,
   getCurrentMenuKey,
   getDefaultOpenKeys
