@@ -21,7 +21,11 @@ owner：「是否部分案件無匯入？例如『苗栗大山南台鐵平交道
 |---|---|
 | **RED** | 總表有編號、資料庫沒有 ⇒ 漏匯入 |
 | **RED** | 總表列沒有報價單編號 ⇒ 匯入的鍵不存在，必然漏掉（且不會報錯） |
-| YELLOW | 資料庫有、總表沒有 ⇒ 可能是總表尚未回填，或系統內另建的案 |
+| **RED** | 總表未標成立、系統卻已成案 ⇒ 兩邊不一致（owner 09-07：「誤植已成案刪除，
+  系統對應機制請檢視與調整」）。**匯入是單向的**：一列標成立會長出 PM 案 → 承攬案 →
+  自動應收，而總表改回未成立或刪掉，系統這邊不會回退、也沒有任何訊號 |
+| YELLOW | 資料庫有、總表沒有 ⇒ 附下游影響（成案／請款／發票／金額），
+  用來分辨「總表只是沒收錄」與「誤植成案且已產生金流」 |
 
 ⚠️ 只比對「系統報價單」這一張工作表：它是總表自己宣告的彙整表
 （其餘是各承辦的作業表與備份，內容會重複）。
@@ -64,6 +68,8 @@ def read_master(path: Path) -> tuple[dict[str, dict], list[dict]]:
     ci = {k: col(k, i) for i, k in enumerate(
         ("序號", "年度", "承辦同仁", "報價單編號", "是否成立", "報價日期", "客戶名稱", "案名"))}
     ci["報價金額"] = col("報價金額", 9)
+    # ⚠️ 同一個表頭在「系統報價單」出現兩次（右側第 38–43 欄是各承辦年度小計），
+    #    `col()` 用 `.index()` 取的是**最左邊**那一個 —— 與匯入器 2026-09-07 的修法同一個判準。
 
     keyed: dict[str, dict] = {}
     unkeyed: list[dict] = []
@@ -80,21 +86,39 @@ def read_master(path: Path) -> tuple[dict[str, dict], list[dict]]:
     return keyed, unkeyed
 
 
-def db_legacy_numbers() -> set[str] | None:
+def db_records():
+    """{舊編號: {案號, 成案, 請款數, 發票數, 總價}}。
+
+    帶下游影響是為了回答 owner 2026-09-07 的「系統對應機制請檢視與調整」：
+    總表一列誤植成「已成立」，匯入會一路長出 PM 案 → 承攬案 →（09-03 起）自動應收；
+    而**把總表那一列改掉或刪掉，系統這邊不會回退，也沒有任何訊號**。
+    ⇒ 差異要看得到「這一筆已經長出多少東西」，才判得出清理成本。
+    """
+    sql = (
+        "SELECT q.legacy_quotation_no, q.case_code, q.total_price, "
+        "EXISTS(SELECT 1 FROM contract_projects c WHERE c.case_code = q.case_code), "
+        "(SELECT count(*) FROM erp_billings b WHERE b.erp_quotation_id = q.id), "
+        "(SELECT count(*) FROM erp_invoices i WHERE i.erp_quotation_id = q.id) "
+        "FROM erp_quotations q "
+        "WHERE q.legacy_quotation_no IS NOT NULL AND q.deleted_at IS NULL"
+    )
     out = python_in(
         "import asyncio, json\n"
         "from sqlalchemy import text\n"
         "from app.db.database import AsyncSessionLocal\n"
+        "SQL = " + repr(sql) + "\n"
         "async def m():\n"
         "    async with AsyncSessionLocal() as db:\n"
-        "        rows = (await db.execute(text(\n"
-        "            'SELECT legacy_quotation_no FROM erp_quotations '\n"
-        "            'WHERE legacy_quotation_no IS NOT NULL AND deleted_at IS NULL'))).all()\n"
-        "    print('@@' + json.dumps([r[0] for r in rows]))\n"
+        "        rows = (await db.execute(text(SQL))).all()\n"
+        "    print('@@' + json.dumps([[r[0], r[1], str(r[2] or ''), bool(r[3]), int(r[4]), int(r[5])] for r in rows]))\n"
         "asyncio.run(m())\n"
     )
     line = [l for l in (out or "").splitlines() if l.startswith("@@")]
-    return {str(x).strip() for x in json.loads(line[-1][2:])} if line else None
+    if not line:
+        return None
+    return {str(r[0]).strip(): {"case_code": r[1], "total": r[2], "promoted": r[3],
+                                "bills": r[4], "invoices": r[5]}
+            for r in json.loads(line[-1][2:])}
 
 
 def main() -> int:
@@ -118,10 +142,11 @@ def main() -> int:
               f"快取值可能未更新（用 Excel 開啟並存檔即可重算）。未驗。")
         return 1
 
-    db = db_legacy_numbers()
-    if db is None:
+    recs = db_records()
+    if recs is None:
         print("[YELLOW] 連不到資料庫，未驗")
         return 1
+    db = set(recs)
 
     missing_raw = sorted(set(keyed) - db)
     extra = sorted(db - set(keyed))
@@ -162,9 +187,38 @@ def main() -> int:
             same = sorted(x for x in db if stem(x) == stem(n))
             print(f"    總表 {n} ↔ 資料庫 {'、'.join(same)}")
         rc = max(rc, 1)
+    # ③ 成立狀態不一致：總表已改成「未成立」，而系統已經成案。
+    #    owner 2026-09-07：「誤植已成案刪除，系統對應機制請檢視與調整」——
+    #    匯入是**單向**的：一列誤植成「已成立」會長出 PM 案 → 承攬案 →（09-03 起）自動應收；
+    #    把總表那一列改回未成立或刪掉，系統這邊**不會回退，也沒有任何訊號**。
+    #    這一條就是那個訊號。判紅是因為它代表帳上多了一筆不該存在的應收。
+    established_mismatch = []
+    for no, row in keyed.items():
+        r = recs.get(no)
+        if not r or not r["promoted"]:
+            continue
+        if str(row.get("是否成立", "")).strip().lower() not in ("v", "y", "yes", "是", "✓", "1", "true"):
+            established_mismatch.append((no, row, r))
+    if established_mismatch:
+        print(f"[RED] {len(established_mismatch)} 筆**總表未標成立、系統卻已成案** —— 兩邊不一致，要人判：")
+        print("      · 若總表漏填 → 補上「v」（已開發票的那幾筆多半是這一種）")
+        print("      · 若真的誤植成案 → 系統要撤：匯入**不會**自動回退，"
+              "成案會一路長出承攬案與自動應收，帳上就多一筆")
+        for no, row, r in established_mismatch[:15]:
+            print(f"    {no} | {r['case_code']} | 總價 {r['total'] or '-'} | "
+                  f"請款 {r['bills']} 張／發票 {r['invoices']} 張 | {row['案名'][:24]}")
+        rc = 2
+
     if extra:
-        print(f"[YELLOW] {len(extra)} 筆資料庫有、總表沒有（總表未回填，或系統內另建）：")
-        print("    " + "、".join(extra[:20]) + ("…" if len(extra) > 20 else ""))
+        print(f"[YELLOW] {len(extra)} 筆資料庫有、總表沒有 —— 附下游影響，"
+              f"用來分辨「總表只是沒收錄」與「誤植成案且已產生金流」：")
+        for no in extra[:20]:
+            r = recs[no]
+            flag = "成案" if r["promoted"] else "未成案"
+            print(f"    {no} | {r['case_code']} | {flag} | 總價 {r['total'] or '-'} | "
+                  f"請款 {r['bills']}／發票 {r['invoices']}")
+        if len(extra) > 20:
+            print(f"    …另 {len(extra) - 20} 筆")
         rc = max(rc, 1)
 
     if rc == 0:
