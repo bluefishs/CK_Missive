@@ -50,6 +50,8 @@ async def test_logged_in_gets_file(client, sample_file):
     app.dependency_overrides[get_current_user] = lambda: _U()
     r = await client.get(f"/uploads/{sample_file}")
     assert r.status_code == 200 and r.text == "hi"
+    # CF 依副檔名快取：沒有 private/no-store，登入者抓一次之後未登入也拿得到（09-08 實測 HIT）
+    assert "no-store" in r.headers.get("cache-control", "") and "private" in r.headers.get("cache-control", "")
 
 
 @pytest.mark.asyncio

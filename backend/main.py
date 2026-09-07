@@ -779,7 +779,9 @@ async def serve_upload(path: str, _user=_Depends(_require_auth())):
         raise _HTTPException(status_code=404, detail="檔案不存在")
     if not target.is_file():
         raise _HTTPException(status_code=404, detail="檔案不存在")
-    return _FileResponse(str(target))
+    # ⚠️ 沒有這個標頭，Cloudflare 會依副檔名把 PDF 快取在邊緣（實測 cf-cache-status: HIT、Age 1907）：
+    #    登入者抓過一次，之後任何人未登入都拿得到同一份 —— 認證等於只擋第一次。
+    return _FileResponse(str(target), headers={"Cache-Control": "private, no-store"})
 
 
 # --- 健康檢查端點 ---
