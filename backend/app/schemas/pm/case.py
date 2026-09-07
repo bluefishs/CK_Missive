@@ -164,6 +164,10 @@ class PMCaseListRequest(BaseQueryParams):
     year: Optional[int] = Field(None, description="年度篩選")
     status: Optional[str] = Field(None, description="狀態篩選")
     category: Optional[str] = Field(None, description="類別篩選")
+    # 2026-09-07 owner：「讓各承辦同仁完整掌握創案→報價→管理→財務流程」。
+    # 個人儀表板的數字點進來會帶這個參數；不接的話點了等於沒篩（靜默無效）。
+    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
+
     client_name: Optional[str] = Field(None, description="業主篩選")
     include_converted: bool = Field(
         True,

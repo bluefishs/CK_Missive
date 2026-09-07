@@ -297,6 +297,38 @@ def require_permission(permission: str):
     return _require_permission
 
 
+def require_any_permission(*permissions: str):
+    """**任一**權限即可通過。
+
+    ⚠️ 2026-09-07 owner：「ERP 仍無法獨立區分選取」。
+    ERP 底下 6 個頁面共用 `reports:erp:view` 一個碼 ⇒ 在權限管理頁勾任何一個
+    等於把 6 個全部打開（粒度是碼的數量，不是頁面的數量）。
+
+    要獨立勾選就得一頁一碼；但只把 API 換成新碼，**既有持有 `reports:erp:view`
+    的人會當場被擋**（角色層與使用者層都要同步，任一沒跟上就是 403 —— 09-07
+    拆委託／協力帳款時已經因此讓管理員看不到那兩頁）。
+
+    ⇒ 每支 ERP 子路由改成「**該頁自己的碼 或 `reports:erp:view`**」：
+      · 只給新碼的人 → 只進得去那一頁（真正的獨立）
+      · 既有 `reports:erp:view` 的人 → 全部照舊，零回歸
+      · 日後要收緊，把 `reports:erp:view` 從角色移除即可，不必再動程式碼
+
+    superuser 一律短路（與 `require_permission` 相同）。
+    """
+    async def _require_any(
+        current_user: User = Depends(get_current_user)
+    ) -> User:
+        from app.core.exceptions import ForbiddenException
+        from app.core.auth_service import AuthService
+
+        if is_superuser_user(current_user):
+            return current_user
+        if any(AuthService.check_permission(current_user, p) for p in permissions):
+            return current_user
+        raise ForbiddenException(f"需要 {' 或 '.join(permissions)} 其中之一的權限")
+    return _require_any
+
+
 # ============================================================================
 # 快取相關依賴（預留）
 # ============================================================================

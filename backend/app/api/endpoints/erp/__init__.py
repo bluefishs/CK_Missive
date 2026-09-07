@@ -1,6 +1,6 @@
 """ERP API Endpoints — 全部端點需認證"""
 from fastapi import APIRouter, Depends
-from app.core.dependencies import require_auth, require_permission
+from app.core.dependencies import require_any_permission, require_auth, require_permission
 from . import quotations, invoices, billings, vendor_payables, vendor_accounts
 from . import client_accounts
 from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync, filing_gaps, quotation_items
@@ -51,7 +51,18 @@ from . import my_summary
 #   不是我另外發明一套。導覽表是既有的 SSOT，API 對齊它。
 router = APIRouter(dependencies=[Depends(require_auth())])
 router.include_router(quotations.router, prefix="/quotations", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 報價管理"])
-router.include_router(invoices.router, prefix="/invoices", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 發票管理"])
+# ⭐ 2026-09-07 owner：「ERP 仍無法獨立區分選取」。
+#
+# 這 6 頁原本共用 `reports:erp:view` 一個碼 ⇒ 權限管理頁勾任一個等於開 6 個
+# （粒度是**碼的數量**，不是頁面的數量）。⇒ 一頁一碼。
+#
+# ⚠️ 但只換成新碼會讓既有持有 `reports:erp:view` 的人當場被擋 ——
+# 角色層與使用者層要同步，任一沒跟上就是 403（09-07 拆委託／協力帳款時
+# 已經因此讓管理員看不到那兩頁）。⇒ 用 `require_any_permission(新碼, erp:view)`：
+#   · 只給新碼的人 → 只進得去那一頁（真正的獨立，網址也擋得住）
+#   · 既有 erp:view 的人 → 全部照舊，零回歸
+#   · 日後要收緊：把 erp:view 從角色移除即可，不必再動程式碼
+router.include_router(invoices.router, prefix="/invoices", dependencies=[Depends(require_any_permission("reports:invoices:view", "reports:erp:view"))], tags=["ERP 發票管理"])
 router.include_router(billings.router, prefix="/billings", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 請款管理"])
 router.include_router(vendor_payables.router, prefix="/vendor-payables", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["ERP 廠商應付"])
 # ⭐ 2026-09-07 owner：「委託與協力帳款仍關聯 ERP，**無法正常獨立勾選**」。
@@ -82,17 +93,17 @@ router.include_router(vendor_payables.router, prefix="/vendor-payables", depende
 # 0 位 staff**，就是要的範圍，且它已經在用（filing-gaps 走同一個），
 # **不新增權限代碼**。superuser 由 require_permission 自身旁路。
 router.include_router(vendor_accounts.router, prefix="/vendor-accounts", dependencies=[Depends(require_permission("reports:vendor_accounts:view"))], tags=["ERP 廠商帳款"])
-router.include_router(expenses.router, prefix="/expenses", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["費用報銷"])
-router.include_router(expenses_io.router, prefix="/expenses", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["費用報銷 IO"])
-router.include_router(ledger.router, prefix="/ledger", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["統一帳本"])
-router.include_router(financial_summary.router, prefix="/financial-summary", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["財務彙總"])
+router.include_router(expenses.router, prefix="/expenses", dependencies=[Depends(require_any_permission("reports:expenses:view", "reports:erp:view"))], tags=["費用報銷"])
+router.include_router(expenses_io.router, prefix="/expenses", dependencies=[Depends(require_any_permission("reports:expenses:view", "reports:erp:view"))], tags=["費用報銷 IO"])
+router.include_router(ledger.router, prefix="/ledger", dependencies=[Depends(require_any_permission("reports:ledger:view", "reports:erp:view"))], tags=["統一帳本"])
+router.include_router(financial_summary.router, prefix="/financial-summary", dependencies=[Depends(require_any_permission("reports:financial_dashboard:view", "reports:erp:view"))], tags=["財務彙總"])
 # 2026-08-16 owner：「承攬報價案件對應填報人員通報管控」
 router.include_router(filing_gaps.router, prefix="/filing-gaps", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["填報缺口"])
 # 2026-09-03：我的專案統整——承辦看自己的待收／逾期是稽催機制的一部分，只要登入（require_auth 在端點內），不掛 reports 權限
 router.include_router(my_summary.router, prefix="/my-summary", tags=["個人儀表板"])
 # 2026-08-16 owner：「線上報價單機制」
 router.include_router(quotation_items.router, prefix="/quotation-items", dependencies=[Depends(require_permission("reports:finance:view"))], tags=["報價明細"])
-router.include_router(einvoice_sync.router, prefix="/einvoice-sync", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["電子發票同步"])
+router.include_router(einvoice_sync.router, prefix="/einvoice-sync", dependencies=[Depends(require_any_permission("reports:einvoice:view", "reports:erp:view"))], tags=["電子發票同步"])
 router.include_router(client_accounts.router, prefix="/client-accounts", dependencies=[Depends(require_permission("reports:client_accounts:view"))], tags=["ERP 委託單位帳款"])
 router.include_router(assets.router, prefix="/assets", dependencies=[Depends(require_permission("reports:assets:view"))], tags=["ERP 資產管理"])
-router.include_router(operational.router, prefix="/operational", dependencies=[Depends(require_permission("reports:erp:view"))], tags=["ERP 營運帳目"])
+router.include_router(operational.router, prefix="/operational", dependencies=[Depends(require_any_permission("reports:operational:view", "reports:erp:view"))], tags=["ERP 營運帳目"])

@@ -102,7 +102,12 @@ async def list_projects(
         category=query.category,
         status=query.status,
         sort_by=query.sort_by,
-        sort_order=query.sort_order.value
+        sort_order=query.sort_order.value,
+        # ⚠️ 2026-09-07：這裡自己組了一個 `QueryParams`，**新增的查詢欄位不會自動流過來**。
+        # 我在 schema、服務層、倉庫層都加了 `staff_user_id`，三層都正確，
+        # 而列表照樣不篩（285 → 285）—— 斷點就是這一行沒加。
+        # 「每一層都改了」不等於「這條路通了」：中間有一個手抄的轉接層。
+        staff_user_id=getattr(query, "staff_user_id", None),
     )
 
     # 傳遞 current_user 進行行級別權限過濾

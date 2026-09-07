@@ -269,6 +269,58 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
         description_zh: '可檢視協力廠商跨案件應付彙總（/erp/vendor-accounts）',
         description_en: 'Can view vendor payable summary'
       },
+      // ── 2026-09-07 owner：「ERP 仍無法獨立區分選取」──────────────
+      // 這 6 頁原本共用 `reports:erp:view` 一個碼 ⇒ 勾任一個等於開 6 個。
+      // 一頁一碼之後才能獨立勾選；API 走 `require_any_permission(新碼, erp:view)`，
+      // 既有持有 erp:view 的人零回歸，要收緊再把 erp:view 從角色移除。
+      {
+        key: 'reports:ledger:view',
+        name_zh: '統一帳本',
+        name_en: 'View Unified Ledger',
+        category: 'reports',
+        description_zh: '可檢視統一帳本（/erp/ledger）',
+        description_en: 'View Unified Ledger'
+      },
+      {
+        key: 'reports:operational:view',
+        name_zh: '營運帳目',
+        name_en: 'View Operational Ledger',
+        category: 'reports',
+        description_zh: '可檢視營運帳目（/erp/operational）',
+        description_en: 'View Operational Ledger'
+      },
+      {
+        key: 'reports:expenses:view',
+        name_zh: '財務總覽',
+        name_en: 'View Expenses',
+        category: 'reports',
+        description_zh: '可檢視財務總覽與費用報銷（/erp/expenses）',
+        description_en: 'View Expenses'
+      },
+      {
+        key: 'reports:financial_dashboard:view',
+        name_zh: '財務儀表板',
+        name_en: 'View Financial Dashboard',
+        category: 'reports',
+        description_zh: '可檢視財務儀表板（/erp/financial-dashboard）',
+        description_en: 'View Financial Dashboard'
+      },
+      {
+        key: 'reports:invoices:view',
+        name_zh: '發票彙總',
+        name_en: 'View Invoice Summary',
+        category: 'reports',
+        description_zh: '可檢視發票彙總（/erp/invoices/summary-view）',
+        description_en: 'View Invoice Summary'
+      },
+      {
+        key: 'reports:einvoice:view',
+        name_zh: '電子發票',
+        name_en: 'View E-Invoice Sync',
+        category: 'reports',
+        description_zh: '可檢視電子發票同步（/erp/einvoice-sync）',
+        description_en: 'View E-Invoice Sync'
+      },
       {
         key: 'reports:assets:view',
         name_zh: '資產管理',
@@ -546,6 +598,8 @@ export const USER_ROLES = {
       'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
       'reports:view', 'reports:export',
       'reports:client_accounts:view', 'reports:vendor_accounts:view',
+      'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
+      'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
       'reports:erp:view', 'reports:finance:view',
       'reports:assets:view', 'reports:stats:view',
       'operational:write', 'operational:approve',
@@ -563,6 +617,8 @@ export const USER_ROLES = {
       'documents:create', 'documents:edit',
       'projects:edit', 'calendar:edit',
       'reports:view', 'reports:client_accounts:view', 'reports:vendor_accounts:view',
+      'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
+      'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
       'reports:erp:view', 'reports:finance:view',
       'operational:write', 'operational:approve',
     ],
@@ -578,6 +634,8 @@ export const USER_ROLES = {
       'documents:read', 'projects:read', 'agencies:read', 'vendors:read', 'calendar:read',
       'reports:view', 'reports:export',
       'reports:client_accounts:view', 'reports:vendor_accounts:view',
+      'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
+      'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
       'reports:erp:view', 'reports:finance:view',
       'reports:tender:view', 'reports:assets:view', 'reports:stats:view',
     ],

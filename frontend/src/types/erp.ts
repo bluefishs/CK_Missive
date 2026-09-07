@@ -50,6 +50,8 @@ export interface MyErpSummary {
   received_ytd: number;
   no_billing: number;
   overdue_items: MyOverdueItem[];
+  /** 我承辦的案裡，一張報價單都還沒有的數量（創案→報價的缺口，2026-09-07） */
+  no_quotation?: number;
 }
 
 export interface ERPQuotation {

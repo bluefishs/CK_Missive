@@ -19,13 +19,40 @@ import {
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { ROUTES } from '../../router/types';
+import { authService } from '../../services/authService';
 import type { MyErpSummary, MyOverdueItem } from '../../types/erp';
 
 const { Text } = Typography;
 const money = (n?: number) => `NT$ ${(n ?? 0).toLocaleString()}`;
 
+
+/**
+ * 2026-09-07 owner：「重點要讓各承辦同仁完整掌握創案→報價→管理→財務流程與稽催通報，
+ * 併同個人儀表板整合優化」。
+ *
+ * 每個數字都要**點得進去**，而且落地時已經依承辦篩好 —— 否則看到「逾期 6 筆」的下一個
+ * 動作是自己去列表把條件重設一次，而那正是「掌握不了流程」的樣子。
+ * 三頁的 `staff_user_id` 篩選是同一天做的，這裡直接帶上去。
+ */
+const Clickable: React.FC<{ onClick?: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
+  <div
+    onClick={onClick}
+    style={{ cursor: onClick ? 'pointer' : undefined, borderRadius: 6, padding: 4, margin: -4 }}
+    onMouseEnter={(e) => { if (onClick) e.currentTarget.style.background = '#f5f5f5'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+  >
+    {children}
+  </div>
+);
+
 export const MyErpSummaryCard: React.FC = () => {
   const navigate = useNavigate();
+  // 承辦篩選要帶自己的 id —— 從已登入資訊取（與選單、權限同一個來源）
+  const myUserId = (() => {
+    try { return authService.getUserInfo()?.id; } catch { return undefined; }
+  })();
+  const withMe = (base: string, extra = '') =>
+    `${base}?${myUserId ? `staff_user_id=${myUserId}` : ''}${extra}`;
   const { data, isLoading } = useQuery<MyErpSummary>({
     queryKey: ['my-erp-summary'],
     queryFn: async () => {
@@ -61,14 +88,20 @@ export const MyErpSummaryCard: React.FC = () => {
     >
       <Row gutter={[12, 12]}>
         <Col xs={12} sm={8} md={4}>
-          <Statistic title="執行中案件" value={data.cases_active} prefix={<ProjectOutlined />} />
+          <Clickable onClick={() => navigate(withMe(ROUTES.CONTRACT_CASES))}>
+            <Statistic title="執行中案件" value={data.cases_active} prefix={<ProjectOutlined />} />
+          </Clickable>
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Statistic title="未成案報價" value={data.quotes_unawarded} />
+          <Clickable onClick={() => navigate(withMe(ROUTES.PM_CASES))}>
+            <Statistic title="未成案報價" value={data.quotes_unawarded} />
+          </Clickable>
         </Col>
         <Col xs={12} sm={8} md={4}>
+          <Clickable onClick={() => navigate(withMe(ROUTES.ERP_QUOTATIONS, '&card=outstanding'))}>
           <Statistic title="待收" value={data.pending_count} suffix="筆" prefix={<DollarOutlined />} />
           <Text type="secondary" style={{ fontSize: 12 }}>{money(data.pending_amount)}</Text>
+          </Clickable>
         </Col>
         <Col xs={12} sm={8} md={4}>
           <Statistic title="逾期" value={data.overdue_count} suffix="筆" valueStyle={{ color: data.overdue_count ? '#cf1322' : undefined }} prefix={<WarningOutlined />} />
@@ -76,6 +109,16 @@ export const MyErpSummaryCard: React.FC = () => {
         </Col>
         <Col xs={12} sm={8} md={4}>
           <Statistic title="今年已收" value={money(data.received_ytd)} valueStyle={{ fontSize: 16 }} prefix={<CheckCircleOutlined />} />
+        </Col>
+        <Col xs={12} sm={8} md={4}>
+          {/* 創案→報價的缺口：案建了但一張報價單都沒有 ⇒ 它在報價、請款、稽催的每一條鏈上都還不存在 */}
+          <Clickable onClick={() => navigate(withMe(ROUTES.PM_CASES))}>
+            <Statistic title="尚未報價" value={data.no_quotation ?? 0}
+              valueStyle={{ color: (data.no_quotation ?? 0) ? '#d46b08' : undefined }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {(data.no_quotation ?? 0) ? '建了案還沒開報價單' : '都已開報價單'}
+            </Text>
+          </Clickable>
         </Col>
         <Col xs={12} sm={8} md={4}>
           <Statistic title="成案未開請款" value={data.no_billing} valueStyle={{ color: data.no_billing ? '#d46b08' : undefined }} prefix={<ExclamationCircleOutlined />} />

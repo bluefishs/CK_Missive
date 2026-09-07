@@ -49,6 +49,12 @@ SELECT json_build_object(
   'overdue_amount', (SELECT COALESCE(sum(billing_amount - COALESCE(payment_amount,0)),0)::bigint FROM bills WHERE payment_status IN ('pending','partial') AND eff_billing_date < CURRENT_DATE),
   'overdue_30_count', (SELECT count(*) FROM bills WHERE payment_status IN ('pending','partial') AND eff_billing_date < CURRENT_DATE - 30),
   'received_ytd', (SELECT COALESCE(sum(payment_amount),0)::bigint FROM bills WHERE payment_status = 'paid' AND payment_date >= date_trunc('year', CURRENT_DATE)),
+  -- 創案→報價的缺口：我承辦的案裡一張報價單都沒有的（2026-09-07）
+  'no_quotation', (SELECT count(DISTINCT a.case_code) FROM project_user_assignments a
+                    WHERE a.user_id = :uid AND a.case_code IS NOT NULL
+                      AND COALESCE(a.status,'active') <> 'inactive'
+                      AND NOT EXISTS (SELECT 1 FROM erp_quotations q2
+                                       WHERE q2.case_code = a.case_code AND q2.deleted_at IS NULL)),
   'no_billing', (SELECT count(*) FROM my_cases WHERE project_code IS NOT NULL AND COALESCE(total_price,0) > 0
                    AND NOT EXISTS (SELECT 1 FROM erp_billings b WHERE b.erp_quotation_id = my_cases.qid)),
   'overdue_items', (SELECT COALESCE(json_agg(json_build_object(

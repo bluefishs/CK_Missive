@@ -198,6 +198,7 @@ class ProjectService(AuditableServiceMixin):
             rls_filter_fn=rls_filter_fn,
             sort_by=getattr(query_params, 'sort_by', None),
             sort_order=getattr(query_params, 'sort_order', 'desc'),
+            staff_user_id=getattr(query_params, 'staff_user_id', None),
         )
 
         # 2026-09-07 owner：「為何還是與 /contract-cases 有差異無法同步？」

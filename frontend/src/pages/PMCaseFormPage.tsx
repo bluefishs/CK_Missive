@@ -21,6 +21,8 @@ import { PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCaseCreate, PMCaseUpdate } from '../types/api';
 import { ROUTES } from '../router/types';
 import { toADYear } from '../utils/yearOptions';
+import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
+import { projectStaffApi } from '../api/projectStaffApi';
 
 const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }));
 
@@ -59,6 +61,7 @@ export const PMCaseFormPage: React.FC = () => {
       message.error('建立失敗');
     }
   };
+  const { staffOptions } = useStaffAssigneeOptions();
   const createMutation = useCreatePMCase();
   const updateMutation = useUpdatePMCase();
 
@@ -78,11 +81,38 @@ export const PMCaseFormPage: React.FC = () => {
       if (isEdit && caseId) {
         await updateMutation.mutateAsync({ id: caseId, data: values as PMCaseUpdate });
         message.success('案件已更新');
+        navigate(ROUTES.PM_CASES);
       } else {
-        await createMutation.mutateAsync(values as unknown as PMCaseCreate);
+        const staffUserId = values._staff_user_id as number | undefined;
+        delete values._staff_user_id;   // 不是 PMCase 的欄位，送出去會被 422
+        const created = await createMutation.mutateAsync(values as unknown as PMCaseCreate);
         message.success('案件已建立');
+
+        // 承辦：建案當下就掛上（未成案時綁 case_code；成案時服務層補 project_id）
+        const caseCode = (created as { case_code?: string } | undefined)?.case_code
+          ?? (values.case_code as string | undefined);
+        if (staffUserId && caseCode) {
+          try {
+            await projectStaffApi.addStaff({
+              case_code: caseCode, user_id: staffUserId, role: '專案PM', is_primary: true,
+            });
+          } catch {
+            // 指派失敗不該讓「案件已建立」變成錯誤訊息——案件比這一筆重要，
+            // 但要出聲，否則承辦是空的而沒有人知道。
+            message.warning('案件已建立，但承辦同仁未掛上，請到案件頁的「承辦同仁」補指定');
+          }
+        }
+
+        // ⭐ 2026-09-07 owner（多次提出）：「/pm/cases/create 為何還是僅一半填報資訊機制，
+        //    為何沒有將完整報價單填報設計整合？」
+        //    此前建完案是回到列表 —— 使用者得自己找到那個案、進去、再開報價單。
+        //    改為直接落在該案的「報價單」分頁（`new=1` 由詳情頁建 draft 並開編輯器）：
+        //    明細（項次／複價／備註）、整單備註、客戶抬頭、輸出 XLS／PDF 都在那一份編輯器裡。
+        const newId = (created as { id?: number } | undefined)?.id;
+        navigate(newId
+          ? `${ROUTES.PM_CASE_DETAIL.replace(':id', String(newId))}?tab=quotations&new=1`
+          : ROUTES.PM_CASES);
       }
-      navigate(ROUTES.PM_CASES);
     } catch {
       message.error(isEdit ? '更新失敗' : '建立失敗');
     }
@@ -192,6 +222,21 @@ export const PMCaseFormPage: React.FC = () => {
                 </Form.Item>
               </Col>
             </Row>
+
+            {/* 2026-09-07 owner：「重點要讓各承辦同仁完整掌握創案→報價→管理→財務流程與稽催通報」。
+                建案當下就指定承辦 —— 此前要建完案再去案件頁的分頁補，而**沒補的案在稽催鏈上是無主的**
+                （夜間吹哨者找不到人推播）。指派走 `case_code`（未成案時的綁法），成案時服務層補 project_id。 */}
+            <Form.Item name="_staff_user_id" label="承辦同仁"
+              tooltip="建案時就指定，之後的報價、請款、逾期稽催才有人可以通知">
+              <Select
+                style={{ width: 240 }}
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="選擇承辦同仁"
+                options={staffOptions.map((o) => ({ value: o.user_id, label: o.name }))}
+              />
+            </Form.Item>
 
             <Form.Item name="status" label="承攬狀態">
               <Select style={{ width: 200 }} options={STATUS_OPTIONS} />

@@ -406,7 +406,12 @@ export interface ProjectStaffListResponse {
 
 /** 新增/更新承辦同仁請求 */
 export interface ProjectStaffRequest {
-  project_id: number;
+  /** 承攬案件 ID（成案後才有）。⚠️ 2026-09-07 對齊後端 `ProjectStaffBase`：
+   *  後端本來就允許只給 `case_code`（未成案階段的綁法），而這裡原本寫成必填
+   *  ⇒ 建案當下要指定承辦是「型別上做不到」的。指派有兩條互斥綁法，兩邊都要能表達。 */
+  project_id?: number;
+  /** 建案案號（未成案時透過它關聯；成案時服務層補 project_id） */
+  case_code?: string;
   user_id: number;
   role?: string;
   is_primary?: boolean;

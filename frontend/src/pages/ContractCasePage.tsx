@@ -31,7 +31,7 @@ import {
   CheckCircleOutlined,
   DollarOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate , useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import { ResponsiveTable, ClickableStatCard } from '../components/common';
@@ -81,6 +81,9 @@ export const ContractCasePage: React.FC = () => {
   // 2026-09-02：§2.6 ③ 預設當年度（西元），可切「全部」；此前預設空＝歷年混算
   const currentYear = new Date().getFullYear();
   const [yearFilter, setYearFilter] = useState<number | undefined>(currentYear);
+  // 2026-09-07：個人儀表板點進來會帶 `staff_user_id`
+  const [ccSearchParams] = useSearchParams();
+  const ccStaff = Number(ccSearchParams.get('staff_user_id')) || undefined;
   // 2026-09-02 owner：「以 01 委辦招標類別為主排列」＋「表格無排序」。
   // 後端 sort_by 接受逗號分隔多欄；類別永遠是第一鍵，使用者點的欄位接在後面。
   const [userSort, setUserSort] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
@@ -101,9 +104,10 @@ export const ContractCasePage: React.FC = () => {
     sort_order: 'desc' as const,
     ...(searchText && { search: searchText }),
     ...(yearFilter && { year: yearFilter }),
+    ...(ccStaff ? { staff_user_id: ccStaff } : {}),
     ...(categoryFilter && { category: categoryFilter }),
     ...(statusFilter && { status: statusFilter }),
-  }), [currentPage, pageSize, searchText, yearFilter, categoryFilter, statusFilter, userSort]);
+  }), [currentPage, pageSize, searchText, yearFilter, categoryFilter, statusFilter, userSort, ccStaff]);
 
   const {
     projects,

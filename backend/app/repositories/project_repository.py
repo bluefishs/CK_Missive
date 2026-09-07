@@ -933,6 +933,7 @@ class ProjectRepository(BaseRepository[ContractProject]):
         rls_filter_fn: Optional[Any] = None,
         sort_by: Optional[str] = None,
         sort_order: str = "desc",
+        staff_user_id: Optional[int] = None,
     ) -> Tuple[List[ContractProject], int]:
         """
         取得篩選後的專案列表（支援 RLS 權限過濾）
@@ -975,6 +976,12 @@ class ProjectRepository(BaseRepository[ContractProject]):
             query = query.where(ContractProject.category == category)
         if status:
             query = query.where(ContractProject.status == status)
+        if staff_user_id is not None:
+            # 2026-09-07：個人儀表板的「執行中案件」點進來要已依承辦篩好。
+            # 走 `case_staff` 的雙鍵 UNION —— 只認一條綁法會漏掉一半承辦。
+            from app.repositories.erp.case_staff import case_codes_of_user
+            mine = await case_codes_of_user(self.db, staff_user_id)
+            query = query.where(ContractProject.case_code.in_(mine or {"__none__"}))
 
         # 計算總數
         count_query = select(func.count()).select_from(query.subquery())

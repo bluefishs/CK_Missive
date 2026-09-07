@@ -84,6 +84,10 @@ export const ERPQuotationListPage: React.FC = () => {
       ...(card ? { card } : {}),
       ...(searchParams.get('category') ? { category: searchParams.get('category') as string } : {}),
       ...(searchParams.get('client_name') ? { client_name: searchParams.get('client_name') as string } : {}),
+      // 2026-09-07：個人儀表板的數字點進來時會帶 `staff_user_id`（那個人自己）——
+      // 不接的話點了等於沒篩，使用者得自己再設一次條件，而那正是「掌握不了流程」的樣子。
+      ...(Number(searchParams.get('staff_user_id')) > 0
+        ? { staff_user_id: Number(searchParams.get('staff_user_id')) } : {}),
     };
   });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);

@@ -82,6 +82,7 @@ class PMCaseRepository(BaseRepository[PMCase]):
         sort_by: str = "id",
         sort_order: str = "desc",
         include_converted: bool = True,
+        staff_user_id: Optional[int] = None,
     ) -> Tuple[List[PMCase], int]:
         """篩選案件列表
 
@@ -113,6 +114,13 @@ class PMCaseRepository(BaseRepository[PMCase]):
             conditions.append(PMCase.category == category)
         if client_name:
             conditions.append(PMCase.client_name.ilike(f"%{client_name}%"))
+        if staff_user_id is not None:
+            # 2026-09-07：個人儀表板的數字要點得進來且已篩好（承辦身分）。
+            # 指派有兩條互斥綁法，走 `case_staff` 那一家 —— 只認 case_code 會漏掉
+            # 成案後才指派的那些（同族第 N 處，本 repo 已為此付過多次代價）。
+            from app.repositories.erp.case_staff import case_codes_of_user
+            mine = await case_codes_of_user(self.db, staff_user_id)
+            conditions.append(PMCase.case_code.in_(mine or {"__none__"}))
         if search:
             conditions.append(or_(
                 PMCase.case_code.ilike(f"%{search}%"),

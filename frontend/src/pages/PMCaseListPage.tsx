@@ -13,7 +13,7 @@ import { fmtMoney } from '../utils/money';
 import { Typography, Input, Button, Flex, Row, Col, Tag, Select, Upload, App, Space, Modal } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
 import { ClickableStatCard } from '../components/common';
@@ -31,6 +31,9 @@ const { Search } = Input;
 
 export const PMCaseListPage: React.FC = () => {
   const navigate = useNavigate();
+  // 2026-09-07：個人儀表板的數字點進來會帶 `staff_user_id` —— 不接就是靜默無效
+  const [pmSearchParams] = useSearchParams();
+  const staffFromUrl = Number(pmSearchParams.get('staff_user_id')) || undefined;
   const [pickCaseOpen, setPickCaseOpen] = useState(false);
   const [pickedCaseId, setPickedCaseId] = useState<number | undefined>();
   const { hasPermission } = useAuthGuard();
@@ -138,7 +141,8 @@ export const PMCaseListPage: React.FC = () => {
     ...(statusFilter && { status: statusFilter }),
     ...(categoryFilter && { category: categoryFilter }),
     include_converted: includeConverted,
-  }), [currentPage, searchText, yearFilter, statusFilter, categoryFilter, sort, includeConverted]);
+    ...(staffFromUrl ? { staff_user_id: staffFromUrl } : {}),
+  }), [currentPage, pageSize, searchText, yearFilter, statusFilter, categoryFilter, sort, includeConverted, staffFromUrl]);
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
   // 2026-09-04 owner：報價總額跟著目前點選的狀態卡／類別動態調整；各卡計數不跟（分母）。
