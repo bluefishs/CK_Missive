@@ -14,7 +14,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import require_auth, get_async_db
+from app.core.dependencies import require_auth, get_async_db, require_any_permission, require_permission
 from app.extended.models import User
 from app.services.ai.graph.graph_query_service import GraphQueryService
 from app.schemas.knowledge_graph import (
@@ -41,6 +41,17 @@ from app.schemas.knowledge_graph import (
 
 logger = logging.getLogger(__name__)
 
+# ⭐ 2026-09-07 owner：「為何 erp 與政府標案仍綁定圖譜？」→「請接續完成前述議題」。
+#
+# 拆權限碼只擋得住**選單與路由**；圖譜的**資料**在這裡，而這一群此前只有
+# `require_auth()` ⇒ 不給某人圖譜權限，他打網址進不去頁面，但直接打 API 照樣拿得到。
+#
+# ⇒ 讀取類端點接上該圖譜頁宣告的權限：
+#   · ERP 財務圖譜用得到的（erp-network／unified-search／stats）
+#     → `admin:settings` 或 `reports:erp_graph:view` 或 `reports:erp:view` 任一
+#   · 其餘（RAG／代碼／資料庫／技能圖譜）→ `admin:settings`（那是它們選單宣告的碼）
+#
+# ⚠️ 寫入與維運類（`/graph/admin/*`、ingest、merge-entities…）本來就是 `require_admin`，不動。
 router = APIRouter()
 
 
@@ -51,7 +62,7 @@ router = APIRouter()
 @router.post("/graph/entity/search", response_model=KGEntitySearchResponse)
 async def search_entities(
     request: KGEntitySearchRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """搜尋正規化實體"""
@@ -67,7 +78,7 @@ async def search_entities(
 @router.post("/graph/entity/neighbors", response_model=KGNeighborsResponse)
 async def get_entity_neighbors(
     request: KGNeighborsRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體的 K 跳鄰居"""
@@ -83,7 +94,7 @@ async def get_entity_neighbors(
 @router.post("/graph/entity/shortest-path", response_model=KGShortestPathResponse)
 async def find_shortest_path(
     request: KGShortestPathRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """查詢兩實體間的最短路徑"""
@@ -101,7 +112,7 @@ async def find_shortest_path(
 @router.post("/graph/entity/detail", response_model=KGEntityDetailResponse)
 async def get_entity_detail(
     request: KGEntityDetailRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體詳情（含別名、公文、關係）"""
@@ -115,7 +126,7 @@ async def get_entity_detail(
 @router.post("/graph/entity/timeline", response_model=KGTimelineResponse)
 async def get_entity_timeline(
     request: KGTimelineRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體的關係時間軸"""
@@ -127,7 +138,7 @@ async def get_entity_timeline(
 @router.post("/graph/timeline/aggregate", response_model=KGTimelineAggregateResponse)
 async def get_timeline_aggregate(
     request: KGTimelineAggregateRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """跨實體時序聚合：按月/季/年統計關係數量趨勢"""
@@ -143,7 +154,7 @@ async def get_timeline_aggregate(
 @router.post("/graph/entity/top", response_model=KGTopEntitiesResponse)
 async def get_top_entities(
     request: KGTopEntitiesRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """高頻實體排名"""
@@ -159,7 +170,7 @@ async def get_top_entities(
 @router.post("/graph/entity/graph", response_model=KGEntityGraphResponse)
 async def get_entity_graph(
     request: KGEntityGraphRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """以實體為中心的公文知識圖譜（排除 code entities）"""
@@ -176,7 +187,7 @@ async def get_entity_graph(
 
 @router.post("/graph/stats", response_model=KGGraphStatsResponse)
 async def get_graph_stats(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_any_permission("admin:settings", "reports:erp_graph:view", "reports:erp:view")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """圖譜統計"""
@@ -187,7 +198,7 @@ async def get_graph_stats(
 
 @router.post("/graph/db-schema", response_model=KGDbSchemaResponse)
 async def get_db_schema(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
 ):
     """
     取得完整資料庫 Schema 反射結果。
@@ -207,7 +218,7 @@ async def get_db_schema(
 
 @router.post("/graph/db-graph", response_model=KGDbGraphResponse)
 async def get_db_graph(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
 ):
     """
     取得資料庫 ER 圖譜資料（nodes + edges 格式）。

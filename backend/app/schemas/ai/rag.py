@@ -185,8 +185,19 @@ class RAGStreamRequest(BaseModel):
 
 
 class RAGSourceItem(BaseModel):
-    """RAG 來源文件"""
-    document_id: int = Field(..., description="公文 ID")
+    """RAG 來源文件。
+
+    ⚠️ 2026-09-07：`document_id` 原本是**必填整數**，而 RAG 的來源不只公文 ——
+    `rag_retrieval` 會把 **Wiki 頁面**融合進來（`source_type="wiki"`，
+    刻意 `document_id=None`，因為它不是公文）。⇒ 只要答案引用到任何一則 Wiki，
+    回應驗證就失敗、整支 `/api/ai/rag/query` 回 **500**。
+
+    owner 2026-09-07：「坤哥本來就是要協助各位同仁」—— 而它對一般同仁的問答
+    只要命中 Wiki 就整個壞掉。這不是權限問題，是回應契約比實際資料窄。
+    ⇒ 改為可空；來源型別另以 `source_type` 表示。
+    """
+    document_id: Optional[int] = Field(None, description="公文 ID；Wiki 等非公文來源為空")
+    source_type: str = Field(default="document", description="來源型別：document／wiki")
     doc_number: str = Field(default="", description="公文字號")
     subject: str = Field(default="", description="主旨")
     doc_type: str = Field(default="", description="公文類型")

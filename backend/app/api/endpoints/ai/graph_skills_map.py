@@ -10,15 +10,26 @@ Created: 2026-04-09
 
 from fastapi import APIRouter, Depends
 
-from app.core.dependencies import require_auth
+from app.core.dependencies import require_auth, require_any_permission, require_permission
 from app.extended.models import User
 
+# ⭐ 2026-09-07 owner：「為何 erp 與政府標案仍綁定圖譜？」→「請接續完成前述議題」。
+#
+# 拆權限碼只擋得住**選單與路由**；圖譜的**資料**在這裡，而這一群此前只有
+# `require_auth()` ⇒ 不給某人圖譜權限，他打網址進不去頁面，但直接打 API 照樣拿得到。
+#
+# ⇒ 讀取類端點接上該圖譜頁宣告的權限：
+#   · ERP 財務圖譜用得到的（erp-network／unified-search／stats）
+#     → `admin:settings` 或 `reports:erp_graph:view` 或 `reports:erp:view` 任一
+#   · 其餘（RAG／代碼／資料庫／技能圖譜）→ `admin:settings`（那是它們選單宣告的碼）
+#
+# ⚠️ 寫入與維運類（`/graph/admin/*`、ingest、merge-entities…）本來就是 `require_admin`，不動。
 router = APIRouter()
 
 
 @router.post("/graph/skill-evolution")
 async def get_skill_evolution_tree(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
 ):
     """
     取得技能能力地圖資料（⚠️ 2026-07-18 誠實化：這是**靜態能力地圖 v1.0**，
@@ -35,7 +46,7 @@ async def get_skill_evolution_tree(
 
 @router.post("/graph/skills-map")
 async def get_skills_capability_map(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
 ):
     """
     回傳乾坤智能體能力圖譜 — 3 層階層式架構。

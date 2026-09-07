@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import require_auth, get_async_db
+from app.core.dependencies import require_auth, get_async_db, require_any_permission, require_permission
 from app.extended.models import User
 from app.services.ai.graph.graph_query_service import GraphQueryService
 from app.schemas.knowledge_graph import (
@@ -32,6 +32,17 @@ from app.schemas.knowledge_graph import (
 
 logger = logging.getLogger(__name__)
 
+# ⭐ 2026-09-07 owner：「為何 erp 與政府標案仍綁定圖譜？」→「請接續完成前述議題」。
+#
+# 拆權限碼只擋得住**選單與路由**；圖譜的**資料**在這裡，而這一群此前只有
+# `require_auth()` ⇒ 不給某人圖譜權限，他打網址進不去頁面，但直接打 API 照樣拿得到。
+#
+# ⇒ 讀取類端點接上該圖譜頁宣告的權限：
+#   · ERP 財務圖譜用得到的（erp-network／unified-search／stats）
+#     → `admin:settings` 或 `reports:erp_graph:view` 或 `reports:erp:view` 任一
+#   · 其餘（RAG／代碼／資料庫／技能圖譜）→ `admin:settings`（那是它們選單宣告的碼）
+#
+# ⚠️ 寫入與維運類（`/graph/admin/*`、ingest、merge-entities…）本來就是 `require_admin`，不動。
 router = APIRouter()
 
 
@@ -42,7 +53,7 @@ router = APIRouter()
 @router.post("/graph/code-wiki", response_model=KGCodeWikiResponse)
 async def get_code_wiki_graph(
     request: KGCodeWikiRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得 Code Wiki 代碼圖譜（nodes + edges）"""
@@ -57,7 +68,7 @@ async def get_code_wiki_graph(
 
 @router.post("/graph/module-overview", response_model=KGModuleOverviewResponse)
 async def get_module_overview(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -78,7 +89,7 @@ async def get_module_overview(
 @router.post("/graph/unified-search", response_model=UnifiedGraphSearchResponse)
 async def unified_graph_search(
     request: UnifiedGraphSearchRequest,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_any_permission("admin:settings", "reports:erp_graph:view", "reports:erp:view")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """跨圖譜統一搜尋 — 同時搜尋 7 大圖譜 (KG + Code + DB + ERP + Tender)"""
@@ -256,7 +267,7 @@ async def unified_graph_search(
 
 @router.post("/graph/module-mappings")
 async def get_module_mappings(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -305,7 +316,7 @@ async def smart_graph_search(
     # 2026-08-21：這條原本**沒有任何認證**（同檔其他端點有，唯獨它漏了）。
     # 實測公網未登入、帶一枚公開可取的 CSRF token 就回 200 —— 而它是
     # 自然語言知識圖譜搜尋（走 LLM），等於把公司的圖譜與算力一起開放。
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
 ):
     """自然語言知識圖譜搜尋 (Gemma 4 powered)"""
     body = await request.json()
@@ -327,7 +338,7 @@ async def smart_graph_search(
 
 @router.post("/graph/erp-network", summary="ERP 財務圖譜關係網路")
 async def get_erp_graph_network(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_any_permission("admin:settings", "reports:erp_graph:view", "reports:erp:view")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """ERP 實體關係網路 — nodes + links for force-directed graph"""
@@ -366,7 +377,7 @@ async def get_erp_graph_network(
 @router.post("/graph/case-flow", summary="案件全流程鏈查詢")
 async def get_case_flow(
     request: Request,
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("admin:settings")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """

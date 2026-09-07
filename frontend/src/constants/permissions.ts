@@ -321,6 +321,28 @@ export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
         description_zh: '可檢視電子發票同步（/erp/einvoice-sync）',
         description_en: 'View E-Invoice Sync'
       },
+      // ── 2026-09-07 owner：「為何 erp 與政府標案仍綁定圖譜？」────────
+      // 圖譜是**檢視工具**，與帳務／標案資料是不同性質的東西：
+      // 給人看 ERP 帳務，不等於要給他看整張財務關聯圖譜。⇒ 各給一個碼。
+      // ⚠️ 這一層擋的是**選單與路由**；圖譜的資料端點在 `/api/ai/*`，
+      //    那一群目前只有 `require_auth`（738 支端點裡 415 支如此），
+      //    所以「知道網址就打得到資料」這件事還沒解，那是 API 收斂的範圍。
+      {
+        key: 'reports:erp_graph:view',
+        name_zh: 'ERP 財務圖譜',
+        name_en: 'View ERP Finance Graph',
+        category: 'reports',
+        description_zh: '可檢視 ERP 財務關聯圖譜（/ai/erp-graph）',
+        description_en: 'Can view ERP finance relationship graph'
+      },
+      {
+        key: 'reports:tender_graph:view',
+        name_zh: '標案圖譜',
+        name_en: 'View Tender Graph',
+        category: 'reports',
+        description_zh: '可檢視政府標案關聯圖譜（/tender/graph）',
+        description_en: 'Can view government tender relationship graph'
+      },
       {
         key: 'reports:assets:view',
         name_zh: '資產管理',
@@ -600,6 +622,7 @@ export const USER_ROLES = {
       'reports:client_accounts:view', 'reports:vendor_accounts:view',
       'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
       'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
+      'reports:erp_graph:view',
       'reports:erp:view', 'reports:finance:view',
       'reports:assets:view', 'reports:stats:view',
       'operational:write', 'operational:approve',
@@ -619,6 +642,7 @@ export const USER_ROLES = {
       'reports:view', 'reports:client_accounts:view', 'reports:vendor_accounts:view',
       'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
       'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
+      'reports:erp_graph:view',
       'reports:erp:view', 'reports:finance:view',
       'operational:write', 'operational:approve',
     ],
@@ -636,10 +660,12 @@ export const USER_ROLES = {
       'reports:client_accounts:view', 'reports:vendor_accounts:view',
       'reports:ledger:view', 'reports:operational:view', 'reports:expenses:view',
       'reports:financial_dashboard:view', 'reports:invoices:view', 'reports:einvoice:view',
+      'reports:erp_graph:view',
       'reports:erp:view', 'reports:finance:view',
       'documents:create', 'documents:edit', 'projects:create', 'projects:edit',
       'calendar:edit', 'agencies:create', 'agencies:edit', 'vendors:create', 'vendors:edit',
       'operational:write', 'operational:approve',
+      'reports:tender_graph:view',
       'reports:tender:view', 'reports:assets:view', 'reports:stats:view',
     ],
     // ⚠️ **2026-09-07 更正：這個角色不是「全域唯讀」。**
