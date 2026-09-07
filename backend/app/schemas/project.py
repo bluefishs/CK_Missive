@@ -169,6 +169,13 @@ class ProjectResponse(ProjectBase):
     # 原本標案與案件雙向都看不到對方，人工建立的對應關係下次進來就消失。
     source_tender_id: Optional[int] = Field(None, description="來源標案 ID")
 
+    # 2026-09-07 owner：「為何還是與 /contract-cases 有差異無法同步？」
+    # 真因不是資料不同步 —— 是**承攬案列表根本沒有承辦欄位**，承辦只在詳情頁的分頁裡，
+    # 而報價單列表有。同一件事一邊看得到、一邊看不到，看起來就像沒同步。
+    # ⚠️ Pydantic 對 schema 沒宣告的欄位是**靜默丟棄**（weekly 61 就是為此而設），
+    #    所以這裡要宣告，不能只在服務層塞值。
+    staff_name: Optional[str] = Field(None, description="承辦同仁（多人以、分隔）")
+
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 
 class ProjectListResponse(PaginatedResponse):

@@ -68,6 +68,9 @@ export interface Project {
   client_type?: 'agency' | 'vendor' | 'other';
   created_at: string;
   updated_at: string;
+  /** 承辦同仁（後端由 case_staff 雙鍵 UNION 聚合，多人以、分隔）——2026-09-07 補，
+   *  此前承攬案列表沒有這一欄而報價單列表有，看起來就像兩頁沒同步 */
+  staff_name?: string;
 }
 
 /** 專案建立請求 */

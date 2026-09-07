@@ -200,6 +200,21 @@ class ProjectService(AuditableServiceMixin):
             sort_order=getattr(query_params, 'sort_order', 'desc'),
         )
 
+        # 2026-09-07 owner：「為何還是與 /contract-cases 有差異無法同步？」
+        # 承辦此前只在詳情頁的分頁裡，列表沒有這一欄 ⇒ 與報價單列表看起來就是不同步。
+        # 承辦查詢走 `case_staff` 那一家（雙鍵 UNION），不另抄 SQL。
+        # ⚠️ ORM 物件不能直接 setattr 未定義欄位，改回 dict 會動到既有呼叫端 ⇒
+        #    用 Pydantic 的 from_attributes 讀得到的方式：掛在實例上（SQLAlchemy 允許）。
+        from app.repositories.erp.case_staff import staff_names_by_case_code
+        names = await staff_names_by_case_code(
+            self.db, [getattr(p, "case_code", None) for p in projects]
+        )
+        for p in projects:
+            try:
+                p.staff_name = names.get(getattr(p, "case_code", None))
+            except Exception:  # noqa: BLE001 —— 掛不上就讓它是 None，不要讓列表整個掛掉
+                pass
+
         return {"projects": projects, "total": total}
 
     async def _generate_project_code(

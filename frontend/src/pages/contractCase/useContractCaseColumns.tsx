@@ -182,6 +182,19 @@ export function useContractCaseColumns(
       ...getColumnSearchProps('client_agency'),
     },
     {
+      // 2026-09-07 owner：「為何還是與 /contract-cases 有差異無法同步？」
+      // 真因不是資料不同步——是**這一頁此前沒有承辦欄**，承辦只在詳情頁的分頁裡，
+      // 而報價單列表有。同一件事一邊看得到、一邊看不到，看起來就是沒同步。
+      // 值由後端 `staff_names_by_case_code`（雙鍵 UNION）下發，與報價單頁同一個來源。
+      title: '承辦同仁',
+      dataIndex: 'staff_name',
+      key: 'staff_name',
+      width: 130,
+      ellipsis: true,
+      // 承辦是聚合出來的欄位、不是資料表欄位 ⇒ 不標 sorter:true（後端排不了）
+      render: (v?: string) => v || <span style={{ color: '#bfbfbf' }}>—</span>,
+    },
+    {
       title: '案件類別',
       dataIndex: 'category',
       key: 'category',
