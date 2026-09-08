@@ -250,10 +250,28 @@ patch("app.services.pm.case_service.CaseCodeService"):
 class TestPMCaseServiceDelete:
     """delete() tests"""
 
+    @staticmethod
+    def _no_references(mock_db_session):
+        """讓引用計數全部回 0 —— 模擬「這個案還沒有任何金流」。"""
+        counts = MagicMock()
+        counts.quotations = counts.billings = counts.invoices = 0
+        counts.payables = counts.ledgers = counts.contracts = 0
+        result = MagicMock()
+        result.one = MagicMock(return_value=counts)
+        mock_db_session.execute = AsyncMock(return_value=result)
+
     @pytest.mark.asyncio
     async def test_delete_case(self, mock_db_session):
-        """Verify deletion returns True"""
+        """未成案且無任何金流 ⇒ 可刪。
+
+        2026-09-08：本測試原本鎖的是「刪除永遠回 True」——那是舊契約。
+        `delete()` 現在會擋下已成案／已有金流的案（owner：「避免最後財務無法統整」），
+        所以這裡要明確做出「乾淨的案」，否則 MagicMock 的 `project_code`
+        是個 truthy 物件，會被判成已成案。
+        """
         mock_case = _make_mock_pm_case()
+        mock_case.project_code = None
+        self._no_references(mock_db_session)
         mock_db_session.delete = AsyncMock()
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
@@ -268,6 +286,56 @@ patch("app.services.pm.case_service.CaseCodeService"):
             assert result is True
             mock_db_session.delete.assert_awaited_once_with(mock_case)
             mock_db_session.commit.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_delete_blocked_when_contracted(self, mock_db_session):
+        """已成案 ⇒ 擋下，且**不得呼叫 db.delete**。
+
+        2026-09-08 回歸鎖：此前 `delete()` 是硬刪、零檢查，而 pm_cases 沒有軟刪欄位、
+        金流靠 case_code 字串關聯（無外鍵）⇒ 誤刪一筆已成案的 PM，該案的報價單／
+        請款／發票／帳本會靜默變成追不回案件的孤兒。沒有這支測試，
+        閘門日後被拿掉不會有任何人知道。
+        """
+        mock_case = _make_mock_pm_case()
+        mock_case.project_code = "CK2025_01_01_001"
+        self._no_references(mock_db_session)
+        mock_db_session.delete = AsyncMock()
+
+        with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
+             patch("app.services.pm.case_service.PMMilestoneRepository"), \
+patch("app.services.pm.case_service.CaseCodeService"):
+            MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
+            service = PMCaseService(mock_db_session)
+            with pytest.raises(ValueError) as exc:
+                await service.delete(1)
+            # 訊息要說得出擋住的是什麼 —— 只說「不能刪」會讓人想辦法繞過
+            assert "已成案" in str(exc.value)
+            assert "CK2025_01_01_001" in str(exc.value)
+            mock_db_session.delete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_delete_blocked_when_has_billings(self, mock_db_session):
+        """未成案但已有請款 ⇒ 一樣擋下（判準是有沒有留下痕跡，不是狀態欄位怎麼寫）。"""
+        mock_case = _make_mock_pm_case()
+        mock_case.project_code = None
+        counts = MagicMock()
+        counts.quotations = 1
+        counts.billings = 3
+        counts.invoices = counts.payables = counts.ledgers = counts.contracts = 0
+        result = MagicMock()
+        result.one = MagicMock(return_value=counts)
+        mock_db_session.execute = AsyncMock(return_value=result)
+        mock_db_session.delete = AsyncMock()
+
+        with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
+             patch("app.services.pm.case_service.PMMilestoneRepository"), \
+patch("app.services.pm.case_service.CaseCodeService"):
+            MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
+            service = PMCaseService(mock_db_session)
+            with pytest.raises(ValueError) as exc:
+                await service.delete(1)
+            assert "3 筆請款" in str(exc.value)
+            mock_db_session.delete.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_delete_case_not_found(self, mock_db_session):
