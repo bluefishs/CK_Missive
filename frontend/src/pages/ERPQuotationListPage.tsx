@@ -572,8 +572,10 @@ export const ERPQuotationListPage: React.FC = () => {
                 tags={[...(winning != null ? [{ text: '議價', color: 'purple' }] : []), ...(r.project_code ? [] : [{ text: '未成案', color: 'default' }])]}
                 rows={[{ label: '委託單位', value: r.client_name }, { label: '承辦同仁', value: r.staff_name }, { label: '協力廠商', value: r.vendor_names }]}
                 amounts={[
-                  { label: '承攬金額（含稅）', value: fmtMoney(awarded) },
-                  { label: '應收帳款', value: billed ? `${fmtMoney(billed)}${received >= billed ? '（已收齊）' : received > 0 ? `（已收 ${Math.round(received / billed * 100)}%）` : '（待收）'}` : '未開請款', tone: billed && received < billed ? 'warn' : 'default' },
+                  { label: '承攬（含稅）', value: fmtMoney(awarded) },
+                  { label: '應收帳款', value: billed ? fmtMoney(billed) : '—',
+                    sub: billed ? (received >= billed ? '已收齊' : received > 0 ? `已收 ${Math.round(received / billed * 100)}%` : '待收') : undefined,
+                    tone: billed ? (received >= billed ? 'good' : 'warn') : 'default' },
                   { label: '應付款項', value: payable ? fmtMoney(payable) : '—' },
                 ]}
                 onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.id)))}

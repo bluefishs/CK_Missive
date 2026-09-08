@@ -286,8 +286,9 @@ const ERPClientAccountsPage: React.FC = () => {
             const billed = Number(r.total_billed ?? 0); const received = Number(r.total_received ?? 0);
             return (
               <MobileCard
-                title={r.tax_id ? `統編 ${r.tax_id}` : '—'}
-                subtitle={r.vendor_name}
+                // 2026-09-09 owner 截圖：沒有統編的單位標題印成「—」，名稱反而是副標。名稱才是主體。
+                title={r.vendor_name}
+                subtitle={r.tax_id ? `統編 ${r.tax_id}` : undefined}
                 tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }, ...caseProfileTags(r)]}
                 amounts={[
                   { label: '承攬金額', value: fmtMoney(r.total_contract) },

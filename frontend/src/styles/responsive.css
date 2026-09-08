@@ -470,8 +470,13 @@
 .ck-mcard-row { min-width: 0; }
 .ck-mcard-label { font-size: 11.5px !important; display: block; }
 .ck-mcard-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1f2937; }
-.ck-mcard-amounts { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb; font-variant-numeric: tabular-nums; }
-.ck-mcard-amount { min-width: 0; text-align: right; }
+/* 2026-09-09 owner 截圖：三欄底列在 390px 把「承攬金額（含稅）」與「22,675,000（已收 35%）」各擠成三行。
+   改法：金額與標籤不折行，放不下就整欄換到下一列（flex-wrap），附註走 .ck-mcard-amount-sub 小字。 */
+.ck-mcard-amounts { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb; font-variant-numeric: tabular-nums; }
+.ck-mcard-amount { flex: 1 1 auto; min-width: 0; text-align: right; }
+.ck-mcard-amount .ck-mcard-label, .ck-mcard-amount-value { white-space: nowrap; }
+.ck-mcard-amount-sub { font-size: 12px; font-weight: 400; color: #6b7280; line-height: 1.2; }
+.ck-mcard-chevron { margin-inline-start: auto; align-self: center; color: #9ca3af; font-size: 20px; line-height: 1; padding-inline-start: 4px; }
 .ck-mcard-amount:first-child { text-align: left; }
 .ck-mcard-amount-value { font-size: 16px; font-weight: 600; line-height: 1.3; }
 .ck-mcard-amount-good .ck-mcard-amount-value { color: #15803d; }

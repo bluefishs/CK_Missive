@@ -33,7 +33,8 @@ export interface MobileCardProps {
   /** label:value 對，兩欄排 */
   rows?: MobileCardRow[];
   /** 金額列：label + 大字數值（右對齊） */
-  amounts?: { label: string; value: React.ReactNode; tone?: 'default' | 'good' | 'warn' | 'bad' }[];
+  /** `sub`＝金額下方的小字（例：已收 35%），不要塞進 value——2026-09-09 owner 截圖：三欄底列把「22,675,000（已收 35%）」擠成三行 */
+  amounts?: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: 'default' | 'good' | 'warn' | 'bad' }[];
   onClick?: () => void;
 }
 
@@ -55,6 +56,7 @@ export const MobileCard: React.FC<MobileCardProps> = ({ title, subtitle, tags, r
           {tags.map((t, i) => <Tag key={i} color={t.color} style={{ margin: 0 }}>{t.text}</Tag>)}
         </Space>
       )}
+      {onClick && <span className="ck-mcard-chevron" aria-hidden="true">›</span>}
     </div>
     {rows && rows.length > 0 && (
       <div className="ck-mcard-rows">
@@ -72,6 +74,7 @@ export const MobileCard: React.FC<MobileCardProps> = ({ title, subtitle, tags, r
           <div key={i} className={`ck-mcard-amount ck-mcard-amount-${a.tone ?? 'default'}`}>
             <Text type="secondary" className="ck-mcard-label">{a.label}</Text>
             <div className="ck-mcard-amount-value">{a.value ?? '—'}</div>
+            {a.sub != null && a.sub !== '' && <div className="ck-mcard-amount-sub">{a.sub}</div>}
           </div>
         ))}
       </div>
