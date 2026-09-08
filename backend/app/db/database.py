@@ -109,8 +109,16 @@ async def get_async_db() -> AsyncSession:
         # 2026-05-24 fix: 預期的 4xx HTTPException 不是 server error 不該 log error+traceback
         # （L41 family 變種 — 認證/權限正常拒絕被誤判為錯誤，污染告警面）
         from fastapi import HTTPException
+        from app.core.exceptions import AppException
         if isinstance(e, HTTPException) and 400 <= e.status_code < 500:
             logger.warning(f"Expected {e.status_code} (rolled back, not a server error): {e.detail}")
+        elif isinstance(e, AppException) and 400 <= getattr(e, "status_code", 500) < 500:
+            # 2026-09-09：業務規則擋下來（例如承攬案有金流不准刪＝ConflictException）
+            # 原本落進最後那個 else ⇒ ERROR ＋ 完整堆疊，在告警面上與真的故障長得一樣。
+            # **防呆每擋一次就製造一筆假故障**，久了就會有人把這類訊號調成忽略。
+            logger.warning(
+                f"Expected {e.status_code} (business rule, rolled back): "
+                f"{str(e).splitlines()[0]}")
         elif "connection_lost" in error_msg:
             logger.warning(f"Database connection lost, session rolled back: {e}")
         elif "statement_timeout" in error_msg or "canceling statement" in error_msg:

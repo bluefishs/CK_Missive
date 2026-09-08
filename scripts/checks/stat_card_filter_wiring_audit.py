@@ -80,6 +80,40 @@ def cards_in(src: str):
     return out
 
 
+#: 統計卡的 <Col> 網格判準（§2.6 ①）。兩種壞法，方向相反：
+#:   · `xs={24}` ⇒ 手機每張獨佔一列（規範明文禁止）
+#:   · 完全沒有響應式 props（`span={4}`／`span={6}`）⇒ 手機 N 張擠一列，每張只剩幾十 px
+#: 後者以前完全沒有判準，而它比前者更難讀（/security 的 6 張在 390px 各約 65px）。
+_COL_CARD = re.compile(
+    r"<Col([^>]*)>[\s\S]{0,200}?<(ClickableStatCard|Card\b[\s\S]{0,300}?<Statistic)", re.S)
+_SPAN_ONLY = re.compile(r"{B}bspan=\{{(\d+)\}}".format(B=chr(92)))
+
+
+def _grid_violations(src: str, rel: str) -> list:
+    out = []
+    for m in _COL_CARD.finditer(src):
+        props = m.group(1)
+        if "xs={24}" in props:
+            out.append((rel, "（網格）",
+                        "統計卡 Col 用 xs={24}＝手機每張獨立一列；規範＝xs={12}（同 /erp/quotations）"))
+            continue
+        if "xs=" in props:
+            continue
+        sp = _SPAN_ONLY.search(props)
+        if sp:
+            n = int(sp.group(1))
+            per = 24 // n if n else 0
+            # ⚠️ 只有「手機每列超過 2 張」才是問題。`span={12}` 在手機上就是兩張一列，
+            # 正是規範要的形狀（xs={12}）——首版把它一起報，47 筆裡有一半是這種假陽性。
+            # 判準要問「使用者在 390px 看到什麼」，不是問「有沒有照著寫 xs=」。
+            if per <= 2:
+                continue
+            out.append((rel, "（網格）",
+                        f"統計卡 Col 只有 span={{{n}}}、沒有 xs ⇒ 手機 {per} 張擠一列"
+                        f"（390px 下每張約 {390 // per}px）；規範＝xs={{12}} sm={{6}}"))
+    return out
+
+
 def main() -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -89,9 +123,19 @@ def main() -> int:
     reds, yels, total = [], [], 0
     for f in sorted(PAGES.rglob("*.tsx")):
         src = f.read_text(encoding="utf-8", errors="replace")
+        rel = f.relative_to(PAGES).as_posix()
+        # 2026-09-09：原本「沒有 <ClickableStatCard> 就整檔跳過」⇒ 網格判準也一起跳過。
+        # 全庫 <ClickableStatCard 81 處，而 <Statistic 有 328 處 —— 用 <Card><Statistic> 寫的
+        # 統計卡（/security 的 span={4}×6、UserStatsCards／EvolutionTab 的 xs={24}）
+        # **結構上永遠看不見**。網格改成兩種寫法都驗；接線判準仍只驗 ClickableStatCard（它才有 onClick 契約）。
+        grid_yels = _grid_violations(src, rel)
+        # 依檔聚合：同一個檔的四張卡是同一個問題，逐張列出只是噪音。
+        # 「8 個檔 44 處」是可以追的，「44 行一模一樣的字」不是。
+        if grid_yels:
+            kinds = sorted({g[2] for g in grid_yels})
+            yels.append((rel, "（網格）", f"{len(grid_yels)} 處 —— " + "；".join(kinds)))
         if "<ClickableStatCard" not in src:
             continue
-        rel = f.relative_to(PAGES).as_posix()
         for title, body in cards_in(src):
             total += 1
             if body is None:
@@ -115,10 +159,6 @@ def main() -> int:
                     break
             if not wired:
                 reds.append((rel, title, f"只做 {'/'.join(setters)}，該 state 沒有人讀 ⇒ 點了只換底色"))
-        # 2026-09-05 owner「統計卡片部分頁面採獨立列，應統一如 /erp/quotations」：卡片的 <Col> 手機不得整行（xs={24}）
-        for m in re.finditer(r"<Col([^>]*)>\s*(?:\{/\*.*?\*/\}\s*)?<ClickableStatCard", src, re.S):
-            if "xs={24}" in m.group(1):
-                yels.append((rel, "（網格）", "統計卡 Col 用 xs={24}＝手機每張獨立一列；規範＝xs={12}（同 /erp/quotations）"))
     print(f"卡片 {total} 張；假互動 {len(reds)}；純顯示未登記／網格不合 {len(yels)}")
     for r in reds:
         print(f"  [RED] {r[0]}「{r[1]}」{r[2]}")
