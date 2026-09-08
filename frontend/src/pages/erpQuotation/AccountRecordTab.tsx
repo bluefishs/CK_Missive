@@ -324,7 +324,10 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     // billing_date／payment_date 是 **date** ⇒ 只有這一欄印出時間。
     // 同型的第三次：09-07 的 COALESCE(billing_date, quoted_at) 也是栽在
     // 「一個是 date、一個是 datetime」，那次症狀是型別錯誤，這次是版面。
-    { title: '報價單日期', dataIndex: 'quoted_at', width: 110, hideOnMobile: true,
+    // 2026-09-09 owner：「/erp/quotations/90?tab=receivable 為何無報價單日期」——資料與 API 都有
+    // （quoted_at=2025-07-03），是這一欄標了 hideOnMobile，窄螢幕整欄消失，看起來像「沒對應到」。
+    // 它是這一筆的時間錨點（09-07 裁示），不能隨螢幕寬度消失；請款日期仍可在窄螢幕隱藏。
+    { title: '報價單日期', dataIndex: 'quoted_at', width: 110,
       render: (v?: string) => (v ? String(v).slice(0, 10) : <span style={{ color: '#bfbfbf' }}>—</span>) },
     { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     // 2026-08-17 owner：「建議列表表單僅顯示已收款經費資訊」。

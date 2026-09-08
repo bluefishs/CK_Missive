@@ -91,7 +91,9 @@ def mock_superuser():
     user.is_active = True
     user.is_admin = True
     user.is_superuser = True
-    user.role = "superadmin"
+    # 2026-09-07 收斂 A 後 superuser 只看角色，且系統裡的角色值是 "superuser"（DB 實查 1 人），
+    # 不是 "superadmin" —— 這支測試從那天起就紅，直到 09-09 全套複跑才被看見。
+    user.role = "superuser"
     user.permissions = None
     return user
 
