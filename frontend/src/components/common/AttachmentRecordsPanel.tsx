@@ -34,6 +34,12 @@ export interface AttachmentRecordItem {
   createdAt?: string | null;
   /** 分類標籤（案件附件的 doc_type；公文附件沒有） */
   tag?: { text: string; color?: string } | null;
+  /**
+   * 可互動的分類標籤（優先於 `tag`）——給「就地改分類」用。
+   * 2026-09-08：`doc_type` 這個欄位早就有，但**上傳表單沒問過、上傳後也沒得改**
+   * ⇒ 人工上傳的必然是「未分類」（owner 從 /erp/quotations/790 回報）。
+   */
+  tagNode?: React.ReactNode;
   /** 次要說明（例如上傳者、備註） */
   note?: string | null;
 }
@@ -58,6 +64,8 @@ export interface AttachmentRecordsPanelProps {
   uploadErrors?: string[];
   setUploadErrors?: (errors: string[]) => void;
   accept?: string;
+  /** 上傳區的額外欄位（例：文件類型選擇）——放在拖放區上方 */
+  uploadExtra?: React.ReactNode;
   maxFileSizeMB?: number;
   allowedExtensions?: string[];
   uploadHint?: string;
@@ -96,7 +104,7 @@ export const AttachmentRecordsPanel: React.FC<AttachmentRecordsPanelProps> = ({
   items, loading, isEditing, title = '已上傳附件', emptyText,
   onPreview, onDownload, onDelete,
   fileList, setFileList, uploading, uploadProgress, uploadErrors = [], setUploadErrors,
-  accept, maxFileSizeMB = 50, allowedExtensions, uploadHint, onUploadNow,
+  accept, maxFileSizeMB = 50, allowedExtensions, uploadHint, onUploadNow, uploadExtra,
 }) => {
   const validate = (file: File): string | null => {
     const ext = '.' + (file.name.toLowerCase().split('.').pop() || '');
@@ -125,7 +133,7 @@ export const AttachmentRecordsPanel: React.FC<AttachmentRecordsPanelProps> = ({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span>{item.name}</span>
-                    {item.tag && <Tag color={item.tag.color ?? 'default'}>{item.tag.text}</Tag>}
+                    {item.tagNode ?? (item.tag && <Tag color={item.tag.color ?? 'default'}>{item.tag.text}</Tag>)}
                   </div>
                   <div style={{ fontSize: 12, color: '#999' }}>
                     {formatSize(item.size)}
@@ -153,6 +161,7 @@ export const AttachmentRecordsPanel: React.FC<AttachmentRecordsPanelProps> = ({
       {/* 上傳區（編輯模式才顯示） */}
       {isEditing && (
         <>
+          {uploadExtra}
           <Dragger
             multiple fileList={fileList} showUploadList={false} accept={accept} disabled={uploading}
             beforeUpload={(file) => {

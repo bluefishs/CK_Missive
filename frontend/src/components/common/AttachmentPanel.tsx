@@ -20,7 +20,7 @@
  * 遷移規劃見 `docs/architecture/ATTACHMENT_CONSOLIDATION_PLAN.md`。
  */
 import { useState } from 'react';
-import { App, Modal, Image } from 'antd';
+import { App, Modal, Image, Select, Space, Typography } from 'antd';
 import type { UploadFile } from 'antd/es/upload';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AttachmentRecordsPanel, type AttachmentRecordItem } from './AttachmentRecordsPanel';
@@ -29,6 +29,10 @@ import { API_ENDPOINTS } from '../../api/endpoints';
 import type { CaseAttachment, CaseAttachmentListResponse } from '../../types/attachment';
 import { ATTACHMENT_DOC_TYPE_LABELS, ATTACHMENT_DOC_TYPE_COLORS } from '../../types/attachment';
 import { getErrorMessage } from '../../utils/apiErrorParser';
+
+/** 下拉選項由標籤表推導 —— 不在這裡再抄一份類型清單（值域的權威在後端的白名單）。 */
+const DOC_TYPE_OPTIONS = Object.entries(ATTACHMENT_DOC_TYPE_LABELS)
+  .map(([value, label]) => ({ value, label }));
 
 export interface AttachmentPanelProps {
   /** 掛載點：附件以 case_code 關聯 */
@@ -70,6 +74,12 @@ export function AttachmentPanel({
   const [previewTitle, setPreviewTitle] = useState('');
   const [previewType, setPreviewType] = useState<'image' | 'pdf'>('image');
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  // ⭐ 2026-09-08 owner：「/erp/quotations/790?tab=attachments 上傳委託合約（目前顯示未分類）」。
+  // 追下去是**沒有入口**：`doc_type` 欄位早就有、標籤表也有「契約文件」，
+  // 但上傳表單從來沒問過 —— `uploadDocType` 是呼叫端寫死的 prop，
+  // 報價單詳情頁沒給 ⇒ 人工上傳的必然是未分類，而且上傳完也沒地方改。
+  // 這是「欄位在、型別對、只是沒有入口」那一族。
+  const [docTypeChoice, setDocTypeChoice] = useState<string | undefined>(uploadDocType);
 
   // queryKey 保持與原本一致 —— 換 key 會讓既有頁面的快取失效鏈斷掉
   // （本專案有 queryKey drift 導致 invalidate 靜靜失效的紀錄，L39）
@@ -89,7 +99,9 @@ export function AttachmentPanel({
       if (files.length === 0) return;
       const formData = new FormData();
       files.forEach(f => formData.append('files', f as Blob));
-      if (uploadDocType) formData.append('doc_type', uploadDocType);
+      // 使用者選的優先於呼叫端寫死的預設（回簽分頁仍會帶 signed_quotation 進來當預設）
+      const dt = docTypeChoice ?? uploadDocType;
+      if (dt) formData.append('doc_type', dt);
       setUploading(true);
       return apiClient.postForm<{ success: boolean; files: unknown[]; errors: string[] }>(
         API_ENDPOINTS.PM.ATTACHMENTS_UPLOAD(caseCode), formData,
@@ -106,6 +118,17 @@ export function AttachmentPanel({
       if (uploaded > 0) onUploaded?.(uploaded);
     },
     onError: () => { setUploading(false); message.error('上傳失敗'); },
+  });
+
+  // 就地改分類 —— 分類錯了要能改，否則只剩「刪掉重傳」這條路。
+  const setDocTypeMutation = useMutation({
+    mutationFn: async (v: { id: number; docType?: string }) => {
+      const fd = new FormData();
+      if (v.docType) fd.append('doc_type', v.docType);
+      return apiClient.postForm(API_ENDPOINTS.PM.ATTACHMENTS_SET_DOC_TYPE(v.id), fd);
+    },
+    onSuccess: () => { message.success('已更新文件類型'); queryClient.invalidateQueries({ queryKey }); },
+    onError: () => message.error('更新文件類型失敗'),
   });
 
   const deleteMutation = useMutation({
@@ -149,6 +172,19 @@ export function AttachmentPanel({
           ? { text: ATTACHMENT_DOC_TYPE_LABELS[r.doc_type] ?? r.doc_type, color: ATTACHMENT_DOC_TYPE_COLORS[r.doc_type] ?? 'default' }
           : { text: '未分類', color: 'default' })
       : null,
+    // 可寫時把標籤換成可改的下拉（唯讀時仍是純標籤）
+    tagNode: showDocType && isEditing ? (
+      <Select
+        size="small"
+        style={{ minWidth: 148 }}
+        value={r.doc_type ?? undefined}
+        placeholder="未分類"
+        allowClear
+        options={DOC_TYPE_OPTIONS}
+        loading={setDocTypeMutation.isPending}
+        onChange={(v?: string) => setDocTypeMutation.mutate({ id: r.id, docType: v })}
+      />
+    ) : undefined,
   }));
   const byId = (item: AttachmentRecordItem) => attachments.find(r => r.id === item.id);
   return (
@@ -162,6 +198,23 @@ export function AttachmentPanel({
         uploadErrors={uploadErrors} setUploadErrors={setUploadErrors}
         accept={accept} maxFileSizeMB={50}
         uploadHint={`${uploadTitle}：支援 PDF、Word、Excel、圖片、壓縮檔（最大 50MB）`}
+        uploadExtra={showDocType ? (
+          <Space style={{ marginBottom: 8 }} wrap>
+            <Typography.Text type="secondary">文件類型</Typography.Text>
+            <Select
+              size="small"
+              style={{ minWidth: 180 }}
+              value={docTypeChoice}
+              onChange={setDocTypeChoice}
+              allowClear
+              placeholder="未分類（可稍後再標）"
+              options={DOC_TYPE_OPTIONS}
+            />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              上傳後仍可在列表上改
+            </Typography.Text>
+          </Space>
+        ) : undefined}
         onUploadNow={() => uploadMutation.mutate()}
       />
       <Modal

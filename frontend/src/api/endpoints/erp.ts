@@ -48,6 +48,8 @@ export const PM_ENDPOINTS = {
   ATTACHMENTS_DOWNLOAD: (id: number) => `/pm/cases/attachments/${id}/download` as const,
   /** 報價附件刪除 POST /pm/cases/attachments/{id}/delete */
   ATTACHMENTS_DELETE: (id: number) => `/pm/cases/attachments/${id}/delete` as const,
+  /** 設定／清除附件文件類型（2026-09-08：此前只能在上傳時由呼叫端寫死，人工上傳一律未分類） */
+  ATTACHMENTS_SET_DOC_TYPE: (id: number) => `/pm/cases/attachments/${id}/doc-type` as const,
   /** 匯出 CSV POST /pm/cases/export */
   EXPORT: '/pm/cases/export',
   /** 匯出案件 XLSX POST /pm/cases/export-xlsx */
@@ -116,6 +118,8 @@ export const ERP_ENDPOINTS = {
   VENDOR_PAYABLES_CREATE: '/erp/vendor-payables/create',
   /** 更新廠商應付 POST /erp/vendor-payables/update */
   VENDOR_PAYABLES_UPDATE: '/erp/vendor-payables/update',
+  /** 本案已指派但尚無應付的協力廠商（2026-09-08：空表格分不出「沒有廠商」與「沒填金額」） */
+  VENDOR_PAYABLES_ASSIGNMENT_GAPS: '/erp/vendor-payables/assignment-gaps',
   /** 刪除廠商應付 POST /erp/vendor-payables/delete */
   VENDOR_PAYABLES_DELETE: '/erp/vendor-payables/delete',
   /** 產生案號 POST /erp/quotations/generate-code */

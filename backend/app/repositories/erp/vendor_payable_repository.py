@@ -88,6 +88,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         year: Optional[int] = None,
         keyword: Optional[str] = None,
         staff_user_id: Optional[int] = None,
+        accessible_case_codes=None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[Dict[str, Any]], int, Dict[str, Any]]:
@@ -130,6 +131,19 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
         # 與委託單位帳款同一套：在**案號層**限縮，應付金額、案件數與統計卡全部跟著走。
         # 使用者自己選的篩選，不是 RLS。
+        # ⭐ 2026-09-08 owner：「尚無對應登入帳號對應篩選委託與協力單位帳款機制
+        # （登入者 業務同仁王駿穠）」—— 這一頁此前**完全不看登入身分**：
+        # 業務同仁打開就看到全公司 19 家廠商、1,367 萬應付，含別人承辦的案。
+        # `/erp/quotations` 09-08 早上已經照身分限縮，這兩頁沒跟上 ——
+        # **同一條規則有兩個實作，改了一個沒改另一個**（L145 家族）。
+        #
+        # ⚠️ `accessible_case_codes` 是**伺服器依身分**決定的（None ＝不限縮），
+        #    與下面 `staff_user_id`（使用者自己選的篩選）是兩件事：
+        #    後者只能在前者**之內**再縮小，不能覆蓋它 ——
+        #    覆蓋就等於前端傳什麼就給什麼，RLS 形同虛設。
+        if accessible_case_codes is not None:
+            query = query.where(ERPQuotation.case_code.in_(accessible_case_codes or {"__none__"}))
+
         mine = None
         if staff_user_id is not None:
             from app.repositories.erp.case_staff import case_codes_of_user
@@ -242,8 +256,15 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
 
     async def get_vendor_case_detail(
         self, vendor_id: int, year: Optional[int] = None,
+        accessible_case_codes=None,
     ) -> Optional[Dict[str, Any]]:
-        """單一廠商跨案件應付明細"""
+        """單一廠商跨案件應付明細。
+
+        ⚠️ 2026-09-08：`accessible_case_codes` 一併帶進來 —— 列表限縮了而明細沒限縮，
+        等於「選單藏起來的頁面打網址一律進得去」的金額版：
+        業務同仁只要知道 vendor_id 就看得到全公司對這家的應付。
+        本 repo 記過這件事（「你是怎麼走到那一頁的？」）。
+        """
         # Get vendor info
         vendor_query = select(PartnerVendor).where(PartnerVendor.id == vendor_id)
         vendor = (await self.db.execute(vendor_query)).scalars().first()
@@ -264,6 +285,8 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
             .join(ERPQuotation, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
             .where(ERPVendorPayable.vendor_id == vendor_id)
         )
+        if accessible_case_codes is not None:
+            query = query.where(ERPQuotation.case_code.in_(accessible_case_codes or {"__none__"}))
         if year:
             query = query.where(quotation_case_year_condition(year))
         query = query.order_by(ERPQuotation.case_code, ERPVendorPayable.id)

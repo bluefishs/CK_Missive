@@ -37,15 +37,32 @@ router = APIRouter()
 QUOTATION_CROSS_CASE_PERMISSION = "reports:erp:view"
 
 
-def _quotation_scope(user):
-    """回可見的 case_code 範圍；**None ＝ 不限縮**。
+async def _quotation_scope(db, user):
+    """回可見的 case_code **集合**；**None ＝ 不限縮**。
 
     ⚠️ 範圍由**伺服器依身分**決定，不接受請求參數指定 ——
     否則前端傳什麼就給什麼，等於沒有 RLS。
+
+    ⭐ 2026-09-08 owner 回報 `/api/erp/quotations/list` 連續 500
+    （`TypeError: 'CompoundSelect' object is not iterable`）：
+
+    這裡原本回的是 `RLSFilter.get_user_accessible_case_codes(user.id)` ——
+    那是一個**還沒執行的 SQL 述句**，不是集合。
+    `repo.filter_quotations` 拿它去 `case_code.in_(...)` 是可以的
+    （SQLAlchemy 接受子查詢），所以**一般情況完全正常**；
+    但服務層在使用者**同時挑了承辦同仁**時要做交集
+    `set(accessible_case_codes) & mine` ⇒ 對述句做 `set()` ⇒ TypeError ⇒ 500。
+
+    ⇒ 症狀只在「非管理員 ＋ 有選承辦同仁」時出現，而那正是 owner 的情境
+    （業務同仁王駿穠）。**同一個值有兩種用法（子查詢／集合），
+    而只有其中一種撐得住** —— 統一回集合，讓兩邊都能用。
+
+    範圍來源走 `case_scope.accessible_case_codes`（與費用核銷、帳款頁同一份），
+    不在這裡重造第二份 assignment 查詢。
     """
     from app.core.auth_service import AuthService
     from app.core.dependencies import is_admin_user, is_superuser_user
-    from app.core.rls_filter import RLSFilter
+    from app.core.case_scope import accessible_case_codes
 
     # 管理員判定走既有 SSOT（併看 flag 與 role）—— 本 repo 有兩位 role=admin
     # 而 is_admin 旗標為 false，只看旗標會把他們當成一般同仁。
@@ -53,7 +70,7 @@ def _quotation_scope(user):
         return None
     if AuthService.check_permission(user, QUOTATION_CROSS_CASE_PERMISSION):
         return None
-    return RLSFilter.get_user_accessible_case_codes(user.id)
+    return await accessible_case_codes(db, user.id)
 
 
 @router.post("/staff-options")
@@ -69,7 +86,8 @@ async def list_staff_options(
     選了就是一片空白，使用者會以為是系統壞了。
     """
     from app.repositories.erp.case_staff import assignable_staff
-    return SuccessResponse(data={"items": await assignable_staff(db)})
+    scope = await _quotation_scope(db, current_user)
+    return SuccessResponse(data={"items": await assignable_staff(db, accessible_case_codes=scope)})
 
 
 @router.post("/list")
@@ -84,7 +102,7 @@ async def list_quotations(
       · **成案主軸** —— 預設只給有承攬案件的報價單（`include_unawarded` 可取回）
       · **依身分限縮** —— 一般同仁只看自己被指派的案子，與 /contract-cases 同一條規則
     """
-    scope = _quotation_scope(current_user)
+    scope = await _quotation_scope(service.db, current_user)
     items, total = await service.list_quotations(params, accessible_case_codes=scope)
     return PaginatedResponse.create(items=items, total=total, page=params.page, limit=params.limit)
 
@@ -183,11 +201,14 @@ async def delete_quotation(
 async def get_profit_summary(
     req: ERPSummaryRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
 ):
-    """損益摘要"""
+    """損益摘要（統計卡）——與列表**同一個身分範圍**，見 service 的說明"""
+    scope = await _quotation_scope(service.db, current_user)
     result = await service.get_profit_summary(
         year=req.year, search=req.search,
         category=getattr(req, "category", None), client_name=getattr(req, "client_name", None),
+        accessible_case_codes=scope,
     )
     return SuccessResponse(data=result)
 
@@ -199,7 +220,9 @@ async def get_client_options(
     current_user: User = Depends(require_auth()),
 ):
     """委託單位篩選選項＝案件實際客戶（含筆數），**與列表同年度／類別範圍**——見 service.get_client_options"""
-    return SuccessResponse(data=await service.get_client_options(year=req.year, category=getattr(req, "category", None)))
+    scope = await _quotation_scope(service.db, current_user)
+    return SuccessResponse(data=await service.get_client_options(
+        year=req.year, category=getattr(req, "category", None), accessible_case_codes=scope))
 
 
 @router.post("/profit-trend")

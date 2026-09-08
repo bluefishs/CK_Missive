@@ -34,6 +34,16 @@ import { useResponsive } from '../../hooks';
 /** 帳款方向 */
 type AccountDirection = 'receivable' | 'payable';
 
+/** 已指派但尚無應付的協力廠商（`/erp/vendor-payables/assignment-gaps`） */
+interface AssignmentGap {
+  vendor_id: number;
+  vendor_name: string;
+  role?: string | null;
+  contract_amount: number;
+  project_id: number;
+  reason: string;
+}
+
 interface AccountRecord {
   id: number;
   period?: string;
@@ -168,6 +178,19 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
       ? billingToRecord(row as unknown as ERPBilling, clientName)
       : payableToRecord(row as unknown as ERPVendorPayable),
   );
+
+  // ⭐ 2026-09-08 owner：「/erp/quotations/789?tab=payable 無對應應付帳款」。
+  // 實查：那一案**有**協力廠商指派，只是 `contract_amount = 0` ⇒
+  // 「指派即應付」（weekly 106）依設計不建應付。系統是對的，
+  // **但畫面說不出為什麼是空的** ——「沒有協力廠商」與「有廠商但沒填委外金額」
+  // 在畫面上長得一模一樣。本 repo 記過這件事：空清單長什麼樣要分得出來。
+  const { data: gapsResp } = useQuery({
+    queryKey: ['erp-payable-assignment-gaps', erpQuotationId],
+    queryFn: () => apiClient.post<{ data: { items: AssignmentGap[]; total: number } }>(
+      ERP_ENDPOINTS.VENDOR_PAYABLES_ASSIGNMENT_GAPS, { erp_quotation_id: erpQuotationId }),
+    enabled: !isReceivable && !!erpQuotationId,
+  });
+  const assignmentGaps: AssignmentGap[] = gapsResp?.data?.items ?? [];
 
   const collectedNoInvoice = records.filter((r) => !r.invoice_number && (r.payment_status === 'paid' || r.payment_status === 'partial'));
 
@@ -496,6 +519,30 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
           </Form.Item>
         </Form>
       </Modal>
+
+      {!isReceivable && assignmentGaps.length > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`本案已指派 ${assignmentGaps.length} 家協力廠商，尚未產生對應應付`}
+          description={
+            <span>
+              {assignmentGaps.map((g) => (
+                <div key={g.vendor_id}>
+                  · <strong>{g.vendor_name}</strong>
+                  {g.role ? `（${g.role}）` : ''} —— {g.reason}
+                  {g.contract_amount > 0 && `：NT$ ${g.contract_amount.toLocaleString()}`}
+                </div>
+              ))}
+              <div style={{ marginTop: 6 }}>
+                在承攬案件的「協力廠商」分頁<strong>填上委外金額</strong>後，系統會自動建立應付
+                （指派即應付）。金額 0 不會建 —— 建一筆 0 元的應付對帳務沒有意義。
+              </div>
+            </span>
+          }
+        />
+      )}
 
       {hasUnpaidPayable && unpaidAr.length > 0 && (
         <Alert

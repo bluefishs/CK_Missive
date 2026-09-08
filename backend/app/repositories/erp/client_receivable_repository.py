@@ -40,6 +40,7 @@ class ClientReceivableRepository:
         year: Optional[int] = None,
         keyword: Optional[str] = None,
         staff_user_id: Optional[int] = None,
+        accessible_case_codes=None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple:
@@ -140,6 +141,11 @@ class ClientReceivableRepository:
         # 看到的是「這位承辦名下的委託單位帳款」而不是「有他的單位，金額卻是全部」。
         # 後者才是會誤導的那個（列上寫著某人、數字卻含別人的案）。
         # ⚠️ 這是使用者自己選的篩選，不是 RLS——可見範圍仍由伺服器依身分決定。
+        # ⭐ 2026-09-08 owner：登入身分限縮（見 vendor_payable_repository 同段註解）。
+        # 伺服器決定的範圍，與使用者自選的 staff_user_id 是兩件事。
+        if accessible_case_codes is not None:
+            leg1 = leg1.where(PMCase.case_code.in_(accessible_case_codes or {"__none__"}))
+
         mine: Optional[set] = None
         if staff_user_id is not None:
             from app.repositories.erp.case_staff import case_codes_of_user
@@ -182,6 +188,11 @@ class ClientReceivableRepository:
             )
             .group_by(ContractProject.client_vendor_id, ContractProject.client_agency)
         )
+        # ⚠️ 這一支有**兩條腿**（leg1 走 PMCase、leg2 走 ContractProject）——
+        # 只擋 leg1 的話，業務同仁照樣會從 leg2 看到別人的委託單位。
+        # 「修完第一處要 grep 整個檔」在本 repo 是付過學費的。
+        if accessible_case_codes is not None:
+            leg2 = leg2.where(ContractProject.case_code.in_(accessible_case_codes or {"__none__"}))
         if mine is not None:
             leg2 = leg2.where(ContractProject.case_code.in_(mine or {"__none__"}))
         if year:
@@ -300,9 +311,14 @@ class ClientReceivableRepository:
         return out, total, totals
 
     async def get_client_case_detail(
-        self, vendor_id: int, year: Optional[int] = None
+        self, vendor_id: int, year: Optional[int] = None,
+        accessible_case_codes=None,
     ) -> Optional[dict]:
-        """單一委託單位跨案件應收明細"""
+        """單一委託單位跨案件應收明細。
+
+        ⚠️ 2026-09-08：明細也要限縮（理由同 `get_vendor_case_detail`）——
+        列表擋了而明細沒擋，等於用網址就繞過去。
+        """
         # Get vendor info
         vendor = (
             await self.db.execute(
@@ -314,6 +330,8 @@ class ClientReceivableRepository:
 
         # Get all PMCases for this client
         case_query = select(PMCase).where(PMCase.client_vendor_id == vendor_id)
+        if accessible_case_codes is not None:
+            case_query = case_query.where(PMCase.case_code.in_(accessible_case_codes or {"__none__"}))
         if year:
             case_query = case_query.where(PMCase.year == year)
         cases = (await self.db.execute(case_query)).scalars().all()
@@ -332,6 +350,9 @@ class ClientReceivableRepository:
             ContractProject.case_code.isnot(None),
             ~covered,
         )
+        # 明細同樣有兩條腿 —— 只擋 PM 那條，業務同仁照樣從承攬案這條看到別人的案。
+        if accessible_case_codes is not None:
+            cp_query = cp_query.where(ContractProject.case_code.in_(accessible_case_codes or {"__none__"}))
         if year:
             cp_query = cp_query.where(ContractProject.year == year)
         contract_only = (await self.db.execute(cp_query)).scalars().all()

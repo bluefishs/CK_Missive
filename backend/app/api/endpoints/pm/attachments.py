@@ -211,3 +211,54 @@ async def delete_quotation_attachment(
     await db.commit()
 
     return {"success": True, "message": "附件已刪除", "deleted_id": attachment_id}
+
+
+#: 允許的文件類型 —— 與前端 `types/attachment.ts` 的標籤表對應。
+#: ⚠️ 這裡是**唯一的白名單**：前端只負責挑，不負責定義有哪些。
+#: 收窄成列舉而不是自由字串，否則同一種文件會長出「契約」「契約文件」
+#: 「委託合約」三種寫法，而篩選與統計對不起來（同 enum_storage_convention 那一族）。
+ALLOWED_DOC_TYPES = {
+    "generated_quotation",   # 系統產出報價單
+    "contract_document",     # 契約文件（委託合約）
+    "signed_quotation",      # 客戶回簽
+    "other",                 # 人工判定過、確認是其他佐證
+}
+
+
+@router.post("/attachments/{attachment_id}/doc-type", summary="設定附件文件類型")
+async def set_attachment_doc_type(
+    attachment_id: int,
+    doc_type: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
+):
+    """把已上傳的附件分類（或清成未分類）。
+
+    ⭐ 2026-09-08 owner：「/erp/quotations/790?tab=attachments 上傳委託合約
+    （目前顯示未分類）」。
+
+    追下去是**沒有入口**：`doc_type` 這個欄位早就有、標籤表也有「契約文件」，
+    但上傳表單從來沒問過，而 `uploadDocType` 是由呼叫端寫死的 prop
+    （報價單詳情頁沒給）⇒ **凡是人工上傳的必然是未分類**，
+    而且上傳完也沒有任何地方能改。
+
+    這與「欄位在、資料型別對、只是沒有入口」是同一個形狀
+    （CROSS_LAYER_CONTRACT_INTEGRITY 家族三）。
+
+    `doc_type=None`／空字串 ⇒ 退回未分類（分類錯了要能退回，
+    否則只剩「刪掉重傳」這條路）。
+    """
+    dt = (doc_type or "").strip() or None
+    if dt is not None and dt not in ALLOWED_DOC_TYPES:
+        raise HTTPException(status_code=400, detail=f"未知的文件類型：{dt}")
+
+    result = await db.execute(
+        select(PMCaseAttachment).where(PMCaseAttachment.id == attachment_id)
+    )
+    attachment = result.scalar_one_or_none()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="附件不存在")
+
+    attachment.doc_type = dt
+    await db.commit()
+    return {"success": True, "id": attachment_id, "doc_type": dt}

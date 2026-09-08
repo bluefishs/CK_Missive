@@ -112,18 +112,32 @@ async def case_codes_of_user(db: AsyncSession, user_id: int) -> set[str]:
     return {r[0] for r in rows if r[0]}
 
 
-async def assignable_staff(db: AsyncSession) -> list[dict[str, Any]]:
+async def assignable_staff(db: AsyncSession, accessible_case_codes=None) -> list[dict[str, Any]]:
     """承辦同仁下拉的選項＝**實際有被指派過的人**，不是全體使用者。
 
     為什麼不列全體：下拉列出沒有任何案的人，選了就是一片空白，
     使用者會以為是系統壞了。選項只給選了有東西的。
+
+    ⭐ 2026-09-08 owner：「相關下拉選單…防呆機制」。
+    `accessible_case_codes` 給了就只算**那些案**上的承辦 ——
+    業務同仁的下拉此前列出全公司每一位承辦（含他一個案都碰不到的人），
+    選了就是空表，而畫面上看不出是範圍造成的。
+    `None` ＝不限縮（管理員／全公司視角）。
     """
+    all_codes = ("ARRAY(SELECT case_code FROM contract_projects WHERE case_code IS NOT NULL"
+                 " UNION SELECT case_code FROM pm_cases WHERE case_code IS NOT NULL)")
+    params: dict[str, Any] = {}
+    if accessible_case_codes is None:
+        codes_expr = all_codes
+    else:
+        codes_expr = "CAST(:codes AS text[])"
+        params["codes"] = list(accessible_case_codes) or ["__none__"]
     rows = (await db.execute(text(f"""
         SELECT user_id, name, count(DISTINCT case_code) AS n
-          FROM ({_ASSIGNMENTS_BY_CASE.replace(':cs', 'ARRAY(SELECT case_code FROM contract_projects WHERE case_code IS NOT NULL UNION SELECT case_code FROM pm_cases WHERE case_code IS NOT NULL)')}) t
+          FROM ({_ASSIGNMENTS_BY_CASE.replace(':cs', codes_expr)}) t
          GROUP BY 1, 2
          ORDER BY 3 DESC, 2
-    """))).all()
+    """), params)).all()
     return [{"user_id": r.user_id, "name": r.name, "case_count": int(r.n or 0)} for r in rows]
 
 

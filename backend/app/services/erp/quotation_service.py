@@ -274,6 +274,27 @@ class ERPQuotationService(AuditableServiceMixin):
         # 2026-09-07 owner：「對應承辦同仁呈現對應資訊」。使用者自己選的承辦
         # **只能在可見範圍之內再縮小**——與 `accessible_case_codes` 取交集，
         # 不是覆蓋它（覆蓋就等於前端傳什麼就給什麼，RLS 形同虛設）。
+        # 🛡️ 防呆（2026-09-08 owner：「包含 /erp/quotations 防呆管理機制」）：
+        # `accessible_case_codes` 曾經被兩種形式餵進來 —— 集合，與**還沒執行的 SQL 述句**
+        # （`RLSFilter.get_user_accessible_case_codes` 回的就是後者）。
+        # 兩種形式在 `case_code.in_(...)` 都能用，所以一般情況看不出差別；
+        # 但下面要做集合交集，對述句 `set()` 會 TypeError ⇒ **整個列表頁 500**。
+        # 症狀只在「非管理員 ＋ 有選承辦同仁」時出現 —— 一天中大多數請求都是好的。
+        # ⇒ 收在入口統一成集合：述句就地執行，其餘照舊。
+        if accessible_case_codes is not None and not isinstance(
+                accessible_case_codes, (set, frozenset, list, tuple)):
+            try:
+                rows = (await self.db.execute(accessible_case_codes)).all()
+                accessible_case_codes = {r[0] for r in rows if r and r[0]}
+                logger.warning(
+                    "list_quotations 收到 SQL 述句形式的可見範圍，已就地執行為集合 —— "
+                    "呼叫端應改回集合（見 endpoints/erp/quotations._quotation_scope）")
+            except Exception as e:  # noqa: BLE001
+                # 解不開就**限縮成空**而不是放行全部 —— 範圍守衛失效時，
+                # 安全的失敗方向是「看不到」不是「全都看得到」。
+                logger.error("可見範圍解析失敗，限縮為空：%s", e, exc_info=True)
+                accessible_case_codes = set()
+
         staff_uid = getattr(params, "staff_user_id", None)
         if staff_uid is not None:
             from app.repositories.erp.case_staff import case_codes_of_user
@@ -674,7 +695,8 @@ class ERPQuotationService(AuditableServiceMixin):
     # 損益摘要
     # =========================================================================
 
-    async def get_client_options(self, year: Optional[int] = None, category: Optional[str] = None) -> list[dict]:
+    async def get_client_options(self, year: Optional[int] = None, category: Optional[str] = None,
+                                 accessible_case_codes=None) -> list[dict]:
         """委託單位篩選的選項＝**案件實際的客戶**，不是主檔的 vendor_type=client。
 
         2026-09-04 owner「委託單位篩選無法正確檢索案件」：選項此前取自主檔 client 型，但
@@ -693,6 +715,14 @@ class ERPQuotationService(AuditableServiceMixin):
         if category in ("01", "02"):
             scope += " AND q.case_code ~ :cat"
             params["cat"] = r"^CK\d{4}_(PM_)?" + category + "_"
+        # ⭐ 2026-09-08 owner：「相關下拉選單…防呆機制」。
+        # 選項也要跟身分範圍走 —— 否則業務同仁的下拉列出全公司 178 家委託單位，
+        # 選了任何一家都是空表（他的案裡沒有那一家），
+        # 而畫面上只會顯示「查無資料」，看不出是權限範圍造成的。
+        if accessible_case_codes is not None:
+            codes = list(accessible_case_codes) or ["__none__"]
+            scope += " AND q.case_code = ANY(:codes)"
+            params["codes"] = codes
         sql = """
             SELECT name, SUM(n)::int AS n FROM (
               -- 2026-09-07：名字一律**主檔優先**（`COALESCE(主檔, 快照)`），與列表同一套。
@@ -720,10 +750,23 @@ class ERPQuotationService(AuditableServiceMixin):
     async def get_profit_summary(
         self, year: Optional[int] = None, search: Optional[str] = None,
         category: Optional[str] = None, client_name: Optional[str] = None,
+        accessible_case_codes=None,
     ) -> ERPProfitSummary:
-        """年度損益摘要 — 批次聚合消除 N+1（與列表同一組條件：年度／關鍵字／類別／委託單位，統計卡是列表的分母）"""
+        """年度損益摘要 — 批次聚合消除 N+1（與列表同一組條件：年度／關鍵字／類別／委託單位，統計卡是列表的分母）
+
+        ⭐ 2026-09-08 owner 圈出：列表只有 3 案，而「承攬金額」卡寫著 108,108,873。
+
+        原因是**列表限縮了身分範圍、統計卡沒有** —— 卡片走這一支，
+        而這一支從來不知道「誰在看」。於是業務同仁看到的是
+        「我的 3 個案」配上「全公司的一億」，兩個數字放在同一個畫面上互相矛盾。
+
+        ⚠️ 這與 §2.6 ①「卡片的分母不隨自己的篩選變動」**不衝突**：
+        身分範圍不是使用者的篩選，它是這個人看得到的全部 ——
+        分母可以不隨勾選變，但不能超出他看得到的範圍。
+        """
         items, _ = await self.repo.filter_quotations(
             year=year, search=search or None, category=category or None, client_name=client_name or None,
+            accessible_case_codes=accessible_case_codes,
             skip=0, limit=9999,
         )
 

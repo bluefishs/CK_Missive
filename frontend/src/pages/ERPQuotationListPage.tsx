@@ -37,9 +37,24 @@ const YEAR_OPTIONS = [
 ];
 
 /** 案件年度：由建案案號 CK{年}_… 取；取不到才用報價單 year */
+/**
+ * 這一列的「年度」——**必須與年度篩選用的是同一個定義**。
+ *
+ * ⭐ 2026-09-08 owner 圈出：篩選選了「2026 年」，而列表裡出現一列寫著 **2025**
+ * （`CK2025_01_03_001`，115 年度桃園市興辦…）。看起來像篩選壞了。
+ *
+ * 實際上篩選是對的：那一案是**跨年度合約** —— 2025 年給的案號、
+ * 承作的是民國 115（＝西元 2026）年度，`year` 欄就是 2026。
+ * 後端 09-08 起改以 `year` 欄為準（`case_year.quotation_case_year_condition`，
+ * 案號年只是退路），**而這裡還在讀案號年** ⇒
+ * 同一件事兩個定義，篩選用一個、顯示用另一個，而**兩邊各自看都沒錯**。
+ *
+ * ⇒ 顯示改成與後端同序：`year` 欄優先，沒有才退回案號年。
+ */
 const caseYear = (r: ERPQuotation): number | undefined => {
+  if (r.year != null) return Number(r.year);
   const m = /^CK(\d{4})_/.exec(r.case_code ?? '');
-  return m ? Number(m[1]) : (r.year ?? undefined);
+  return m ? Number(m[1]) : undefined;
 };
 
 export const ERPQuotationListPage: React.FC = () => {
