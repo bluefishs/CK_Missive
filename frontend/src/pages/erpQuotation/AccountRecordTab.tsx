@@ -27,6 +27,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { ERP_ENDPOINTS } from '../../api/endpoints';
 import { extractApiMessage } from '../../utils/apiMessage';
+import { InvoiceBuyerFields } from '../../components/erp/InvoiceBuyerFields';
 import { ROUTES } from '../../router/types';
 import { useResponsive } from '../../hooks';
 
@@ -465,15 +466,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
               ]}
             />
           </Form.Item>
-          <Form.Item name="buyer_name" label="發票抬頭（買受人）"
-            extra="可能與委託單位不同（實例：委託單位鎮泓、抬頭樂昱建設）；留空則以委託單位為抬頭">
-            <Input maxLength={200} placeholder="例：樂昱建設有限公司" />
-          </Form.Item>
-          <Form.Item name="buyer_tax_id" label="買受人統編"
-            rules={[{ pattern: /^[0-9]{8}$/, message: '統一編號為 8 碼數字' }]}
-            extra="三聯式必填；二聯式（機關／個人）可留空">
-            <Input maxLength={8} placeholder="12345678" />
-          </Form.Item>
+          <InvoiceBuyerFields form={invoiceForm} />
           <Form.Item name="invoice_remark" label="發票備註"
             extra="會印在發票上（例：訂購編號：XD-QA0132-00 台銀）">
             <Input maxLength={200} />

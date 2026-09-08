@@ -8,6 +8,7 @@ from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync, f
 from . import assets
 from . import operational
 from . import my_summary
+from . import anomalies
 
 # ⚠️ 2026-08-29 owner 裁示「ERP 權限收斂」：由 `require_auth()`（只問有沒有登入）
 # 提升為 `require_permission("reports:erp:view")`。
@@ -136,6 +137,13 @@ router.include_router(financial_summary.router, prefix="/financial-summary", dep
 router.include_router(filing_gaps.router, prefix="/filing-gaps", tags=["填報缺口"])
 # 2026-09-03：我的專案統整——承辦看自己的待收／逾期是稽催機制的一部分，只要登入（require_auth 在端點內），不掛 reports 權限
 router.include_router(my_summary.router, prefix="/my-summary", tags=["個人儀表板"])
+# ⭐ 2026-09-08 owner：「異常案件標註機制並增列篩選查詢，以利解除或處理異常費用之案件」。
+# 掛在報價單頁的權限之下 —— 異常是報價單上的數字（請款／發票／總價）之間的矛盾，
+# 看得到報價單的人就該看得到它；另立一組權限碼只會多一份要同步的宣告。
+router.include_router(
+    anomalies.router, prefix="/anomalies",
+    dependencies=[Depends(require_page_permission("/erp/quotations"))],
+    tags=["金流異常"])
 # 2026-08-16 owner：「線上報價單機制」
 router.include_router(quotation_items.router, prefix="/quotation-items", dependencies=[Depends(require_page_permission("/erp/quotations"))], tags=["報價明細"])
 router.include_router(einvoice_sync.router, prefix="/einvoice-sync", dependencies=[Depends(require_page_permission("/erp/einvoice-sync"))], tags=["電子發票同步"])

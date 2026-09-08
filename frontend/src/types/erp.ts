@@ -54,7 +54,27 @@ export interface MyErpSummary {
   no_quotation?: number;
 }
 
+/**
+ * 案件金流異常（**推導**，不是儲存在報價單上的旗標）。
+ * 判準的唯一定義在後端 `app/services/erp/finance_anomaly.py`；
+ * 前端不判斷什麼算異常 —— 抄一份就是第二份宣告。
+ */
+export interface FinanceAnomaly {
+  code: string;
+  label: string;
+  severity: 'red' | 'yellow';
+  /** 為什麼這算異常（給 Tooltip 用） */
+  explain: string;
+  /** 差額說明，例：「發票 18,690｜請款 17,850｜多 840」 */
+  detail: string;
+  /** 已判讀？判讀不會讓異常消失，只是移出待處理 */
+  acknowledged?: boolean;
+  ack?: { reason: string; acked_by?: string | null; acked_at?: string | null } | null;
+}
+
 export interface ERPQuotation {
+  /** 金流異常（空陣列＝這張沒有異常） */
+  anomalies?: FinanceAnomaly[];
   id: number;
   case_code: string;
   project_code?: string;
@@ -183,6 +203,12 @@ export interface ERPQuotationCreate {
   year?: number;
   total_price?: number | string;
   tax_amount?: number | string;
+  /**
+   * 總價是否已含稅（總表 K 欄「稅內含」）。
+   * true ⇒ 工項小計即為總價、不再 ×1.05，稅額不另計。
+   * 2026-09-08 前這個旗標只有匯入器寫得到，線上填報無從指定。
+   */
+  tax_included?: boolean;
   outsourcing_fee?: number | string;
   personnel_fee?: number | string;
   overhead_fee?: number | string;
@@ -287,6 +313,8 @@ export interface ERPQuotationListParams {
   case_status?: string;
   /** 委託單位（精確比對；2026-09-04 取代案件狀態篩選） */
   client_name?: string;
+  /** 金流異常篩選：open＝只列待判讀／all＝連已判讀一起列（2026-09-08） */
+  anomaly?: 'open' | 'all';
   /** 統計卡篩選 outstanding／payable／cost（revenue＝全部） */
   card?: 'revenue' | 'outstanding' | 'payable' | 'cost';
   /** 只看這位承辦同仁名下的案（在可見範圍之內再縮小，不是 RLS） */

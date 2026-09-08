@@ -37,6 +37,7 @@ import { useSubcontractorOptions } from '../hooks/business/useDropdownData';
 import { usePermissions } from '../hooks/utility/usePermissions';
 import { extractApiMessage } from '../utils/apiMessage';
 import { ErpFormPageShell } from '../components/erp/ErpFormPageShell';
+import { InvoiceBuyerFields } from '../components/erp/InvoiceBuyerFields';
 
 const amountFormatter = (v: unknown) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
@@ -382,13 +383,7 @@ const ERPAccountRecordFormPage: React.FC = () => {
                     { value: 'duplicate', label: '二聯式（機關或個人）' },
                   ]} />
                 </Form.Item>
-                <Form.Item name="buyer_name" label="發票抬頭（買受人）" extra="留空則以委託單位為抬頭">
-                  <Input maxLength={200} />
-                </Form.Item>
-                <Form.Item name="buyer_tax_id" label="買受人統編"
-                  rules={[{ pattern: /^[0-9]{8}$/, message: '統一編號為 8 碼數字' }]}>
-                  <Input maxLength={8} placeholder="12345678" />
-                </Form.Item>
+                <InvoiceBuyerFields form={form} />
                 <Form.Item name="invoice_remark" label="發票備註" extra="會印在發票上">
                   <Input maxLength={200} />
                 </Form.Item>

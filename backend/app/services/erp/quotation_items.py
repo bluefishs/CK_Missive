@@ -44,6 +44,104 @@ class QuotationItemService:
         )
         return list(rows.scalars().all())
 
+    async def _apply_totals(self, quotation, quotation_id: int, total: Decimal) -> None:
+        """依工項小計回寫總價／稅額（含 PM・承攬案同步與請款鎖）。
+
+        ⭐ 2026-09-08 抽出來的理由：`tax_included` 現在**可以在畫面上切換**，
+        而切換之後總價要照新規則重算。若在別處再寫一份 ×1.05／稅額的算式，
+        就會出現「同一件事有兩份宣告、改一份另一份不動」——
+        本 repo 反覆出事的形狀（L145 家族）。⇒ 只留這一份。
+        """
+        # 2026-09-06 部署探針鏈 B 抓到兩個斷點：
+        #  ① 這裡把**未稅小計**寫進 total_price，而 FIELD_SEMANTICS 自 09-02 起定義 total_price＝**含稅總價**
+        #    （請款、發票、承攬金額都對著它）⇒ 填了工項的報價單會比別張少 5%。改寫含稅：小計×1.05，稅＝小計×5%。
+        #  ② 總價只回寫報價單，PM 的合約金額沒跟著動 ⇒ 使用者填完工項按「成案」被擋「尚未填寫合約金額」，
+        #    得手抄同一個數字——「每張表單獨看都正常，鏈才是斷的」（L140）。同步到 PM／承攬案的 contract_amount。
+        #  ③ 已有請款的報價單不得經由工項改總價（與 quotation_service.update 同一把鎖）。
+        from app.extended.models.erp import ERPBilling
+        from app.extended.models.pm import PMCase
+        from app.extended.models.core import ContractProject
+        from sqlalchemy import func as _fn
+        # ⭐ 2026-09-08 owner：「/erp/quotations/369?tab=items 其小記已含稅，
+        # 故報價單需增列勾選『總價是否含稅』；如對應總表 K 欄，則
+        # 報價金額(total_price)＝總價(grand_total)、無稅額(tax_amount)」。
+        #
+        # 此前這裡**無條件** ×1.05 —— 對「工項已經是含稅價」的案，那是**多算一次稅**，
+        # 而畫面上看不出來（小計、總價、稅額三個數都印得出來且彼此自洽）。
+        # ⇒ 依 `tax_included` 分兩條：勾了就是小計即總價、稅額 0。
+        tax_included = bool(getattr(quotation, "tax_included", False))
+        gross = (total if tax_included
+                 else (total * Decimal("1.05")).quantize(Decimal("1")))
+        if quotation.total_price is not None and Decimal(str(quotation.total_price)) != gross:
+            n_bill = (await self.db.execute(select(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))).scalar()
+            n_bill = n_bill if isinstance(n_bill, int) else 0
+            if n_bill:
+                raise ValueError(
+                    f"此報價單已有 {n_bill} 筆請款，不可經由工項改總價（請款額與發票額都對著它）；"
+                    f"要調整請以新版次送出並同步調整請款。"
+                )
+        quotation.total_price = gross
+        if quotation.case_code:
+            pm = (await self.db.execute(select(PMCase).where(PMCase.case_code == quotation.case_code))).scalar_one_or_none()
+            if pm is not None:
+                pm.contract_amount = float(gross)
+            cp = (await self.db.execute(select(ContractProject).where(ContractProject.case_code == quotation.case_code))).scalar_one_or_none()
+            if cp is not None:
+                cp.contract_amount = float(gross)
+        # ⚠️ 2026-08-26：稅額必須跟著小計重算，否則 `detail` 會回
+        # **新小計 ＋ 舊稅額**，那在算術上就是錯的。
+        # 端到端實測抓到：小計改成 8,000 之後，稅額仍是舊的 12,656
+        # （原總價 253,120 的 5%），total 算出 20,656。
+        #
+        # 這個 bug 一直沒有真實發生，因為 `erp_quotation_items`
+        # **0 筆 / 256 張** —— 沒有人用過線上明細。接通之後就會發生。
+        #
+        # ⚠️ 順帶查出 `total_price` 這個欄位**混了兩種語意**：
+        #     147 張  tax = total × 5.00%      ⇒ total 是**未稅**
+        #      66 張  tax = total × 4.76%      ⇒ 4.76% = 5/105，
+        #                                        ⇒ total 是**含稅**
+        # 明細小計依定義必然是**未稅**（單價 × 數量），所以這裡按未稅算。
+        # 使用者一旦改用明細填報，那張的語意就統一到未稅 —— 這是收斂
+        # 不是破壞，但**只在他真的填了明細時才發生**，不動沒有明細的。
+        #
+        # 5% 是法定營業稅率，此處寫死；若日後要可設定，
+        # 照既有的 `site_configurations.erp_company_profit_rate` 形態加一個 key。
+        # 勾了「總價已含稅」⇒ 稅額不另計（總表 K 欄＝v 的那些列，稅額欄本來就是空的／0）。
+        # ⚠️ 不能改成「由含稅反算」：那是**發票**的算法（發票要印銷售額與稅額），
+        # 而報價單勾含稅的用意是「這個價就是這個價，不再拆」。兩者別混。
+        quotation.tax_amount = (Decimal("0") if tax_included
+                                else (total * Decimal("0.05")).quantize(Decimal("1")))
+        # 成案即應收：已成案且尚無請款者，總價一到位就建第一期（與 quotation_service.update 同掛點）
+        try:
+            from app.services.erp.billing_service import ERPBillingService
+            await self.db.flush()
+            await ERPBillingService(self.db).ensure_first_period(quotation_id, reason="工項填列")
+        except Exception as e:  # noqa: BLE001
+            logger.error("成案即應收掛點失敗（不阻擋工項儲存）quotation=%s: %s", quotation_id, e, exc_info=True)
+
+    async def recompute_totals(self, quotation_id: int) -> dict[str, Any]:
+        """用**現有**工項重算總價 —— 給「切換稅內含」用。
+
+        沒有工項就不動：空明細代表尚未逐項拆，不是 0 元（同 replace_items 的判斷）。
+        已有請款者會被 `_apply_totals` 內那把鎖擋下（總價變動 ⇒ ValueError），
+        因為請款額與發票額都對著這個總價。
+        """
+        quotation = (await self.db.execute(
+            select(ERPQuotation).where(ERPQuotation.id == quotation_id)
+        )).scalar_one_or_none()
+        if not quotation:
+            raise ValueError(f"報價 {quotation_id} 不存在")
+        rows = await self.list_items(quotation_id)
+        if not rows:
+            return {"quotation_id": quotation_id, "item_count": 0, "recomputed": False,
+                    "total_price": float(quotation.total_price or 0)}
+        total = sum((Decimal(str(r.amount or 0)) for r in rows), Decimal("0"))
+        await self._apply_totals(quotation, quotation_id, total)
+        await self.db.flush()
+        return {"quotation_id": quotation_id, "item_count": len(rows), "recomputed": True,
+                "total_price": float(quotation.total_price or 0),
+                "items_total": float(total)}
+
     async def replace_items(
         self, quotation_id: int, items: list[dict[str, Any]],
     ) -> dict[str, Any]:
@@ -91,72 +189,7 @@ class QuotationItemService:
 
         count = sum(1 for r in items if (r.get("item_name") or "").strip())
         if count:
-            # 2026-09-06 部署探針鏈 B 抓到兩個斷點：
-            #  ① 這裡把**未稅小計**寫進 total_price，而 FIELD_SEMANTICS 自 09-02 起定義 total_price＝**含稅總價**
-            #    （請款、發票、承攬金額都對著它）⇒ 填了工項的報價單會比別張少 5%。改寫含稅：小計×1.05，稅＝小計×5%。
-            #  ② 總價只回寫報價單，PM 的合約金額沒跟著動 ⇒ 使用者填完工項按「成案」被擋「尚未填寫合約金額」，
-            #    得手抄同一個數字——「每張表單獨看都正常，鏈才是斷的」（L140）。同步到 PM／承攬案的 contract_amount。
-            #  ③ 已有請款的報價單不得經由工項改總價（與 quotation_service.update 同一把鎖）。
-            from app.extended.models.erp import ERPBilling
-            from app.extended.models.pm import PMCase
-            from app.extended.models.core import ContractProject
-            from sqlalchemy import func as _fn
-            # ⭐ 2026-09-08 owner：「/erp/quotations/369?tab=items 其小記已含稅，
-            # 故報價單需增列勾選『總價是否含稅』；如對應總表 K 欄，則
-            # 報價金額(total_price)＝總價(grand_total)、無稅額(tax_amount)」。
-            #
-            # 此前這裡**無條件** ×1.05 —— 對「工項已經是含稅價」的案，那是**多算一次稅**，
-            # 而畫面上看不出來（小計、總價、稅額三個數都印得出來且彼此自洽）。
-            # ⇒ 依 `tax_included` 分兩條：勾了就是小計即總價、稅額 0。
-            tax_included = bool(getattr(quotation, "tax_included", False))
-            gross = (total if tax_included
-                     else (total * Decimal("1.05")).quantize(Decimal("1")))
-            if quotation.total_price is not None and Decimal(str(quotation.total_price)) != gross:
-                n_bill = (await self.db.execute(select(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))).scalar()
-                n_bill = n_bill if isinstance(n_bill, int) else 0
-                if n_bill:
-                    raise ValueError(
-                        f"此報價單已有 {n_bill} 筆請款，不可經由工項改總價（請款額與發票額都對著它）；"
-                        f"要調整請以新版次送出並同步調整請款。"
-                    )
-            quotation.total_price = gross
-            if quotation.case_code:
-                pm = (await self.db.execute(select(PMCase).where(PMCase.case_code == quotation.case_code))).scalar_one_or_none()
-                if pm is not None:
-                    pm.contract_amount = float(gross)
-                cp = (await self.db.execute(select(ContractProject).where(ContractProject.case_code == quotation.case_code))).scalar_one_or_none()
-                if cp is not None:
-                    cp.contract_amount = float(gross)
-            # ⚠️ 2026-08-26：稅額必須跟著小計重算，否則 `detail` 會回
-            # **新小計 ＋ 舊稅額**，那在算術上就是錯的。
-            # 端到端實測抓到：小計改成 8,000 之後，稅額仍是舊的 12,656
-            # （原總價 253,120 的 5%），total 算出 20,656。
-            #
-            # 這個 bug 一直沒有真實發生，因為 `erp_quotation_items`
-            # **0 筆 / 256 張** —— 沒有人用過線上明細。接通之後就會發生。
-            #
-            # ⚠️ 順帶查出 `total_price` 這個欄位**混了兩種語意**：
-            #     147 張  tax = total × 5.00%      ⇒ total 是**未稅**
-            #      66 張  tax = total × 4.76%      ⇒ 4.76% = 5/105，
-            #                                        ⇒ total 是**含稅**
-            # 明細小計依定義必然是**未稅**（單價 × 數量），所以這裡按未稅算。
-            # 使用者一旦改用明細填報，那張的語意就統一到未稅 —— 這是收斂
-            # 不是破壞，但**只在他真的填了明細時才發生**，不動沒有明細的。
-            #
-            # 5% 是法定營業稅率，此處寫死；若日後要可設定，
-            # 照既有的 `site_configurations.erp_company_profit_rate` 形態加一個 key。
-            # 勾了「總價已含稅」⇒ 稅額不另計（總表 K 欄＝v 的那些列，稅額欄本來就是空的／0）。
-            # ⚠️ 不能改成「由含稅反算」：那是**發票**的算法（發票要印銷售額與稅額），
-            # 而報價單勾含稅的用意是「這個價就是這個價，不再拆」。兩者別混。
-            quotation.tax_amount = (Decimal("0") if tax_included
-                                    else (total * Decimal("0.05")).quantize(Decimal("1")))
-            # 成案即應收：已成案且尚無請款者，總價一到位就建第一期（與 quotation_service.update 同掛點）
-            try:
-                from app.services.erp.billing_service import ERPBillingService
-                await self.db.flush()
-                await ERPBillingService(self.db).ensure_first_period(quotation_id, reason="工項填列")
-            except Exception as e:  # noqa: BLE001
-                logger.error("成案即應收掛點失敗（不阻擋工項儲存）quotation=%s: %s", quotation_id, e, exc_info=True)
+            await self._apply_totals(quotation, quotation_id, total)
         else:
             logger.info(
                 "報價 %s 明細清空，**不動 total_price（維持 %s）**"

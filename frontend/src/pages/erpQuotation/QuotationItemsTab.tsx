@@ -15,7 +15,7 @@
 import React from 'react';
 import {
   Table, Button, InputNumber, Input, Space, Typography, App, Alert, Popconfirm,
-  Card, Row, Col, Divider,
+  Card, Row, Col, Divider, Switch, Tooltip, Tag,
 } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import { useResponsive } from '../../hooks';
@@ -67,6 +67,17 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
       setDirty(false);
     }
   }, [data]);
+
+  // 2026-09-08：切換「稅內含」——只改旗標；總價與稅額由後端依旗標重算（工項儲存時）。
+  const setTaxIncluded = useMutation({
+    mutationFn: (v: boolean) => erpQuotationsApi.update(quotationId, { tax_included: v }),
+    onSuccess: (_d, v) => {
+      message.success(v ? '已標記「稅內含」：小計即總價，不再另計稅' : '已改為「外加稅」：總價 ＝ 小計 × 1.05');
+      qc.invalidateQueries({ queryKey: ['quotation-items', quotationId] });
+      qc.invalidateQueries({ queryKey: ['erp-quotations'] });
+    },
+    onError: () => message.error('切換失敗'),
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -304,9 +315,16 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
         <Row justify="space-between">
           <Col><Text type="secondary">小計{noItems && '（報價單金額）'}</Text></Col>
           <Col><Text strong>{money(subtotal)}</Text></Col></Row>
-        {tax > 0 && (
+        {/* 含稅時 tax 是 0，此前「tax > 0 才顯示」會讓整列消失 ——
+            而使用者要看到的正是「這張是稅內含」。 */}
+        {(tax > 0 || taxIncluded) && (
           <Row justify="space-between" style={{ marginTop: 4 }}>
-            <Col><Text type="secondary">{taxIncluded ? '稅額（總價已含稅，不另計）' : '稅額'}</Text></Col><Col>{money(tax)}</Col></Row>
+            <Col>
+              <Text type="secondary">稅額</Text>
+              {taxIncluded && <Tag color="blue" style={{ marginInlineStart: 6 }}>稅內含</Tag>}
+            </Col>
+            <Col>{taxIncluded ? <Text type="secondary">已含於小計</Text> : money(tax)}</Col>
+          </Row>
         )}
         <Divider style={{ margin: '8px 0' }} />
         <Row justify="space-between" align="middle">
@@ -378,10 +396,15 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
               <Table.Summary.Cell index={1} align="right"><Text strong>{money(subtotal)}</Text></Table.Summary.Cell>
               <Table.Summary.Cell index={2} />
             </Table.Summary.Row>
-            {tax > 0 && (
+            {(tax > 0 || taxIncluded) && (
               <Table.Summary.Row>
-                <Table.Summary.Cell index={0} colSpan={5}><Text type="secondary">稅額</Text></Table.Summary.Cell>
-                <Table.Summary.Cell index={1} align="right">{money(tax)}</Table.Summary.Cell>
+                <Table.Summary.Cell index={0} colSpan={5}>
+                  <Text type="secondary">稅額</Text>
+                  {taxIncluded && <Tag color="blue" style={{ marginInlineStart: 8 }}>稅內含</Tag>}
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={1} align="right">
+                  {taxIncluded ? <Text type="secondary">已含於小計，不另計</Text> : money(tax)}
+                </Table.Summary.Cell>
                 <Table.Summary.Cell index={2} />
               </Table.Summary.Row>
             )}
@@ -395,9 +418,25 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           </Table.Summary>
         )}
         title={() => (
-          <Space direction="vertical" size={0}>
-            <Text strong>{caseName || '報價單'}</Text>
-            {caseCode && <Text type="secondary" style={{ fontSize: 12 }}>{caseCode}</Text>}
+          <Space style={{ width: '100%', justifyContent: 'space-between' }} align="start" wrap>
+            <Space direction="vertical" size={0}>
+              <Text strong>{caseName || '報價單'}</Text>
+              {caseCode && <Text type="secondary" style={{ fontSize: 12 }}>{caseCode}</Text>}
+            </Space>
+            {/* ⭐ 2026-09-08 owner：「總價是否含稅，前端也須同步建立管控填報機制，
+                以利前後端經費統計」。此前這個旗標只有匯入器寫得到（總表 K 欄），
+                線上填報無從指定 ⇒ 線上建的每一張都被當成未稅、小計一律 ×1.05。
+                對「單價本身已含稅」的案那是**多算一次稅**，而三個數字彼此自洽、看不出錯。 */}
+            <Space size={6}>
+              <Tooltip title="勾＝工項單價已含稅：小計即為總價，不再另計 5% 營業稅。對應總表的「稅內含」欄。">
+                <Text type="secondary" style={{ fontSize: 12 }}>總價已含稅</Text>
+              </Tooltip>
+              <Switch size="small" checked={taxIncluded}
+                disabled={readOnly || setTaxIncluded.isPending}
+                loading={setTaxIncluded.isPending}
+                checkedChildren="稅內含" unCheckedChildren="外加稅"
+                onChange={(v) => setTaxIncluded.mutate(v)} />
+            </Space>
           </Space>
         )}
       />

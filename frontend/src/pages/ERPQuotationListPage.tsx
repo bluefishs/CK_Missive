@@ -3,6 +3,7 @@
  */
 import React, { useState } from 'react';
 import { FilterBar } from '../components/common/FilterBar';
+import { AnomalyTags } from '../components/erp/AnomalyTags';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
@@ -211,6 +212,15 @@ export const ERPQuotationListPage: React.FC = () => {
         );
       },
     },
+    {
+      // 2026-09-08：異常標註。放在應付之後、操作之前 —— 它是「這一案要不要處理」的訊號，
+      // 看完金額才問這個。空的時候印「—」而不是整欄消失，
+      // 因為「沒有異常」與「這個機制沒在跑」必須分得出來。
+      title: '金流異常', key: 'anomalies', width: 170,
+      render: (_: unknown, r: ERPQuotation) => (
+        <AnomalyTags quotationId={r.id} anomalies={r.anomalies} />
+      ),
+    },
     // 2026-08-15 移除「操作」欄（詳情／編輯／刪除）。
     // 對照 `/documents` 列表：它沒有操作欄 —— 點列進詳情，所有操作在詳情頁。
     // 這三顆在報價詳情頁本來就有，列表這一欄是重複的；
@@ -322,7 +332,7 @@ export const ERPQuotationListPage: React.FC = () => {
                         style={{ width: 240 }}
                       />
           )}
-          activeCount={[params.category, params.client_name, params.card, params.staff_user_id].filter(Boolean).length + (params.year ? 0 : 1)}
+          activeCount={[params.category, params.client_name, params.card, params.staff_user_id, params.anomaly].filter(Boolean).length + (params.year ? 0 : 1)}
         >
           <Select
             value={params.year ?? 0}
@@ -356,6 +366,17 @@ export const ERPQuotationListPage: React.FC = () => {
             optionFilterProp="label"
             onChange={(v) => setParams((p) => ({ ...p, client_name: v || undefined, page: 1 }))}
             options={clientOptions.map((c) => ({ value: c.name, label: `${c.name}（${c.count}）` }))}
+          />
+          {/* ⭐ 2026-09-08 owner：「異常案件標註機制並增列篩選查詢，
+              以利解除或處理異常費用之案件機制」。
+              判準與清單都由後端算（`/erp/anomalies`）—— 前端只負責問哪一種。 */}
+          <Select
+            placeholder="金流異常" allowClear style={{ width: 150 }} value={params.anomaly}
+            onChange={(v) => setParams((p) => ({ ...p, anomaly: v || undefined, page: 1 }))}
+            options={[
+              { value: 'open', label: '異常｜待判讀' },
+              { value: 'all', label: '異常｜全部' },
+            ]}
           />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button

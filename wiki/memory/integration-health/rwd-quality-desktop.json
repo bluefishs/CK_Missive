@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-06T16:36:38.557Z",
+  "checked_at": "2026-09-07T03:54:42.445Z",
   "base": "https://missive.cksurvey.tw",
   "width": 1440,
   "routes": 39,
@@ -10,6 +10,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -60,6 +62,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 7,
@@ -110,6 +114,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 16,
@@ -160,6 +166,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -210,6 +218,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -260,6 +270,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 17,
@@ -310,12 +322,14 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 7,
+      "smallTap": 8,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -330,6 +344,12 @@
           "h": 22
         },
         {
+          "sel": "span.ant-table-filter-trigger",
+          "text": "",
+          "w": 20,
+          "h": 30
+        },
+        {
           "sel": "button.ant-pagination-item-link",
           "text": "",
           "w": 24,
@@ -340,12 +360,6 @@
           "text": "1",
           "w": 24,
           "h": 24
-        },
-        {
-          "sel": "button.ant-pagination-item-link",
-          "text": "",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -353,13 +367,15 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 3,
-      "controls": 12
+      "controls": 14
     },
     {
       "route": "/erp/client-accounts",
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -410,6 +426,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 18,
@@ -460,12 +478,14 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 1,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 12,
+      "smallTap": 14,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -492,10 +512,10 @@
           "h": 22
         },
         {
-          "sel": "button.ant-switch.css-1daqxe2",
-          "text": "",
-          "w": 44,
-          "h": 22
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "重置篩選",
+          "w": 72,
+          "h": 24
         }
       ],
       "covered": 0,
@@ -510,6 +530,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -560,6 +582,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -600,13 +624,13 @@
           "h": 24
         },
         {
-          "sel": "input#:r1j:.ant-select-input",
+          "sel": "input#:r16:.ant-select-input",
           "text": "",
           "w": 44,
           "h": 22
         },
         {
-          "sel": "input#:r1l:.ant-select-input",
+          "sel": "input#:r18:.ant-select-input",
           "text": "",
           "w": 28,
           "h": 22
@@ -624,6 +648,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -684,9 +710,11 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 2,
+      "ellipsis": 3,
       "tinyFont": 0,
       "tinyTop": [],
       "smallTap": 10,
@@ -698,19 +726,19 @@
           "h": 22
         },
         {
-          "sel": "input#:ra:.ant-select-input",
+          "sel": "input#:rb:.ant-select-input",
           "text": "",
           "w": 101,
           "h": 22
         },
         {
-          "sel": "input#:rc:.ant-select-input",
+          "sel": "input#:rd:.ant-select-input",
           "text": "",
           "w": 101,
           "h": 22
         },
         {
-          "sel": "input#:re:.ant-select-input",
+          "sel": "input#:rf:.ant-select-input",
           "text": "",
           "w": 101,
           "h": 22
@@ -734,6 +762,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -784,6 +814,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -834,6 +866,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -884,6 +918,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -934,12 +970,14 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 1,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 12,
+      "smallTap": 14,
       "smallTop": [
         {
           "sel": "input.ant-input.css-1daqxe2",
@@ -966,10 +1004,10 @@
           "h": 22
         },
         {
-          "sel": "button.ant-switch.css-1daqxe2",
-          "text": "",
-          "w": 44,
-          "h": 22
+          "sel": "button.ant-btn.css-1daqxe2",
+          "text": "重置篩選",
+          "w": 72,
+          "h": 24
         }
       ],
       "covered": 0,
@@ -984,6 +1022,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1060,6 +1100,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1098,6 +1140,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 36,
@@ -1148,6 +1192,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1167,17 +1213,25 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 20,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 12,
+      "smallTap": 13,
       "smallTop": [
         {
           "sel": "input#:ra:.ant-select-input",
           "text": "",
           "w": 78,
+          "h": 22
+        },
+        {
+          "sel": "input.ant-input.css-1daqxe2",
+          "text": "",
+          "w": 229,
           "h": 22
         },
         {
@@ -1197,12 +1251,6 @@
           "text": "1",
           "w": 24,
           "h": 24
-        },
-        {
-          "sel": "li.ant-pagination-item.ant-pagination-item-2",
-          "text": "2",
-          "w": 24,
-          "h": 24
         }
       ],
       "covered": 0,
@@ -1210,13 +1258,15 @@
       "loneCard": 0,
       "loneTop": [],
       "statCards": 3,
-      "controls": 17
+      "controls": 19
     },
     {
       "route": "/taoyuan",
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1267,6 +1317,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1317,6 +1369,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1367,6 +1421,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1417,25 +1473,60 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
-      "ellipsis": 0,
+      "ellipsis": 5,
       "tinyFont": 0,
       "tinyTop": [],
-      "smallTap": 0,
-      "smallTop": [],
+      "smallTap": 10,
+      "smallTop": [
+        {
+          "sel": "button.ant-pagination-item-link",
+          "text": "",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-1",
+          "text": "1",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-2",
+          "text": "2",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-3",
+          "text": "3",
+          "w": 24,
+          "h": 24
+        },
+        {
+          "sel": "li.ant-pagination-item.ant-pagination-item-4",
+          "text": "4",
+          "w": 24,
+          "h": 24
+        }
+      ],
       "covered": 0,
       "coveredTop": [],
       "loneCard": 0,
       "loneTop": [],
-      "statCards": 0,
-      "controls": 3
+      "statCards": 5,
+      "controls": 16
     },
     {
       "route": "/documents/2689",
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1462,6 +1553,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1481,6 +1574,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1500,6 +1595,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1526,6 +1623,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1552,6 +1651,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1602,6 +1703,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1652,6 +1755,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1696,6 +1801,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,
@@ -1722,6 +1829,8 @@
       "width": 1440,
       "narrowSelect": 0,
       "narrowTop": [],
+      "crushedCol": 0,
+      "crushedTop": [],
       "clipped": 0,
       "clippedTop": [],
       "ellipsis": 0,

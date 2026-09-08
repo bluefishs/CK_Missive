@@ -203,6 +203,22 @@ class ERPQuotationService(AuditableServiceMixin):
         if not quotation:
             return None
         await self.audit_update(quotation_id, changes)
+        # ⭐ 2026-09-08：切換「總價已含稅」之後，總價必須照新規則重算。
+        # 只改旗標不重算的話，畫面上小計會說「即為總價」而 `total_price`
+        # 還停在舊的 ×1.05 —— 而**兩個數字各自看都合理**，
+        # 差異只在跨頁比總額時才浮出來（正是 09-04 那次兩頁兩個總額的形狀）。
+        # 沒有工項的報價單不動（空明細＝尚未逐項拆，不是 0 元）。
+        if "tax_included" in changes:
+            try:
+                from app.services.erp.quotation_items import QuotationItemService
+                await QuotationItemService(self.db).recompute_totals(quotation_id)
+            except ValueError:
+                # 已有請款者會被 `_apply_totals` 那把鎖擋下 —— 要讓使用者看到原因，
+                # 不是安靜地留下「旗標改了但金額沒動」的半套狀態。
+                raise
+            except Exception as e:  # noqa: BLE001
+                logger.error("切換 tax_included 後重算總價失敗 quotation=%s: %s",
+                             quotation_id, e, exc_info=True)
         # 成案即應收（2026-09-03）：補填總額或轉 confirmed 時，若還沒有請款就建第一期
         if "total_price" in changes or changes.get("status") == "confirmed":
             try:
@@ -267,6 +283,14 @@ class ERPQuotationService(AuditableServiceMixin):
                 else (set(accessible_case_codes) & mine)
             ) or {"__none__"}
 
+        # ⭐ 2026-09-08：金流異常篩選。判準只有一份（finance_anomaly），
+        # 這裡只是把它算出來的 id 清單交給查詢。
+        anomaly_ids = None
+        if getattr(params, "anomaly", None):
+            from app.services.erp import finance_anomaly
+            anomaly_ids = await finance_anomaly.anomaly_ids(
+                self.db, only_open=(params.anomaly == "open"))
+
         items, total = await self.repo.filter_quotations(
             year=params.year,
             status=params.status,
@@ -282,6 +306,7 @@ class ERPQuotationService(AuditableServiceMixin):
             case_status=getattr(params, "case_status", None),
             client_name=getattr(params, "client_name", None),
             card=getattr(params, "card", None),
+            anomaly_quotation_ids=anomaly_ids,
         )
 
         if not items:
@@ -304,11 +329,21 @@ class ERPQuotationService(AuditableServiceMixin):
         # 客戶名也整批取（2026-09-03 列表加「客戶」欄；逐筆查會 N+1）
         client_names = await self._get_client_names_batch([q.case_code for q in items])
 
+        # 異常標註（推導）——與上面的聚合同一個形狀：整批算一次，不逐筆查。
+        # 失敗時記 error 並讓列表照常出來：異常標籤不見了是**看得出來的**降級，
+        # 而整頁 500 會讓使用者連報價單都看不到。
+        try:
+            from app.services.erp import finance_anomaly
+            anomaly_map = await finance_anomaly.annotate(self.db, ids)
+        except Exception as e:  # noqa: BLE001
+            logger.error("報價列表異常標註失敗（不阻擋列表）：%s", e, exc_info=True)
+            anomaly_map = {}
+
         responses = []
         for item in items:
             b = billing_agg.get(item.id, {})
             p = payable_agg.get(item.id, {})
-            responses.append(self._to_response_with_aggregates(
+            resp = self._to_response_with_aggregates(
                 item,
                 creator_name=creator_names.get(item.created_by),
                 staff_name=staff_names.get(item.case_code),
@@ -323,7 +358,9 @@ class ERPQuotationService(AuditableServiceMixin):
                 vendor_names=vendor_names.get(item.id),
                 contract_amount=contract_amounts.get(item.case_code),
                 winning_amount=case_amounts.get(item.case_code, {}).get("winning"),
-            ))
+            )
+            resp.anomalies = anomaly_map.get(item.id, [])
+            responses.append(resp)
         return responses, total
 
     async def _get_vendor_names_batch(self, quotation_ids: List[int]) -> dict:

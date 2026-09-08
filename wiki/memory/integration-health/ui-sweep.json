@@ -1,5 +1,5 @@
 {
- "checked_at": "2026-09-06T20:43:53.189Z",
+ "checked_at": "2026-09-07T20:43:04.070Z",
  "base": "https://missive.cksurvey.tw",
  "role": "admin",
  "pass": 87,
@@ -670,6 +670,7 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/erp/quotations/staff-options",
    "/api/pm/case-nature/options",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
@@ -704,6 +705,7 @@
    "/api/erp/quotations/client-options",
    "/api/erp/quotations/list",
    "/api/erp/quotations/profit-summary",
+   "/api/erp/quotations/staff-options",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -713,6 +715,7 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/pm/cases/list",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -797,6 +800,7 @@
    "/api/ai/config",
    "/api/auth/check",
    "/api/auth/me",
+   "/api/erp/quotations/staff-options",
    "/api/erp/vendor-accounts/summary",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
@@ -808,6 +812,7 @@
    "/api/auth/check",
    "/api/auth/me",
    "/api/erp/client-accounts/summary",
+   "/api/erp/quotations/staff-options",
    "/api/secure-site-management/csrf-token",
    "/api/secure-site-management/navigation/action",
    "/api/system-notifications/unread-count",
@@ -1304,15 +1309,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 821
+      "right": 873
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 764
+      "right": 816
      },
      {
-      "sel": "span",
-      "right": 710
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 759
      }
     ]
    },
@@ -1435,15 +1440,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 821
+      "right": 873
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 764
+      "right": 816
      },
      {
-      "sel": "span",
-      "right": 710
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 759
      }
     ]
    },
@@ -1456,15 +1461,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 821
+      "right": 873
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 764
+      "right": 816
      },
      {
-      "sel": "span",
-      "right": 710
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 759
      }
     ]
    },
@@ -1494,8 +1499,21 @@
     "viewportWidth": 390,
     "pageOverflow": 0,
     "layoutViewport": 390,
-    "tableOverflow": 0,
-    "widest": []
+    "tableOverflow": 759,
+    "widest": [
+     {
+      "sel": "col",
+      "right": 1112
+     },
+     {
+      "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
+      "right": 1112
+     },
+     {
+      "sel": "div",
+      "right": 1106
+     }
+    ]
    },
    {
     "route": "/documents/2689",
@@ -1825,19 +1843,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 486,
+    "tableOverflow": 982,
     "widest": [
      {
       "sel": "col",
-      "right": 1189
+      "right": 1685
      },
      {
       "sel": "path",
-      "right": 1179
+      "right": 1675
      },
      {
       "sel": "path",
-      "right": 1179
+      "right": 1675
      }
     ]
    },
@@ -1846,19 +1864,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 656,
+    "tableOverflow": 1126,
     "widest": [
      {
       "sel": "col",
-      "right": 1359
+      "right": 1829
      },
      {
       "sel": "span",
-      "right": 1351
+      "right": 1821
      },
      {
       "sel": "span",
-      "right": 1351
+      "right": 1821
      }
     ]
    },
@@ -1867,19 +1885,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 1441,
+    "tableOverflow": 1467,
     "widest": [
      {
       "sel": "col",
-      "right": 2173
+      "right": 2199
      },
      {
       "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 2173
+      "right": 2199
      },
      {
       "sel": "div",
-      "right": 2165
+      "right": 2191
      }
     ]
    },
@@ -1888,19 +1906,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 681,
+    "tableOverflow": 818,
     "widest": [
      {
       "sel": "col",
-      "right": 1384
+      "right": 1521
      },
      {
       "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 1384
+      "right": 1521
      },
      {
       "sel": "div",
-      "right": 1376
+      "right": 1513
      }
     ]
    },
@@ -1949,21 +1967,21 @@
    {
     "route": "/pm/cases",
     "viewportWidth": 768,
-    "pageOverflow": 0,
+    "pageOverflow": 7,
     "layoutViewport": 768,
-    "tableOverflow": 768,
+    "tableOverflow": 824,
     "widest": [
      {
       "sel": "col",
-      "right": 1496
+      "right": 1552
      },
      {
       "sel": "path",
-      "right": 1487
+      "right": 1543
      },
      {
       "sel": "path",
-      "right": 1487
+      "right": 1543
      }
     ]
    },
@@ -2012,8 +2030,8 @@
       "right": 826
      },
      {
-      "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 826
+      "sel": "div",
+      "right": 818
      }
     ]
    },
@@ -2043,19 +2061,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 681,
+    "tableOverflow": 818,
     "widest": [
      {
       "sel": "col",
-      "right": 1384
+      "right": 1521
      },
      {
       "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 1384
+      "right": 1521
      },
      {
       "sel": "div",
-      "right": 1376
+      "right": 1513
      }
     ]
    },
@@ -2068,15 +2086,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1098
+      "right": 1151
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1040
+      "right": 1093
      },
      {
-      "sel": "span",
-      "right": 985
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1035
      }
     ]
    },
@@ -2189,15 +2207,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1098
+      "right": 1151
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1040
+      "right": 1093
      },
      {
-      "sel": "span",
-      "right": 985
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1035
      }
     ]
    },
@@ -2210,15 +2228,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1098
+      "right": 1151
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1040
+      "right": 1093
      },
      {
-      "sel": "span",
-      "right": 985
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1035
      }
     ]
    },
@@ -2353,19 +2371,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 478,
+    "tableOverflow": 588,
     "widest": [
      {
       "sel": "col",
-      "right": 1185
+      "right": 1295
      },
      {
       "sel": "th.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 1185
+      "right": 1295
      },
      {
       "sel": "div",
-      "right": 1177
+      "right": 1287
      }
     ]
    },
@@ -2374,19 +2392,19 @@
     "viewportWidth": 768,
     "pageOverflow": 0,
     "layoutViewport": 768,
-    "tableOverflow": 552,
+    "tableOverflow": 662,
     "widest": [
      {
       "sel": "col",
-      "right": 1259
+      "right": 1369
      },
      {
       "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 1259
+      "right": 1369
      },
      {
       "sel": "td.ant-table-cell.ant-table-cell-ellipsis",
-      "right": 1259
+      "right": 1369
      }
     ]
    },
@@ -2584,19 +2602,19 @@
     "viewportWidth": 1024,
     "pageOverflow": 0,
     "layoutViewport": 1024,
-    "tableOverflow": 222,
+    "tableOverflow": 762,
     "widest": [
      {
       "sel": "col",
-      "right": 1173
+      "right": 1713
      },
      {
       "sel": "path",
-      "right": 1163
+      "right": 1703
      },
      {
       "sel": "path",
-      "right": 1163
+      "right": 1703
      }
     ]
    },
@@ -2605,19 +2623,19 @@
     "viewportWidth": 1024,
     "pageOverflow": 0,
     "layoutViewport": 1024,
-    "tableOverflow": 282,
+    "tableOverflow": 892,
     "widest": [
      {
       "sel": "col",
-      "right": 1233
+      "right": 1843
      },
      {
       "sel": "span",
-      "right": 1225
+      "right": 1835
      },
      {
       "sel": "span",
-      "right": 1225
+      "right": 1835
      }
     ]
    },
@@ -2647,19 +2665,19 @@
     "viewportWidth": 1024,
     "pageOverflow": 0,
     "layoutViewport": 1024,
-    "tableOverflow": 341,
+    "tableOverflow": 471,
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 1292
+      "right": 1422
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 1292
+      "right": 1422
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 1292
+      "right": 1422
      }
     ]
    },
@@ -2784,19 +2802,19 @@
     "viewportWidth": 1024,
     "pageOverflow": 0,
     "layoutViewport": 1024,
-    "tableOverflow": 341,
+    "tableOverflow": 471,
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 1292
+      "right": 1422
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 1292
+      "right": 1422
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.ant-tag-blue",
-      "right": 1292
+      "right": 1422
      }
     ]
    },
@@ -2809,15 +2827,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1358
+      "right": 1411
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1300
+      "right": 1353
      },
      {
-      "sel": "span",
-      "right": 1245
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1295
      }
     ]
    },
@@ -2938,15 +2956,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1358
+      "right": 1411
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1300
+      "right": 1353
      },
      {
-      "sel": "span",
-      "right": 1245
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1295
      }
     ]
    },
@@ -2959,15 +2977,15 @@
     "widest": [
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1358
+      "right": 1411
      },
      {
       "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
-      "right": 1300
+      "right": 1353
      },
      {
-      "sel": "span",
-      "right": 1245
+      "sel": "span.ant-tag.ant-tag-filled.css-1daqxe2",
+      "right": 1295
      }
     ]
    },
@@ -3071,19 +3089,19 @@
     "viewportWidth": 1024,
     "pageOverflow": 0,
     "layoutViewport": 1024,
-    "tableOverflow": 246,
+    "tableOverflow": 356,
     "widest": [
      {
       "sel": "col",
-      "right": 1197
+      "right": 1307
      },
      {
       "sel": "th.ant-table-cell",
-      "right": 1197
+      "right": 1307
      },
      {
       "sel": "div",
-      "right": 1189
+      "right": 1299
      }
     ]
    },
@@ -3092,19 +3110,19 @@
     "viewportWidth": 1024,
     "pageOverflow": 0,
     "layoutViewport": 1024,
-    "tableOverflow": 320,
+    "tableOverflow": 430,
     "widest": [
      {
       "sel": "col",
-      "right": 1271
+      "right": 1381
      },
      {
       "sel": "td.ant-table-cell",
-      "right": 1271
+      "right": 1381
      },
      {
       "sel": "td.ant-table-cell",
-      "right": 1271
+      "right": 1381
      }
     ]
    },

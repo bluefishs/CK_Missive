@@ -9221,3 +9221,5 @@
 ## [2026-09-07] compile | topic | 近期關注焦點 (100 queries)
 
 ## [2026-09-07] lint | pages=390 orphans=0 broken=2
+
+## [2026-09-08] lint | pages=390 orphans=0 broken=2

@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-09-07T23:00:00Z",
+  "ids": {
+    "paid_no_invoice": [
+      "95",
+      "63",
+      "83",
+      "62"
+    ],
+    "invoice_ne_billing": [
+      "220",
+      "65"
+    ],
+    "allocation_mismatch": [],
+    "offset_without_reason": [],
+    "payable_no_billing": [
+      "116",
+      "67",
+      "68",
+      "66",
+      "65"
+    ],
+    "name_without_key": [],
+    "long_running_no_billing": []
+  },
+  "counts": {
+    "paid_no_invoice": 4,
+    "invoice_ne_billing": 2,
+    "allocation_mismatch": 0,
+    "offset_without_reason": 0,
+    "payable_no_billing": 14,
+    "name_without_key": 0,
+    "long_running_no_billing": 0
+  }
+}

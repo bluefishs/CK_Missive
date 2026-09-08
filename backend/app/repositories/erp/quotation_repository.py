@@ -143,6 +143,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         case_status: Optional[str] = None,
         client_name: Optional[str] = None,
         card: Optional[str] = None,
+        anomaly_quotation_ids: Optional[List[int]] = None,
     ) -> Tuple[List[ERPQuotation], int]:
         """篩選報價列表。
 
@@ -244,6 +245,14 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
                     )
                 )
             )
+
+        # 金流異常篩選（2026-09-08）：id 清單由服務層算好傳進來 ——
+        # 判準是四段聚合 SQL，寫進這裡會讓列表查詢多背一份與它無關的邏輯，
+        # 而那份邏輯**另有一個消費端**（`/erp/anomalies/list`）⇒ 必然分家。
+        # ⚠️ 空清單要變成「查不到」而不是「不篩」：`[]` 會讓 `in_()` 恆偽，
+        #    這裡明確給它一個不可能的值，免得日後有人把空 list 當 None 處理。
+        if anomaly_quotation_ids is not None:
+            conditions.append(ERPQuotation.id.in_(anomaly_quotation_ids or [-1]))
 
         # 可見範圍（None ＝ 不限縮）
         if accessible_case_codes is not None:

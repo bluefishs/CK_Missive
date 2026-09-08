@@ -33,6 +33,8 @@ export interface Vendor {
 export interface VendorCreate {
   vendor_name: string;
   vendor_code?: string;
+  /** 統一編號（後端 `VendorBase` 早已有，前端型別此前漏了 ⇒ 就地新增時帶不進去） */
+  tax_id?: string;
   vendor_type?: 'subcontractor' | 'client';
   contact_person?: string;
   phone?: string;

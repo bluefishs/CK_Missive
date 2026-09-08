@@ -117,6 +117,10 @@ class ERPQuotationUpdate(BaseModel):
 
 class ERPQuotationResponse(BaseModel):
     """報價完整資訊 (含計算欄位)"""
+    #: 金流異常（推導，非儲存欄位）——列表用它掛標籤。空 list ＝這張沒有異常。
+    #: ⚠️ 已判讀的**仍然留在這裡**（帶 `acknowledged: true`）：判讀解除的是待辦，
+    #: 不是事實；濾掉的話判讀就等於讓問題從畫面上消失。
+    anomalies: list[dict] = Field(default_factory=list)
     id: int
     case_code: str
     project_code: Optional[str] = None
@@ -287,6 +291,14 @@ class ERPQuotationListRequest(BaseQueryParams):
     # ⚠️ 它**不是** RLS：可見範圍仍由 `_quotation_scope` 依身分決定，
     #    這個參數只能在那個範圍**之內**再縮小。
     staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
+
+    # ⭐ 2026-09-08 owner：「異常案件標註機制並增列篩選查詢，以利解除或處理異常費用之案件」。
+    # `open`＝只列**還沒有人判讀**的（待處理）；`all`＝連判讀過的一起列。
+    # 判準見 `app/services/erp/finance_anomaly.py` —— 異常是**推導**的，
+    # 不是報價單上的一個旗標（存成旗標就會出現「列表說異常而數字已經正常」）。
+    anomaly: Optional[str] = Field(
+        None, pattern=r"^(open|all)$",
+        description="金流異常篩選：open 只列待判讀／all 連已判讀一起列")
 
     include_unawarded: bool = Field(
         False, description="是否納入未成案（無承攬案件）的報價單；預設否"

@@ -146,3 +146,47 @@ async def test_tax_not_included_still_grosses_up():
     await svc.replace_items(390, [{"item_name": "測量", "qty": 1, "unit": "式", "unit_price": 8000}])
     assert q.total_price == Decimal("8400")
     assert q.tax_amount == Decimal("400")
+
+
+@pytest.mark.asyncio
+async def test_recompute_totals_does_nothing_without_items():
+    """沒有工項就不動總價 —— 空明細代表「尚未逐項拆」，不是 0 元。
+
+    這一條是 `recompute_totals` 最危險的分支：切換「稅內含」時若把
+    沒有明細的報價單算成 0，總價會**歸零而不報錯**，
+    而請款、發票、承攬金額全都對著那個數字。
+    """
+    q = _quotation(total="253120.00", tax="12656.00", tax_included=False)
+    svc, _db = _svc_with(q)                      # `_svc_with` 的既有明細＝空
+
+    out = await svc.recompute_totals(390)
+
+    assert out["recomputed"] is False
+    assert out["item_count"] == 0
+    assert q.total_price == Decimal("253120.00"), "沒有明細時總價不得被動到"
+    assert q.tax_amount == Decimal("12656.00")
+
+
+@pytest.mark.asyncio
+async def test_recompute_totals_applies_the_tax_included_rule():
+    """切換「稅內含」後，總價要照新規則重算 —— 而且用的是同一份算式。
+
+    ⭐ 2026-09-08 owner：「總價是否含稅，前端也須同步建立管控填報機制，
+    以利前後端經費統計」。旗標可以在畫面上切，切了若不重算，
+    `total_price` 會停在舊的 ×1.05 而明細分頁說「小計即為總價」——
+    **兩個數字各自看都合理**，差異只在跨頁比總額時才浮出來。
+    """
+    q = _quotation(total="105000.00", tax="5000.00", tax_included=True)
+    svc, db = _svc_with(q)
+
+    item = MagicMock()
+    item.amount = Decimal("100000.00")
+    # 這一支讀既有明細走 `scalars().all()`（同 `list_items`）
+    db.execute.return_value.scalars.return_value.all.return_value = [item]
+    q.case_code = None                            # 不牽動 PM／承攬案同步
+
+    out = await svc.recompute_totals(390)
+
+    assert out["recomputed"] is True
+    assert q.total_price == Decimal("100000.00"), "稅內含 ⇒ 小計即總價，不再 ×1.05"
+    assert q.tax_amount == Decimal("0"), "稅內含 ⇒ 稅額不另計"
