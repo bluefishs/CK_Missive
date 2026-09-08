@@ -186,7 +186,10 @@ except Exception: print('unknown')
 echo "  runtime: ${RUNTIME_VERSION} @ ${RUNTIME_COMMIT}"
 
 if [ "$FRONTEND_ONLY" = "0" ]; then
-    if [ "$RUNTIME_COMMIT" = "unknown" ]; then
+    # ⚠️ 2026-09-08：原本比對 `= "unknown"`，而實際值是 **`unknown-dirty`**（commit 未知時
+    #    後面還會接上 `-dirty` 後綴）⇒ 這道閘門對真正發生的那一型完全放行，映像就這樣帶著
+    #    `unknown @ unknown-dirty` 上線。判準改成前綴比對。
+    if [ "${RUNTIME_COMMIT#unknown}" != "${RUNTIME_COMMIT}" ] || [ "$RUNTIME_VERSION" = "unknown" ]; then
         echo "  ✗ runtime 回報 unknown —— build-args 沒有進到映像"
         exit 1
     fi

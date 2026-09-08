@@ -22,7 +22,13 @@
 set -euo pipefail
 _root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-CK_BUILD_COMMIT="$(git -C "$_root" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# ⚠️ 2026-09-08：不得把 `$_root`（`/d/CKProject/…`）當參數傳給 git／python 這類 **Windows 原生執行檔**。
+#    平常 MSYS 會替你轉成 `D:\…`，但呼叫端只要設了 `MSYS_NO_PATHCONV=1`（部署時為了 docker exec 常設），
+#    轉換就關閉 ⇒ git 與 python 都找不到路徑 ⇒ 兩者**各自**落到 `|| echo unknown`
+#    ⇒ 映像被標成 `unknown @ unknown-dirty`，而建置本身照樣成功。
+#    實測：同一支腳本，不帶該變數是 `v6.74 @ df00b309`，帶了就是 `unknown @ unknown-dirty`。
+#    修法＝改用 `cd` 進去再呼叫（cwd 由 bash 處理，不經過參數轉換）。
+CK_BUILD_COMMIT="$(cd "$_root" && git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 CK_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # 語意版號取自 CLAUDE.md 的版本行 —— 那是它的 SSOT（人維護的那一份）。
@@ -37,7 +43,7 @@ CK_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # 2026-08-21 為此連錯兩次（先誤判成 read(4000) 截斷、再誤判成正則）——
 # 第三次才停下來直接看那一行的實際字元，證明正則與行都是對的。
 # **連錯兩次就別再猜第三次，去看實際的東西。**
-CK_BUILD_VERSION="$(CK_MD="$_root/CLAUDE.md" python -c "
+CK_BUILD_VERSION="$(cd "$_root" && CK_MD="CLAUDE.md" python -c "
 import io, os, re, sys
 try:
     v = 'unknown'
@@ -55,10 +61,17 @@ except Exception:
 # ⚠️ 排除 runtime 狀態檔：`backend/config/remote_backup.json` 由異地備份排程
 # 每次執行寫入（NAS 份數／最新檔／結果），它一直都是「已修改」狀態而
 # 不該提交。把它算進 dirty，等於這個標記永遠亮著 ⇒ 亮著等於沒有訊號。
-if ! git -C "$_root" diff --quiet HEAD -- backend \
-        ':(exclude)backend/config/remote_backup.json' 2>/dev/null; then
+if ! (cd "$_root" && git diff --quiet HEAD -- backend \
+        ':(exclude)backend/config/remote_backup.json' 2>/dev/null); then
     CK_BUILD_COMMIT="${CK_BUILD_COMMIT}-dirty"
 fi
 
 export CK_BUILD_COMMIT CK_BUILD_TIME CK_BUILD_VERSION
+# 案例：09-08 有一次映像被標成 `unknown @ unknown-dirty`，建置與換容器全程沒有任何錯誤，
+# 而事後就答不出「線上跑的是哪一版」。綁定不到就不要建。
+if [ "$CK_BUILD_VERSION" = "unknown" ] || [ "${CK_BUILD_COMMIT#unknown}" != "${CK_BUILD_COMMIT}" ]; then
+    echo "ERROR build 身分綁定失敗：version=${CK_BUILD_VERSION} commit=${CK_BUILD_COMMIT}" >&2
+    echo "      常見原因：呼叫端設了 MSYS_NO_PATHCONV=1（見本檔上方註解），或不在 git 工作樹內。" >&2
+    return 1 2>/dev/null || exit 1
+fi
 echo "build 綁定：${CK_BUILD_VERSION} @ ${CK_BUILD_COMMIT} (${CK_BUILD_TIME})"
