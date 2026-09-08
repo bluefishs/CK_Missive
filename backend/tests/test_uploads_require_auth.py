@@ -61,7 +61,14 @@ async def test_anonymous_gets_401(client, files, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_own_certificate_ok_others_403(client, files):
+async def test_own_certificate_ok_others_403(client, files, monkeypatch):
+    # 09-09 weekly 24：這支與整套一起跑時會 200≠403 —— 頁面能力快取的 _load 用全域 engine，
+    # 前面的測試關掉事件迴圈後它撞到「Event loop is closed」，而載入失敗的設計是退回「只要求登入」（放行）。
+    # 這支要驗的是「非本人、無 /staff 頁權限 ⇒ 403」這條規則，不該依賴活的選單表；
+    # 與下面 test_page_permission_gates_receipts 同一做法，把 /staff 的宣告釘成固定值。
+    async def fake_pages(path):
+        return ["staff:view"] if path == "/staff" else []
+    monkeypatch.setattr(up, "permissions_for_page", fake_pages)
     _as(_U(uid=7))
     r = await client.get("/uploads/certifications/user_7/a.pdf")
     assert r.status_code == 200 and r.text == "hi"

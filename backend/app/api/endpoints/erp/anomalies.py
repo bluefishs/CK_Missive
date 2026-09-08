@@ -9,36 +9,16 @@ owner 2026-09-08：「是否異常案件標註機制並增列篩選查詢，
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth
 from app.db.database import get_async_db
 from app.schemas.common import SuccessResponse
+from app.schemas.erp.anomaly import AnomalyAckRequest, AnomalyListRequest, AnomalyUnackRequest
 from app.services.erp import finance_anomaly
 
 router = APIRouter()
-
-
-class AnomalyListRequest(BaseModel):
-    #: 只列還沒有人判讀的（待處理清單）。預設 False ＝連已判讀的一起列，
-    #: 因為「已判讀」不代表數字變正常了。
-    only_open: bool = False
-    codes: Optional[list[str]] = None
-    year: Optional[int] = Field(None, description="案件年度（西元，見 §2.5）")
-
-
-class AnomalyAckRequest(BaseModel):
-    quotation_id: int
-    anomaly_type: str
-    #: 必填且不得只是空白 —— 沒有原因的判讀等於把問題藏起來。
-    reason: str = Field(..., min_length=2, max_length=500)
-
-
-class AnomalyUnackRequest(BaseModel):
-    quotation_id: int
-    anomaly_type: str
 
 
 @router.post("/types")

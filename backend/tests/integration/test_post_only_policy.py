@@ -36,6 +36,9 @@ GET_ALLOWLIST: Set[Tuple[str, str]] = {
     ("api/endpoints/health.py", "/health/summary"),
     ("api/endpoints/health.py", "/health/scheduler"),
     ("api/endpoints/health.py", "/health/services"),
+    # 附件下載（09-08 A116：/uploads 由 StaticFiles 改為帶認證的路由）—— 瀏覽器的 <a href>／<img src>／
+    # window.open 只會發 GET，這條無法改 POST；認證與附件層級 RLS 在路由內做，見 uploads.py 檔頭表格。
+    ("api/endpoints/uploads.py", "/uploads/"),
 }
 
 

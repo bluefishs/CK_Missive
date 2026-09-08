@@ -151,6 +151,12 @@ class TestBillingToLedgerFlow:
         mock_invoice.status = "issued"
         mock_invoice.billing_id = 1
         mock_invoice.voided_at = None
+        # 09-08 發票新增四欄（聯式／抬頭／買受人統編／備註）：MagicMock(spec=) 對未賦值屬性回 MagicMock，
+        # ERPInvoiceResponse 會驗證失敗 —— 09-09 weekly 24 抓到的就是這個
+        mock_invoice.invoice_kind = None
+        mock_invoice.buyer_name = None
+        mock_invoice.buyer_tax_id = None
+        mock_invoice.invoice_remark = None
         mock_invoice.notes = None
         mock_invoice.created_at = None
         mock_invoice.updated_at = None

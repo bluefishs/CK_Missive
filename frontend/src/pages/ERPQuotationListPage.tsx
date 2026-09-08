@@ -156,7 +156,8 @@ export const ERPQuotationListPage: React.FC = () => {
       ),
     },
     {
-      title: '專案名稱', dataIndex: 'case_name', key: 'case_name', sorter: true, ellipsis: true,
+      // weekly 111：固定欄寬總和（1,230）超過 scroll.x 1000，未給寬度的欄被壓到 17px；給寬度並把 scroll.x 調到總和以上
+      title: '專案名稱', dataIndex: 'case_name', key: 'case_name', sorter: true, ellipsis: true, width: 260,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
     },
     {
@@ -634,7 +635,7 @@ export const ERPQuotationListPage: React.FC = () => {
             style: { cursor: 'pointer' },
           })}
           size="middle"
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1520 }}
         />
       </Card>
     </ResponsiveContent>
