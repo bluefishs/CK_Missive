@@ -124,7 +124,7 @@ class SchedulerTracker:
 
     _records: Dict[str, Dict[str, Any]] = {}
     # 2026-08-19：原本 fallback 寫死 "/app/logs"（容器內路徑）。在**本機**執行時
-    # Windows 會把它解讀成「當前磁碟根目錄下的 app\logs」→ 實際產生了 D:pp\logs，
+    # Windows 會把它解讀成「當前磁碟根目錄下的 app\logs」→ 實際產生了 D:\app\logs，
     # cron 事件因此寫到容器外、容器裡反而看不到。改用 paths.LOGS_DIR：
     # 它由 PROJECT_ROOT 推導（容器內 CK_PROJECT_ROOT=/app、本機為專案根），兩邊都對。
     _EVENTS_LOG = _Path(os.getenv("CK_LOGS_DIR") or _LOGS_DIR_DEFAULT) / "cron_events.jsonl"
@@ -720,7 +720,7 @@ async def code_dup_triage_job():
             # 寫持久 log
             try:
                 # 2026-08-19：這一行原本完全寫死 "/app/logs"，連 CK_LOGS_DIR 都不讀 ——
-                # 也就是說無論怎麼設環境變數，本機執行時都會寫進 D:pp\logs。
+                # 也就是說無論怎麼設環境變數，本機執行時都會寫進 D:\app\logs。
                 _triage = _Path(os.getenv("CK_LOGS_DIR") or _LOGS_DIR_DEFAULT) / "code_dup_triage.jsonl"
                 _triage.parent.mkdir(parents=True, exist_ok=True)
                 with open(_triage, "a", encoding="utf-8") as f:
