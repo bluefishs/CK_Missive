@@ -186,7 +186,7 @@ const ERPLedgerPage: React.FC = () => {
         <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="收入" value={incomeSum.toLocaleString()}
+              title="收入" value={fmtMoney(incomeSum)}
               icon={<ArrowUpOutlined />} color="#3f8600"
               active={statFilter === 'income'}
               onClick={() => { const v = statFilter === 'income' ? null : 'income'; setStatFilter(v); setParams(p => ({ ...p, entry_type: v as LedgerEntryType | undefined ?? undefined, skip: 0 })); }}
@@ -194,7 +194,7 @@ const ERPLedgerPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="支出" value={expenseSum.toLocaleString()}
+              title="支出" value={fmtMoney(expenseSum)}
               icon={<ArrowDownOutlined />} color="#cf1322"
               active={statFilter === 'expense'}
               onClick={() => { const v = statFilter === 'expense' ? null : 'expense'; setStatFilter(v); setParams(p => ({ ...p, entry_type: v as LedgerEntryType | undefined ?? undefined, skip: 0 })); }}
@@ -202,7 +202,7 @@ const ERPLedgerPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="淨額" value={(incomeSum - expenseSum).toLocaleString()}
+              title="淨額" value={fmtMoney(incomeSum - expenseSum)}
               icon={<SwapOutlined />} color={incomeSum - expenseSum >= 0 ? '#52c41a' : '#ff4d4f'}
             />
           </Col>

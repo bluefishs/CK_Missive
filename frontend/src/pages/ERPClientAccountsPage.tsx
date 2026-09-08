@@ -232,7 +232,7 @@ const ERPClientAccountsPage: React.FC = () => {
           <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('contract_amount_sum')}
-              value={stats.totalContract.toLocaleString()}
+              value={fmtMoney(stats.totalContract)}
               icon={<FileTextOutlined />}
               color="#1890ff"
               active={statFilter === 'all'}
@@ -242,7 +242,7 @@ const ERPClientAccountsPage: React.FC = () => {
           <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('billed')}
-              value={stats.totalBilled.toLocaleString()}
+              value={fmtMoney(stats.totalBilled)}
               icon={<DollarOutlined />}
               color="#faad14"
               active={statFilter === 'billed'}
@@ -252,7 +252,7 @@ const ERPClientAccountsPage: React.FC = () => {
           <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('received')}
-              value={stats.totalReceived.toLocaleString()}
+              value={fmtMoney(stats.totalReceived)}
               icon={<CheckCircleOutlined />}
               color="#3f8600"
               active={statFilter === 'received'}
@@ -262,7 +262,7 @@ const ERPClientAccountsPage: React.FC = () => {
           <Col xs={12} sm={6}>
             <ClickableStatCard
               title={termTitle('outstanding')}
-              value={stats.totalOutstanding.toLocaleString()}
+              value={fmtMoney(stats.totalOutstanding)}
               icon={<ExclamationCircleOutlined />}
               color={stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600'}
               active={statFilter === 'outstanding'}

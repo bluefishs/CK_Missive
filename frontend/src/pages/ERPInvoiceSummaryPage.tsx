@@ -4,6 +4,7 @@
  * 功能：跨案件發票彙總 + 銷項/進項篩選 + 年度篩選
  */
 import React, { useState, useMemo } from 'react';
+import { fmtMoney } from '../utils/money';
 import {
   Card, Tag, Select, Typography, Row, Col, Space, Alert, Input,
 } from 'antd';
@@ -142,7 +143,7 @@ const ERPInvoiceSummaryPage: React.FC = () => {
         <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={8}>
             <ClickableStatCard
-              title="銷項總額" value={`NT$ ${salesTotal.toLocaleString()}`}
+              title="銷項總額" value={`NT$ ${fmtMoney(salesTotal)}`}
               icon={<ArrowUpOutlined />} color="#1677ff"
               active={statFilter === 'sales'}
               onClick={() => { const v = statFilter === 'sales' ? null : 'sales'; setStatFilter(v); setParams(p => ({ ...p, invoice_type: v || undefined, skip: 0 })); }}
@@ -150,7 +151,7 @@ const ERPInvoiceSummaryPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={8}>
             <ClickableStatCard
-              title="進項總額" value={`NT$ ${purchaseTotal.toLocaleString()}`}
+              title="進項總額" value={`NT$ ${fmtMoney(purchaseTotal)}`}
               icon={<ArrowDownOutlined />} color="#fa8c16"
               active={statFilter === 'purchase'}
               onClick={() => { const v = statFilter === 'purchase' ? null : 'purchase'; setStatFilter(v); setParams(p => ({ ...p, invoice_type: v || undefined, skip: 0 })); }}
@@ -158,7 +159,7 @@ const ERPInvoiceSummaryPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={8}>
             <ClickableStatCard
-              title="淨額" value={`NT$ ${netAmount.toLocaleString()}`}
+              title="淨額" value={`NT$ ${fmtMoney(netAmount)}`}
               icon={<SwapOutlined />} color={netAmount >= 0 ? '#52c41a' : '#ff4d4f'}
             />
           </Col>

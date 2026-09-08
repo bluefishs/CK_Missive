@@ -4,6 +4,7 @@
  * 功能：資產列表 + 統計卡片 + 篩選 + 導航至詳情
  */
 import React, { useState, useMemo } from 'react';
+import { fmtMoney } from '../utils/money';
 import {
   Alert, App, Card, Button, Space, Tag, Input, Select, Typography,
   Row, Col, Modal, Upload,
@@ -298,7 +299,7 @@ const ERPAssetListPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={8}>
             <ClickableStatCard
-              title="總價值" value={`NT$ ${(stats?.total_value ?? 0).toLocaleString()}`}
+              title="總價值" value={`NT$ ${fmtMoney((stats?.total_value ?? 0))}`}
               icon={<DollarOutlined />} color="#722ed1"
             />
           </Col>

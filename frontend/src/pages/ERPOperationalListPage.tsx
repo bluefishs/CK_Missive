@@ -4,6 +4,7 @@
  * 功能：統計卡片 + 篩選 + 帳目表格 + 導航至詳情/新增
  */
 import React, { useState, useMemo } from 'react';
+import { fmtMoney } from '../utils/money';
 import {
   Alert, Card, Button, Space, Tag, Input, Select, Typography,
   Row, Col, Progress,
@@ -191,13 +192,13 @@ const ERPOperationalListPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="總預算" value={`NT$ ${(stats?.total_budget ?? 0).toLocaleString()}`}
+              title="總預算" value={`NT$ ${fmtMoney((stats?.total_budget ?? 0))}`}
               icon={<DollarOutlined />} color="#722ed1"
             />
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="總支出" value={`NT$ ${(stats?.total_spent ?? 0).toLocaleString()}`}
+              title="總支出" value={`NT$ ${fmtMoney((stats?.total_spent ?? 0))}`}
               icon={<PayCircleOutlined />} color="#fa8c16"
             />
           </Col>

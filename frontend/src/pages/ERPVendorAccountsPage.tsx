@@ -233,7 +233,7 @@ const ERPVendorAccountsPage: React.FC = () => {
           <Col xs={12} sm={8}>
             <ClickableStatCard
               title={termTitle('payable_total', '總應付')}
-              value={stats.totalPayable.toLocaleString()}
+              value={fmtMoney(stats.totalPayable)}
               icon={<DollarOutlined />}
               color="#1890ff"
               active={statFilter === 'all'}
@@ -243,7 +243,7 @@ const ERPVendorAccountsPage: React.FC = () => {
           <Col xs={12} sm={8}>
             <ClickableStatCard
               title={termTitle('paid_total', '總已付')}
-              value={stats.totalPaid.toLocaleString()}
+              value={fmtMoney(stats.totalPaid)}
               icon={<CheckCircleOutlined />}
               color="#3f8600"
               active={statFilter === 'paid'}
@@ -253,7 +253,7 @@ const ERPVendorAccountsPage: React.FC = () => {
           <Col xs={12} sm={8}>
             <ClickableStatCard
               title={termTitle('payable_outstanding', '總未付')}
-              value={stats.totalOutstanding.toLocaleString()}
+              value={fmtMoney(stats.totalOutstanding)}
               icon={<ExclamationCircleOutlined />}
               color={stats.totalOutstanding > 0 ? '#cf1322' : '#3f8600'}
               active={statFilter === 'outstanding'}
