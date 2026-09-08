@@ -56,6 +56,19 @@ SELECT json_build_object(
   'y11', (SELECT count(*) FROM erp_billings b WHERE b.payment_status IN ('paid','partial') AND COALESCE(b.settlement_type,'invoice')='invoice' AND NOT EXISTS (SELECT 1 FROM erp_invoices i WHERE i.billing_id=b.id AND i.status<>'voided')),
   -- ⑬ 一票多案：有分攤列時，分攤合計必須等於發票金額（差 >1 元即不成立）
   'y13', (SELECT count(*) FROM erp_invoices i WHERE EXISTS (SELECT 1 FROM erp_invoice_allocations a WHERE a.invoice_id=i.id) AND abs(COALESCE(i.amount,0) - COALESCE((SELECT sum(a.amount) FROM erp_invoice_allocations a WHERE a.invoice_id=i.id),0)) > 1),
+  -- ⭐ ⑭ 2026-09-08 owner「報價單經費也錯誤」＋「還有多少潛在錯誤」：
+  -- `total_price` 的語意是**含稅**（FIELD_SEMANTICS），而個人工作表匯入的那幾批
+  -- 把**未稅**寫進了這一欄，稅額卻用「總價×5%」算 ⇒ 兩個數字互相印證、看起來自洽。
+  -- 簽名：`tax_amount ≈ total_price × 5%`（正確的應該是 `≈ total_price / 21`）。
+  -- 實測 12 筆帶此簽名、228 筆正確 —— 判準是機械的，不是啟發式。
+  -- ⚠️ 這一支此前只有 ⑥「稅額為 0」的黃燈，抓不到「稅額有填但算錯基準」。
+  'r14', (SELECT json_agg(json_build_array(id, case_code, total_price::bigint, tax_amount::bigint, (total_price+tax_amount)::bigint))
+          FROM erp_quotations WHERE deleted_at IS NULL AND total_price>0 AND COALESCE(tax_amount,0)>0
+            AND abs(tax_amount - round(total_price*0.05)) <= 1),
+  -- ⑮ 有工項時，工項小計×1.05 必須等於總價（工項是總價的來源，不是另一份宣告）
+  'y15', (SELECT count(*) FROM erp_quotations q WHERE q.deleted_at IS NULL
+            AND EXISTS (SELECT 1 FROM erp_quotation_items i WHERE i.quotation_id=q.id)
+            AND abs(COALESCE(q.total_price,0) - COALESCE((SELECT sum(i.amount)*1.05 FROM erp_quotation_items i WHERE i.quotation_id=q.id),0)) > 2),
   'n_q', (SELECT count(*) FROM erp_quotations WHERE deleted_at IS NULL AND total_price>0),
   'n_b', (SELECT count(*) FROM erp_billings), 'n_i', (SELECT count(*) FROM erp_invoices)
 )::text
@@ -81,14 +94,15 @@ def main() -> int:
     print(f"  報價單（有總價）{d['n_q']}｜請款 {d['n_b']}｜發票 {d['n_i']}")
     reds = []
     for key, label in [("r1", "① 一次請領請款額 ≠ 報價總價"), ("r2", "② 發票額 > 請款額"), ("r3", "③ 已收 > 請款額"), ("r4", "④ 稅額 > 總價"),
-                       ("r9", "⑨ 報價總價 vs PM 合約額＝匯入缺陷簽名"), ("r13", "⑬ 非 01 類承攬案有議價金額（02 承攬報價無議價程序，應為空）")]:
+                       ("r9", "⑨ 報價總價 vs PM 合約額＝匯入缺陷簽名"), ("r13", "⑬ 非 01 類承攬案有議價金額（02 承攬報價無議價程序，應為空）"),
+                       ("r14", "⑭ 總價欄存的是未稅（稅額＝總價×5%；正確應為總價/21）—— 每列末欄是應有的含稅值")]:
         rows = d.get(key) or []
         if rows:
             print(f"\n  🔴 {label}：{len(rows)} 件")
             for r in rows[:6]:
                 print(f"     {r}")
             reds.append((label, len(rows)))
-    yels = [(lb, d.get(k) or 0) for k, lb in [("y5", "⑤ 發票稅額非 5%"), ("y6", "⑥ 報價單稅額為 0"), ("y7", "⑦ 發票額 ≠ 請款額（未超過）"), ("y8", "⑧ 佔位發票仍在"), ("y10", "⑩ 報價總價 ≠ PM 合約額（不符簽名）"), ("y11", "⑪ 已收款但沒有登錄發票（09-04 owner：168 第一期 7,936,250 已收無票）"), ("y12", "⑫ 01 委辦招標執行中卻尚未填議價金額（決標後請填實際承攬金額）"), ("y13", "⑬ 一票多案的分攤合計 ≠ 發票金額")] if d.get(k)]
+    yels = [(lb, d.get(k) or 0) for k, lb in [("y15", "⑮ 有工項但工項小計×1.05 ≠ 總價"), ("y5", "⑤ 發票稅額非 5%"), ("y6", "⑥ 報價單稅額為 0"), ("y7", "⑦ 發票額 ≠ 請款額（未超過）"), ("y8", "⑧ 佔位發票仍在"), ("y10", "⑩ 報價總價 ≠ PM 合約額（不符簽名）"), ("y11", "⑪ 已收款但沒有登錄發票（09-04 owner：168 第一期 7,936,250 已收無票）"), ("y12", "⑫ 01 委辦招標執行中卻尚未填議價金額（決標後請填實際承攬金額）"), ("y13", "⑬ 一票多案的分攤合計 ≠ 發票金額")] if d.get(k)]
     for lb, n in yels:
         print(f"  ⚠ {lb}：{n}")
     print()
