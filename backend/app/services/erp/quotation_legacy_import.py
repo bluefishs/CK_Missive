@@ -60,6 +60,13 @@ logger = logging.getLogger(__name__)
 #:
 #: ⚠️ 同一個概念在兩份檔案裡叫不同名字：115 是「發票日期」、114 是「發票日」。
 #: 兩個都收 —— 要求人先統一表頭才能匯入，等於把工作推回去給填表的人。
+def _sum_or_none(a, b):
+    """兩者都有才相加；任一為 None 就回 None（不要把缺值當 0 而算出一個看似合理的數）。"""
+    if a is None or b is None:
+        return None
+    return a + b
+
+
 HEADER_MAP = {
     "報價單編號": "legacy_no",
     "是否成立": "established",
@@ -301,7 +308,29 @@ def parse_workbook(content: bytes) -> list[dict[str, Any]]:
                     # 完整案名（地點＋案名）優先——「建物第一次測量」那種泛名對 70 個案，不具識別度
                     "case_name": (str(g("full_case_name") or "").strip() or str(g("case_name") or "").strip() or None),
                     "location": str(g("location") or "").strip() or None,
-                    "total_price": _to_decimal(g("total_price")),
+                    # ⭐ 2026-09-08 owner 提供總表原始列：
+                    #     報價金額 63,810｜稅額 3,190｜總價 67,000
+                    #   而系統存的是 66,999.50 —— 那正好是 63,810 × 1.05。
+                    #
+                    # 根因：總表的「報價金額」是**未稅**，而 `erp_quotations.total_price`
+                    # 的語意是**含稅**（FIELD_SEMANTICS）。此前直接對接，等於把未稅
+                    # 寫進含稅欄位；而總表真正的含稅值（「總價」欄＝grand_total）
+                    # 被讀進來之後**只丟進 notes**，從來沒有用過。
+                    #
+                    # 全庫因此有 12 張帶著「tax ≈ 總價×5%」的簽名（正確的是
+                    # 「tax ≈ 總價/21」，228 張如此），09-08 已全數更正並補 weekly 104 ⑭。
+                    #
+                    # 取值順序：**總表寫了什麼就是什麼**（grand_total 優先），
+                    # 沒有才用「未稅＋稅額」推導 —— 而不是用 ×1.05 自己算：
+                    # 總表的總價是「未稅＋四捨五入後的稅額」（63,810＋3,190＝67,000），
+                    # 用 ×1.05 會得到 66,999.5，**在稅額帶 .5 時與來源不符**。
+                    # ⇒ 有權威值就不要重算，重算會在四捨五入處與來源分家。
+                    "total_price": (
+                        _to_decimal(g("grand_total"))
+                        or _sum_or_none(_to_decimal(g("total_price")), _to_decimal(g("tax_amount")))
+                        or _to_decimal(g("total_price"))
+                    ),
+                    "net_price": _to_decimal(g("total_price")),   # 總表的「報價金額」＝未稅，保留供對帳
                     "tax_amount": _to_decimal(g("tax_amount")),
                     "year": _year_from_legacy(legacy, quoted),
                 }
