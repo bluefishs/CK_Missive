@@ -70,6 +70,9 @@ SECTION_RUNNERS: list[tuple[str, list[str] | None]] = [
                 "backend/app/services/optimization_pipeline_orchestrator.py"]),
     ("健康監控", None),      # scripts/health/ 底下互相呼叫，執行者是 host 排程
     ("Windows 工作排程器", None),
+    # 2026-09-09：pre-push 快速閘門的執行者是 husky hook，不在任何排程裡；此前它被登記在「每週」，
+    # step 76 抓到「runner 一次都沒提到它」——宣告是錯的，不是接線斷了。
+    ("Git hooks", ["frontend/.husky/pre-push", "frontend/.husky/pre-commit"]),
     ("無排程", None),
     # 非腳本清單的節 —— 明確登記為「沒有執行者」而不是讓它們掉進 UNKNOWN。
     # 第一版沒登記，於是兩個說明性小節被報成缺口（2/7 是假陽性）。
@@ -90,6 +93,31 @@ def _runner_for(heading: str):
         if key in heading:
             return key, runners
     return None, "UNKNOWN"
+
+
+_INTER_RE = re.compile(r"([A-Za-z0-9_.-]+[.](?:py|cjs|sh))")
+
+
+def _called_via(name: str, runners, bodies) -> str | None:
+    """runner 提到的腳本裡，哪一支的內容提到 name（只看一跳）。"""
+    here = Path(__file__).resolve().parent
+    candidates: set[str] = set()
+    for r in runners:
+        candidates.update(_INTER_RE.findall(bodies.get(r, "")))
+    me = Path(__file__).name
+    for c in sorted(candidates):
+        if c == name or c == me:
+            # 排除自己：本檔的註解提到了被找的檔名，第一版就把自己認成中介者（判準掃到描述它的文字，L110 家族）
+            continue
+        f = here / c
+        if not f.is_file():
+            continue
+        try:
+            if name in io.open(f, encoding="utf-8", errors="replace").read():
+                return c
+        except Exception:
+            continue
+    return None
 
 
 def main() -> int:
@@ -132,6 +160,13 @@ def main() -> int:
             reds.append(f"{name}: 宣告的執行者檔案讀不到（{', '.join(runners)}）")
             continue
         if not any(name in bodies.get(r, "") for r in runners):
+            # 2026-09-09：一跳的間接呼叫也算接上——weekly 111 的 rwd_mobile_quality_gate.py 在自己裡面
+            # 跑 rwd_crushed_column_control.cjs（判準的正負向控制），runner 只提到前者。
+            # 只認一跳、且中介者必須真的在 runner 裡；再深就不是「執行者」而是「相依」，那要改宣告。
+            via = _called_via(name, runners, bodies)
+            if via:
+                notes.append(f"{name}: runner 未直接提到，由「{via}」呼叫（該腳本在 runner 裡）")
+                continue
             reds.append(f"{name}: 宣告在「{section}」，"
                         f"但 {' / '.join(os.path.basename(r) for r in runners)} 一次都沒提到它")
 

@@ -107,6 +107,7 @@
 | `module_import_sweep.py` | 每個模組都必須真的能被匯入 —— 消滅「匯入即失敗但沒有人在匯入它」家族 |
 | `run_fitness_daily.sh` | Fitness Tier 1 Daily — 8 critical step (~1 min) |
 | `shell_script_eol_audit.py` | shell script 不得帶 CRLF —— 那會讓它在 Linux 容器裡直接無法執行 |
+| `container_restart_loop_check.py` | 容器重啟迴圈偵測（間歇 502 的來源）：用 `docker events` 現場捕捉，不看 `docker inspect` 的 ExitCode（daily 15） |
 
 ## 🟠 每週（host 排程 `CK_Missive-Fitness-Weekly`，容器端只當接收者）
 
@@ -214,7 +215,6 @@
 | `erp_amount_semantics_audit.py` | 金額語意三方對帳（報價總價 × 請款額 × 發票額，依 `docs/architecture/FIELD_SEMANTICS.md`）：RED 只給互相矛盾（一次請領≠總價／發票>請款／已收>請款／稅>總價），5%／稅 0／佔位發票 YELLOW | weekly 104 |
 | `chronic_red_audit.py` | **長期紅燈必須有名字**：連續 4+ 輪非綠而未登記 ⇒ RED；登記不是把它變綠，只讓「有多少紅燈沒有人在收」看得見（weekly 94） |
 | `config_directory_ssot_audit.py` | 專案根只允許 `configs/` 與 `backend/config/` 兩個設定目錄——第三個就是同一份設定長出三份的來歷（weekly 96） |
-| `container_restart_loop_check.py` | 容器重啟迴圈偵測（間歇 502 的來源）：用 `docker events` 現場捕捉，不看 `docker inspect` 的 ExitCode（daily 15） |
 | `dropdown_limit_headroom_audit.py` | 每個下拉還能長幾筆才會靜默截斷；翻頁取完的改驗頁數上限（weekly 95） |
 | `fitness_manual_freshness_audit.py` | 手動月度架構覆盤有沒有真的在跑——它獨佔 57 支檢核卻原本不留產出（weekly 85） |
 | `gate_vs_report_step_audit.py` | weekly 的每一步都必須能紅，否則步驟名要標明「僅報告」——永遠不可能紅的綠燈與真守門長得一樣（weekly 89） |
@@ -251,7 +251,6 @@
 | `visual_walk_weekly.sh` | **視覺走查拍圖（僅報告）**：每週把五個代表頁拍下來存 `docs/health/visual/<日期>/`，讓判讀時有圖可看；能機械判定的部分在 weekly 109／111（weekly 116） |
 | `entry_time_guard_audit.py` | **填報守衛存在性**：事後稽核（weekly 99／104／107）抓到的每一種錯，入口有沒有擋。**執行時**呼叫服務層驗證（grep 只能證明有那段字，證明不了它會擋），含 3 條負向控制（既有廠商／簡稱／免稅發票不得被誤擋）（weekly 117） |
 | `lib/result_contract.py` | **統一結果契約 writer**：每層跑完寫 `wiki/memory/integration-health/<layer>.json`，固定 `layer/checked_at/verdict/rc/summary/evidence`；weekly 113 只讀契約就畫得出機制圖 |
-| `prepush_related_tests.py` | **pre-push 快速閘門**（A46）：推送範圍改到的檔 → 相關 pytest／vitest，對兩份 `known_failures.json` 只擋基線外新失敗；沒有相關測試放行但印出。由 `frontend/.husky/pre-push` 呼叫 |
 
 ## 🧪 月度架構覆盤（`run_fitness.sh`）
 
@@ -355,6 +354,14 @@
 | 腳本 | 用途 |
 |---|---|
 | `run_capability_snapshot.sh` | 能力使用度快照入口（須在 host 跑：Prometheus 綁 127.0.0.1:19090） |
+
+## 🪝 Git hooks（`frontend/.husky/`，`core.hooksPath` 指向這裡；`.git/hooks/` 是死的，見 L113）
+
+> 執行者是提交／推送當下的 husky hook，不在任何排程裡。weekly 76 的 SECTION_RUNNERS 對這一節比對 `frontend/.husky/pre-push`／`pre-commit`。
+
+| 腳本 | 說明 |
+|---|---|
+| `prepush_related_tests.py` | **pre-push 快速閘門**（A46）：推送範圍改到的檔 → 相關 pytest／vitest，對兩份 `known_failures.json` 只擋基線外新失敗；沒有相關測試放行但印出。由 `frontend/.husky/pre-push` 呼叫 |
 
 ## ⚪ 無排程 —— 手動／一次性／已被取代
 
