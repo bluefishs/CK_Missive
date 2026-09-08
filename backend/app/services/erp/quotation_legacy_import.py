@@ -682,7 +682,7 @@ class QuotationLegacyImportService:
         """
         from sqlalchemy import text as _t
         from app.services.erp.billing_service import ERPBillingService
-        out = {"first_period": 0, "paid": 0, "invoice_created": 0, "invoice_updated": 0, "skipped_unconfirmed": 0}
+        out = {"first_period": 0, "paid": 0, "ledger_posted": 0, "invoice_created": 0, "invoice_updated": 0, "skipped_unconfirmed": 0}
         bsvc = ERPBillingService(self.db)
         inv_pat = re.compile(r"^[A-Z]{2}[0-9]{8}$")
         for r in rows:
@@ -693,11 +693,20 @@ class QuotationLegacyImportService:
                 if await bsvc.ensure_first_period(int(q), reason="總表匯入"):
                     out["first_period"] += 1
             if r.get("received_date"):
+                # ⭐ 2026-09-08：這條裸 SQL 繞過 `ERPBillingService`，於是
+                # `_sync_ledger_if_paid` 從未執行 ⇒ 09-02 這批匯入的 20 筆已收款
+                # （637,286 元）從來沒有進統一帳本，每日對帳天天報 AR 差異而沒有人接。
+                # ⇒ 標 paid 之後**必須**把入帳補上（`RETURNING id` 才知道動到哪一筆）。
                 res = await self.db.execute(_t(
                     "UPDATE erp_billings SET payment_status='paid', payment_date=:d, payment_amount=COALESCE(payment_amount, :a), updated_at=now() "
-                    "WHERE id=(SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1) AND payment_status<>'paid'"
+                    "WHERE id=(SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1) AND payment_status<>'paid' "
+                    "RETURNING id"
                 ), {"d": r["received_date"], "a": r.get("received_amount") or r.get("total_price"), "q": int(q)})
-                out["paid"] += res.rowcount or 0
+                paid_ids = [row[0] for row in res.fetchall()]
+                out["paid"] += len(paid_ids)
+                for _bid in paid_ids:
+                    if await bsvc.sync_ledger_by_id(_bid):
+                        out["ledger_posted"] = out.get("ledger_posted", 0) + 1
             inv_no = r.get("invoice_no")
             if inv_no and "需確認" in (r.get("match_method") or ""):
                 out["skipped_unconfirmed"] += 1

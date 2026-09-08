@@ -97,6 +97,30 @@ class ERPBillingService(AuditableServiceMixin):
             billing.id, billing.payment_amount, case_code,
         )
 
+    async def sync_ledger_by_id(self, billing_id: int) -> bool:
+        """給**繞過本服務的寫入路徑**用的正式入帳入口（2026-09-08）。
+
+        背景：總表匯入器用裸 SQL 把第一筆請款標成 paid
+        （`UPDATE erp_billings SET payment_status='paid' ...`）⇒ `_sync_ledger_if_paid`
+        從未執行 ⇒ **20 筆已收款、637,286 元從來沒有進統一帳本**，而每日對帳
+        因此天天報 AR 差異。同型的 AP 兩筆（政威 id 72/73）08-29 就被點名，
+        程式碼修了、存量沒回填，於是又響了 10 天。
+
+        ⇒ 形狀是「主路徑有守衛、第二條路徑沒接上」。與其禁止裸 SQL
+        （匯入本來就需要批次更新），不如**給它一個必須呼叫的入口**。
+        回傳是否真的新增了分錄。冪等由 `_sync_ledger_if_paid` 的 find_by_source 擔保。
+        """
+        from sqlalchemy import select as _select
+        from app.extended.models.erp import ERPBilling
+        b = (await self.db.execute(
+            _select(ERPBilling).where(ERPBilling.id == billing_id))).scalar_one_or_none()
+        if b is None:
+            logger.warning("sync_ledger_by_id: 找不到請款 #%s", billing_id)
+            return False
+        before = await self.ledger_service.find_by_source("erp_billing", b.id)
+        await self._sync_ledger_if_paid(b)
+        return before is None
+
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款 (ADR-0013 Phase 2: 自動生成 billing_code + 併發 retry)"""
 
