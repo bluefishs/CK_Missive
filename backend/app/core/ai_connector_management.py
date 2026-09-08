@@ -79,11 +79,11 @@ class AIConnectorManagementMixin:
 
     async def warmup_models(self) -> Dict[str, bool]:
         """對每個必要模型發送最小請求，預載入 GPU 記憶體。"""
-        from .ai_connector import REQUIRED_MODELS, TASK_MODEL_MAP
+        from .ai_connector import WARMUP_MODELS, TASK_MODEL_MAP
 
         results: Dict[str, bool] = {}
 
-        for required_model in REQUIRED_MODELS:
+        for required_model in WARMUP_MODELS:
             try:
                 async with httpx.AsyncClient() as client:
                     if required_model == TASK_MODEL_MAP.get("embedding", "nomic-embed-text"):

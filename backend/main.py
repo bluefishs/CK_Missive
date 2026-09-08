@@ -239,8 +239,14 @@ async def lifespan(app: FastAPI):
                 warmup_result = await connector.warmup_models()
                 warmed = sum(1 for v in warmup_result.values() if v)
                 total_models = len(warmup_result)
-                if warmed == total_models:
-                    logger.info(f"✅ Ollama 模型 warm-up 完成 ({warmed}/{total_models})")
+                if total_models == 0:
+                    logger.info("Ollama warm-up 已停用（OLLAMA_WARMUP_MODELS=none）")
+                elif warmed == total_models:
+                    # 2026-09-09：印出**實際預熱了誰**。此前只印「3/3 完成」，
+                    # 而預熱清單與必備清單是同一份 ⇒ 沒有人看得出開機釘住了哪幾個模型、多少記憶體。
+                    logger.info(
+                        f"✅ Ollama 模型 warm-up 完成 ({warmed}/{total_models}): "
+                        f"{', '.join(sorted(warmup_result))}")
                 else:
                     logger.warning(
                         f"⚠️ Ollama 模型 warm-up 部分失敗 ({warmed}/{total_models})"

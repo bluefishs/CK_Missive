@@ -115,6 +115,34 @@ REQUIRED_MODELS: set = {
     os.getenv("OLLAMA_VISION_MODEL", "gemma4:e2b"),
 }
 
+# 啟動時要**預載入記憶體**的模型 —— 與 REQUIRED_MODELS 分開（2026-09-09）。
+# 「這台機器上要有這個模型」與「開機就把它載進記憶體」是兩件事，此前混成同一份清單。
+#
+# 為什麼縮成只有嵌入模型：
+#   · 實測 06:0x：ollama 佔 10.37 GiB / 23.47 GiB，而 `ollama ps` 只有 Hermes 常駐的
+#     **`qwen2.5:7b-ctx64k`**（8.7 GB）—— 我們預熱的 `qwen2.5:7b` 是**另一個模型**，
+#     預熱它對 Hermes 那條路徑沒有幫助，而且啟動後不久就被 TTL 釋放（＝之後沒人用）。
+#   · `gemma4:e2b`（視覺 OCR）用量稀少，同樣會被 TTL 釋放。
+#   · 只有嵌入模型是常用的（KG／RAG 每次檢索都要）。
+#   · 代價與**重啟次數成正比**：每次重啟重新釘住約 5 GB，而 2026-09-08 夜間重啟異常頻繁。
+#
+# ⚠️ 這不是「預熱造成故障」的修法 —— 那個因果沒有被證明。這是拿掉一筆**已證實存在
+#    而效益未證實**的成本。要恢復舊行為：`OLLAMA_WARMUP_MODELS=all`。
+#    要指定清單：`OLLAMA_WARMUP_MODELS=nomic-embed-text,gemma4:e2b`（逗號分隔）。
+#    要完全關閉：`OLLAMA_WARMUP_MODELS=none`。
+def _warmup_models() -> set:
+    raw = (os.getenv("OLLAMA_WARMUP_MODELS") or "").strip()
+    if raw.lower() == "all":
+        return set(REQUIRED_MODELS)
+    if raw.lower() in ("none", "off", "0", "false"):
+        return set()
+    if raw:
+        return {m.strip() for m in raw.split(",") if m.strip()}
+    return {os.getenv("EMBEDDING_MODEL", "nomic-embed-text")}
+
+
+WARMUP_MODELS: set = _warmup_models()
+
 
 from app.core.ai_connector_management import AIConnectorManagementMixin
 
