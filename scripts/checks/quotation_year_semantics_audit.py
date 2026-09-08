@@ -51,18 +51,40 @@ from lib.docker_exec import python_in  # noqa: E402  共用層（weekly 93：不
 SQL = ("SELECT id, case_code, case_name, year, quote_kind FROM erp_quotations "
        "WHERE deleted_at IS NULL ORDER BY id")
 
+#: ⭐ 2026-09-08 追加：`year` 不只存在於報價單。同一個案在 erp_quotations／
+#: contract_projects／pm_cases 各有一個 year 欄，而年度篩選在不同頁面讀不同的表
+#: ⇒ **三張表的 year 不一致，就會出現「同一個 2026、兩頁兩個總額」**。
+#: owner 回報「/erp/quotations 107,484,210 vs /erp/client-accounts 90,549,209.5」
+#: 差額 16,935,000 完全來自一筆：CK2025_01_03_001 的報價單 year=2026（對）
+#: 而 contract_projects.year=2025（錯）⇒ 帳款頁把整案篩掉。
+#: 首版只掃報價單，抓不到它 —— **判準的掃描範圍要涵蓋所有持有該欄位的表**。
+CROSS_SQL = """
+SELECT 'quotation_vs_contract' AS pair, q.case_code, q.year, c.year, COALESCE(q.case_name,'')
+  FROM erp_quotations q JOIN contract_projects c ON c.case_code = q.case_code
+ WHERE q.deleted_at IS NULL AND q.year IS DISTINCT FROM c.year
+UNION ALL
+SELECT 'quotation_vs_pm', q.case_code, q.year, p.year, COALESCE(q.case_name,'')
+  FROM erp_quotations q JOIN pm_cases p ON p.case_code = q.case_code
+ WHERE q.deleted_at IS NULL AND q.year IS DISTINCT FROM p.year
+UNION ALL
+SELECT 'pm_vs_contract', p.case_code, p.year, c.year, COALESCE(p.case_name,'')
+  FROM pm_cases p JOIN contract_projects c ON c.case_code = p.case_code
+ WHERE p.year IS DISTINCT FROM c.year
+"""
 
-def query():
+
+def query(sql: str = None, ncols: int = 5):
     """連不到 DB 時回 None（不回空 list）—— 空 list 會被讀成「沒有問題」。"""
     code = "\n".join([
         "import asyncio, json",
         "from sqlalchemy import text",
         "from app.db.database import AsyncSessionLocal",
-        f"SQL = {SQL!r}",
+        f"SQL = {(sql or SQL)!r}",
+        f"N = {int(ncols)}",
         "async def m():",
         "    async with AsyncSessionLocal() as db:",
         "        rows = (await db.execute(text(SQL))).all()",
-        "    print(json.dumps([[r[0], r[1], r[2], r[3], r[4]] for r in rows], ensure_ascii=False))",
+        "    print(json.dumps([[r[i] for i in range(N)] for r in rows], ensure_ascii=False))",
         "asyncio.run(m())",
     ])
     try:
@@ -101,6 +123,12 @@ def roc_years(name: str) -> list[int]:
     return sorted(out)
 
 
+def scan_cross():
+    """三張表的 year 兩兩比對；不一致即 RED（年度篩選會兩頁兩個答案）。"""
+    rows = query(CROSS_SQL, 5)
+    return rows
+
+
 def scan():
     rows = query()
     if rows is None:
@@ -135,20 +163,35 @@ def main() -> int:
         print("Status: [YELLOW] 未能查證")
         return 1
     print(f"  掃 {total} 張報價單")
+    cross = scan_cross()
+    if cross:
+        print(f"  [RED] {len(cross)} 案的 year 在不同表之間不一致 —— "
+              "年度篩選會讓同一個年度在不同頁面得到不同總額：")
+        for pair, code, y1, y2, name in cross[:10]:
+            print(f"        {pair}: {code} {y1} vs {y2}｜{str(name)[:26]}")
     for qid, code, name, year, why in reds:
         print(f"  [RED] #{qid} {code} year={year} —— {why}｜{name[:34]}")
     for qid, code, name, year, why in yellows[:10]:
         print(f"  [YELLOW] #{qid} {code} —— {why}｜{name[:34]}")
     if len(yellows) > 10:
         print(f"  [YELLOW] …另有 {len(yellows) - 10} 筆")
-    if reds:
-        print(f"\nStatus: [RED] {len(reds)} 張的 year 欄與案名年度不符 —— "
-              "年度篩選會讓這些案在錯的年份出現或消失，而畫面上沒有任何訊息。")
+    # ⚠️ 2026-09-08：跨表不一致**也要讓退出碼變 2**。
+    # 首版只印了 [RED] 那一行卻沒有進這個判斷，於是負向控制時
+    # 「畫面印紅字、Status 卻是 GREEN」—— 那是本 repo 記過的
+    # 「印了紅字但退出碼是綠」，而排程只看退出碼。
+    if cross or reds:
+        parts = []
+        if cross:
+            parts.append(f"{len(cross)} 案跨表 year 不一致（同一年度在不同頁面得到不同總額）")
+        if reds:
+            parts.append(f"{len(reds)} 張 year 欄與案名年度不符")
+        print(f"\nStatus: [RED] " + "；".join(parts)
+              + " —— 年度篩選會讓這些案在錯的年份出現或消失，而畫面上沒有任何訊息。")
         return 2
     if yellows:
         print(f"\nStatus: [YELLOW] {len(yellows)} 張 year 欄為空")
         return 1
-    print("\nStatus: [GREEN] year 欄與案名年度一致")
+    print("\nStatus: [GREEN] year 欄一致（案名年度、且三張表之間）")
     return 0
 
 
