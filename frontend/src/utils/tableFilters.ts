@@ -158,3 +158,97 @@ export function distinctOptions<T>(
   }
   return [...set].sort((a, b) => a.localeCompare(b, 'zh-Hant')).map((v) => ({ value: v, label: v }));
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 收斂：一份宣告產生「欄位漏斗」與「onChange 解讀」
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 一個後端篩選欄位的完整宣告。
+ *
+ * ⭐ 2026-09-09 owner 問題 2：「若表格調整欄位呈現項目，那表標頭篩選排序機制
+ * 是否又會失效或再次設定」。**在此之前答案是「會」**，而且不會報錯 ——
+ * 同一條篩選鏈有三處各自寫著它的名字：
+ *
+ *   ① 欄位的 `key` / `dataIndex`（漏斗掛在哪一欄）
+ *   ② `filteredValue` 讀的查詢參數名（勾選狀態從哪裡來）
+ *   ③ `onChange` 裡**手寫的字串**（值怎麼被讀回去）
+ *
+ * 實例（`/erp/quotations` 的「年度」欄）：`key: 'case_code'`、值存 `params.year`、
+ * onChange 寫 `first('case_code')` —— **同一件事三個名字**。
+ * 把年度獨立成 `dataIndex: 'year'` 這種再正常不過的欄位調整，
+ * ③ 立刻對不上 ⇒ 漏斗點了沒有反應，而 tsc 全綠、主控台安靜。
+ *
+ * 收成一份之後：改欄位鍵只改 `columnKey` 一個字，①②③ 同時跟上；
+ * 而 `bind()` 的參數型別是從 `defs` 推導的字面聯集 ⇒ **打錯字由 tsc 擋下**。
+ */
+export interface ServerFilterDef<K extends string = string> {
+  /** 漏斗掛在哪一欄（antd column 的 `key`，沒給 key 時是 `dataIndex`） */
+  columnKey: string;
+  /** 值存進查詢參數的哪個欄位（可以與 columnKey 不同名）。型別是查詢參數的鍵集合 ⇒ 打錯字 tsc 會擋。 */
+  param: K;
+  options: readonly FilterOption[];
+  /** 年度那類欄位：讀回來要是數字 */
+  numeric?: boolean;
+  multiple?: boolean;
+  search?: boolean;
+}
+
+/**
+ * 建立一組「宣告一次、兩邊都跟上」的後端篩選。
+ *
+ * ```tsx
+ * const F = buildServerFilters(FILTER_DEFS, params);
+ * // 欄位：{ title: '年度', dataIndex: 'case_code', key: 'case_code', ...F.bind('case_code') }
+ * // 表格：onChange={(_p, filters, sorter) => setParams((prev) => ({ ...prev, ...F.read(filters, sorter), skip: 0 }))}
+ * ```
+ *
+ * @param current 目前的查詢參數物件（讀 `def.param` 取勾選值）
+ * @param opts.sortField 前端欄名與後端排序鍵不同時的改寫（例：議價金額 ⇒ total_price）
+ */
+export function buildServerFilters<
+  P extends Record<string, unknown>,
+  const D extends readonly ServerFilterDef<Extract<keyof P, string>>[],
+>(
+  defs: D,
+  current: P,
+  opts?: { sortField?: (field: string) => string },
+) {
+  const byColumn = new Map<string, ServerFilterDef>(defs.map((d) => [d.columnKey, d]));
+
+  return {
+    /** 展開進欄位定義。`columnKey` 不在 `defs` 裡時 tsc 會報錯（這是它存在的一半理由）。 */
+    bind<T = unknown>(columnKey: D[number]['columnKey']) {
+      const d = byColumn.get(columnKey);
+      /* istanbul ignore next -- 型別已擋住，這是執行期的最後一道 */
+      if (!d) throw new Error(`buildServerFilters: 欄位鍵 '${columnKey}' 未宣告`);
+      const raw = current[d.param];
+      return serverFilter<T>(d.options, raw as string | number | null | undefined, {
+        multiple: d.multiple,
+        search: d.search,
+      });
+    },
+
+    /**
+     * 從 antd `Table onChange` 的 `filters`（與可選的 `sorter`）解讀出要併回查詢參數的物件。
+     *
+     * ⚠️ **每一個宣告過的 `param` 都必然出現在回傳值裡**，取消勾選時是 `undefined`。
+     * 少一個 key 的話，展開進 `params` 時舊值會留著 ⇒ **畫面說沒篩、資料仍被篩**
+     * （本 repo 記過這個形狀：隱形篩選比不篩更糟，使用者不知道自己看到的是子集）。
+     */
+    read(filters: AntdFilters, sorter?: unknown): Record<string, unknown> {
+      const out: Record<string, unknown> = {};
+      for (const d of defs) {
+        out[d.param] = d.numeric
+          ? pickFilterNumber(filters, d.columnKey)
+          : pickFilter(filters, d.columnKey);
+      }
+      if (sorter !== undefined) {
+        const s = pickSort(sorter);
+        out.sort_by = s.sort_by !== undefined && opts?.sortField ? opts.sortField(s.sort_by) : s.sort_by;
+        out.sort_order = s.sort_order;
+      }
+      return out;
+    },
+  };
+}

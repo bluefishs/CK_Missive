@@ -21,6 +21,7 @@ import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 import { getErrorMessage } from '../utils/apiErrorParser';
+import { buildServerFilters } from '../utils/tableFilters';
 import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
 
 const { Title, Text } = Typography;
@@ -127,6 +128,21 @@ export const ERPQuotationListPage: React.FC = () => {
 
   // 前端過濾：僅顯示已承攬
 
+  // 2026-09-09 owner 問題 2：「若表格調整欄位呈現項目，那表標頭篩選排序機制是否又會失效」。
+  // 這一頁就是最好的例子——在此之前「年度」的篩選鏈有三個名字：
+  // 欄位 key `case_code`／參數 `params.year`／onChange 手寫 `first('case_code')`。
+  // 把年度獨立成 `dataIndex: 'year'` 這種正常的欄位調整，第三處立刻對不上，
+  // 而 tsc 全綠、主控台安靜、漏斗長得一模一樣，只是點了沒反應。
+  // ⇒ 收成一份宣告：改欄位鍵只改 columnKey 一個字，兩邊同時跟上；打錯字由 tsc 擋下。
+  const F = buildServerFilters(
+    [
+      { columnKey: 'case_code', param: 'year', options: YEAR_OPTIONS.map((y) => ({ value: y.value, label: y.label })), numeric: true },
+      { columnKey: 'project_code', param: 'category', options: [{ value: '01', label: '01 委辦招標' }, { value: '02', label: '02 承攬報價' }] },
+      { columnKey: 'client_name', param: 'client_name', options: clientOptions.map((c) => ({ value: c.name, label: `${c.name}（${c.count}）` })), search: true },
+    ] as const,
+    params,
+  );
+
   const columns: ResponsiveColumn<ERPQuotation>[] = [
     // 2026-09-03 owner：「配合總表調整核心資訊；填報者、舊案號非必要，落實線上報價單後也無舊案號呈現必要」。
     // 欄序照總表：年度／報價單編號／案名／客戶／承辦／報價日期／總價／狀態／收款／發票／毛利率。
@@ -137,14 +153,12 @@ export const ERPQuotationListPage: React.FC = () => {
     // 與工具列的下拉共用同一份 params，在哪邊改另一邊同步。排序 sort_by=case_code（CK{年}_ 前綴＝案件年度）。
     {
       title: '年度', dataIndex: 'case_code', key: 'case_code', width: 80, align: 'center', sorter: true,
-      filters: YEAR_OPTIONS.map((y) => ({ text: y.label, value: y.value })), filterMultiple: false,
-      filteredValue: params.year ? [params.year] : null,
+      ...F.bind('case_code'),
       render: (_: unknown, r: ERPQuotation) => caseYear(r) ?? '—',
     },
     {
       title: '成案編號', dataIndex: 'project_code', key: 'project_code', sorter: true, width: 150,
-      filters: [{ text: '01 委辦招標', value: '01' }, { text: '02 承攬報價', value: '02' }], filterMultiple: false,
-      filteredValue: params.category ? [params.category] : null,
+      ...F.bind('project_code'),
       render: (_: unknown, r: ERPQuotation) => (
         <Space direction="vertical" size={0}>
           <span>{r.project_code || <Text type="secondary">未成案</Text>}</span>
@@ -162,8 +176,7 @@ export const ERPQuotationListPage: React.FC = () => {
     },
     {
       title: '委託單位', dataIndex: 'client_name', key: 'client_name', width: 150, ellipsis: true,
-      filters: clientOptions.map((c) => ({ text: `${c.name}（${c.count}）`, value: c.name })), filterMultiple: false, filterSearch: true,
-      filteredValue: params.client_name ? [params.client_name] : null,
+      ...F.bind('client_name'),
       render: (v?: string) => v || <Text type="secondary">—</Text>,
     },
     {
@@ -612,19 +625,16 @@ export const ERPQuotationListPage: React.FC = () => {
           onChange={(_p, filters, sorter) => {
             const sd = Array.isArray(sorter) ? sorter[0] : sorter;
             const field = typeof sd?.field === 'string' ? sd.field : undefined;
-            // 表頭篩選也送進查詢參數（伺服器端篩選）。取消篩選時要送 undefined，
-            // 不能留空字串 —— API 層是 truthy 判斷，空字串會被丟掉而看起來像沒改。
-            const st = filters?.status?.[0];
-            const first = (k: string) => { const v = filters?.[k]; return Array.isArray(v) && v.length ? v[0] : undefined; };
-            const yr = first('case_code'); const cat = first('project_code'); const client = first('client_name');
-            // 議價金額不是報價單欄位（承攬案合約額）；後端排序只認報價單欄位 ⇒ 用報價總價代替
+            // 表頭篩選送進查詢參數（伺服器端篩選）。取消篩選時是 undefined 而不是空字串 ——
+            // API 層是 truthy 判斷，空字串會被丟掉而看起來像沒改。這條規則收在 `pickFilter` 裡。
+            //
+            // ⚠️ 排序刻意**不**交給 F.read：這一頁在沒有排序時要回退到
+            // `case_code desc`（年度新的在前），而 read 的語意是「沒排序就清掉」。
+            // 議價金額不是報價單欄位（承攬案合約額）；後端排序只認報價單欄位 ⇒ 用報價總價代替。
             const sortField = field === 'contract_amount' ? 'total_price' : field;
             setParams((prev) => ({
               ...prev,
-              status: typeof st === 'string' ? st : undefined,
-              year: typeof yr === 'number' ? yr : undefined,
-              category: typeof cat === 'string' ? cat : undefined,
-              client_name: typeof client === 'string' ? client : undefined,
+              ...F.read(filters),
               sort_by: sortField && sd?.order ? sortField : 'case_code',
               sort_order: sortField && sd?.order ? (sd.order === 'ascend' ? 'asc' : 'desc') : 'desc',
               page: 1,
