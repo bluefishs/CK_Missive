@@ -146,9 +146,13 @@ export const PMCaseListPage: React.FC = () => {
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
   // 2026-09-04 owner：報價總額跟著目前點選的狀態卡／類別動態調整；各卡計數不跟（分母）。
+  // 2026-09-09 owner：「PM 案件列表與統計兩者無對應，是不合理的統計數據」。
+  // `staff_user_id` 必須與列表同值 —— 少了它，從個人儀表板點進來時列表篩了承辦
+  // 而卡片顯示全部，同一個畫面兩個口徑。
   const { data: summary } = usePMCaseSummary({
     year: yearFilter, include_converted: includeConverted,
     status: statusFilter, category: categoryFilter,
+    ...(staffFromUrl ? { staff_user_id: staffFromUrl } : {}),
   });
 
   // PaginatedResponse<PMCase> has .items and .pagination directly

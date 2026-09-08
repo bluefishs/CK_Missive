@@ -90,23 +90,48 @@ async def staff_names_by_case_code(db: AsyncSession, case_codes: Iterable[str]) 
     }
 
 
+#: 一個人的**所有帳號**（身分合併後的同一人）。
+#:
+#: ⭐ 2026-09-09 owner 從 `/erp/vendor-accounts` 回報：「以王駿穠登入，篩選李昭德
+#: 顯示（3）且經費為零」。實查：
+#:
+#:     id=11 staff_李昭德   canonical_user_id=19  **已停用**  ← CK2025_01_03_001（380 萬）掛在這裡
+#:     id=19 luke19630612  canonical=None        在用       ← 下拉顯示的就是這個 id
+#:
+#: 下拉（`assignable_staff`）**有**展開 alias（`COALESCE(au.canonical_user_id, au.id)`）
+#: ⇒ 算出 3 個案；而 `case_codes_of_user` **沒有**展開 ⇒ 只拿到 2 個
+#: ⇒ 選了 2026 年度後一個都不剩，畫面顯示「共 0 家、經費 0」。
+#:
+#: **同一個檔案裡兩支函式對「這個人是誰」用了兩份定義**，而兩個數字各自看都對。
+#: 這是 ADR-0025 身分合併家族的又一處：合併寫進去了，消費端沒有跟著展開。
+_ALIAS_GROUP = """
+    SELECT u.id FROM users u
+     WHERE u.id = COALESCE((SELECT canonical_user_id FROM users WHERE id = :uid), :uid)
+        OR u.canonical_user_id = COALESCE((SELECT canonical_user_id FROM users WHERE id = :uid), :uid)
+"""
+
+
 async def case_codes_of_user(db: AsyncSession, user_id: int) -> set[str]:
-    """某個人被指派到的所有 case_code（兩條綁法都算）。
+    """某個人被指派到的所有 case_code（兩條綁法都算，**alias 帳號一併展開**）。
 
     給「只看我的」這種**使用者自己選的**篩選用。
     ⚠️ 這不是 RLS —— 可見範圍由伺服器依身分決定（見 `_quotation_scope`），
     本函式只回答「這個人的案有哪些」，呼叫端要自己決定拿它做什麼。
+
+    ⚠️ **`:uid` 可以是 alias 也可以是 canonical**，兩邊都要得到同一個答案 ——
+    停用的舊帳號上仍掛著真實的指派（見 `_ALIAS_GROUP` 的說明），
+    只認其中一個 id 就會讓那些案憑空消失，而畫面上只顯示「沒有資料」。
     """
-    rows = (await db.execute(text("""
+    rows = (await db.execute(text(f"""
         SELECT DISTINCT pa.case_code
           FROM project_user_assignments pa
-         WHERE pa.user_id = :uid AND pa.case_code IS NOT NULL
+         WHERE pa.user_id IN ({_ALIAS_GROUP}) AND pa.case_code IS NOT NULL
            AND COALESCE(pa.status, 'active') <> 'inactive'
         UNION
         SELECT DISTINCT cp.case_code
           FROM project_user_assignments pa2
           JOIN contract_projects cp ON cp.id = pa2.project_id
-         WHERE pa2.user_id = :uid AND cp.case_code IS NOT NULL
+         WHERE pa2.user_id IN ({_ALIAS_GROUP}) AND cp.case_code IS NOT NULL
            AND COALESCE(pa2.status, 'active') <> 'inactive'
     """), {"uid": int(user_id)})).all()
     return {r[0] for r in rows if r[0]}

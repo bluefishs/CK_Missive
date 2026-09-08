@@ -257,10 +257,16 @@ class PMCaseService:
     async def get_summary(
         self, year: Optional[int] = None, include_converted: bool = True,
         status: Optional[str] = None, category: Optional[str] = None,
+        staff_user_id: Optional[int] = None,
     ) -> PMCaseSummary:
-        """案件統計摘要（範圍須與列表一致，見 repo 的說明；status／category 只影響金額）"""
+        """案件統計摘要（範圍須與列表一致，見 repo 的說明；status／category 只影響金額）
+
+        ⚠️ `staff_user_id` 不是可選的裝飾 —— 少了它，列表篩了承辦而卡片沒篩，
+        同一個畫面上兩個口徑（owner 2026-09-09 回報）。
+        """
         data = await self.repo.get_summary(year=year, include_converted=include_converted,
-                                           status=status, category=category)
+                                           status=status, category=category,
+                                           staff_user_id=staff_user_id)
         return PMCaseSummary(**data)
 
     async def get_yearly_trend(self) -> List[PMYearlyTrendItem]:

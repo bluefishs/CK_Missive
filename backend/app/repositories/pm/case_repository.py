@@ -153,6 +153,7 @@ class PMCaseRepository(BaseRepository[PMCase]):
     async def get_summary(
         self, year: Optional[int] = None, include_converted: bool = True,
         status: Optional[str] = None, category: Optional[str] = None,
+        staff_user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """取得案件統計摘要
 
@@ -163,8 +164,23 @@ class PMCaseRepository(BaseRepository[PMCase]):
         if year is not None:
             base = base.where(PMCase.year == year)
 
+        # 2026-09-09 owner：「PM 案件列表與統計兩者無對應，是不合理的統計數據」。
+        #
+        # 列表帶了 `staff_user_id`（從個人儀表板點進來時就是承辦本人），統計卡沒帶
+        # ⇒ 同一個畫面上，列表 6 件而卡片顯示全部。
+        # 而這個檔案的 `get_summary` docstring 早就寫著「範圍須與列表一致」——
+        # **宣告寫對了、實作少一個參數**，本 repo 反覆付學費的同一個形狀。
+        #
+        # 身分規則不另寫一份：與列表同樣走 `case_codes_of_user`（`case_staff` 那一家，
+        # 指派的兩條互斥綁法都認得），差別只在這裡是在 `_scoped` 裡套，
+        # 那是三個子查詢（總計／狀態分組／合約總額）的單一收斂點。
+        mine_codes = None
+        if staff_user_id is not None:
+            from app.repositories.erp.case_staff import case_codes_of_user
+            mine_codes = await case_codes_of_user(self.db, staff_user_id) or {"__none__"}
+
         def _scoped(q):
-            """把年度與「是否含已成案」兩個範圍條件一次套上。
+            """把年度、「是否含已成案」與承辦身分三個範圍條件一次套上。
 
             原本三段查詢各自 `if year is not None` 重複三次 —— 再加一個條件
             就是重複六次，而漏掉其中一段不會報錯，只會讓某一張卡的分母跟別人不一樣。
@@ -179,6 +195,8 @@ class PMCaseRepository(BaseRepository[PMCase]):
                         PMCase.project_code == "",
                     )
                 )
+            if mine_codes is not None:
+                q = q.where(PMCase.case_code.in_(mine_codes))
             return q
 
         # 總數

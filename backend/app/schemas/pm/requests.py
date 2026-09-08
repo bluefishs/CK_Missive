@@ -55,6 +55,12 @@ class PMSummaryRequest(BaseModel):
     # 各卡的計數仍是全範圍（卡片是分母，§2.6 ②）。
     status: Optional[str] = Field(None, description="只套用在報價總額的狀態篩選（planning/contracted/closed）")
     category: Optional[str] = Field(None, description="只套用在報價總額的類別篩選（01/02）")
+    # 2026-09-09 owner：「PM 案件列表與統計兩者無對應，是不合理的統計數據」。
+    # 列表早就接了這個參數（`PMCaseListRequest.staff_user_id`），統計沒接
+    # ⇒ 從個人儀表板點進來時，列表篩了承辦而卡片顯示全部。
+    # 上面 `include_converted` 的說明寫著「必須與列表用同一個值」——**身分也是範圍**，
+    # 同一句話本來就涵蓋它，只是當時沒有人把它讀成這樣。
+    staff_user_id: Optional[int] = Field(None, description="只統計這位承辦同仁名下的案（須與列表同值）")
 
 
 

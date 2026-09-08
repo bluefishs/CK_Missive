@@ -612,6 +612,7 @@ run_step "125" "文件生命週期（活區不得有 superseded 件；新增無�
 run_step "126" "報價單 year 欄語意（案名民國年 vs year 欄；年度篩選的判準依賴它保持乾淨）" "scripts/checks/quotation_year_semantics_audit.py"
 run_step "127" "金流異常判準方向一致性（逐案 vs 逐筆兩種粒度，一邊 0 一邊非 0 ＝ 只改了一邊）" "scripts/checks/finance_anomaly_parity_audit.py"
 run_step "128" "表頭篩選鍵接線（宣告了漏斗而 onChange 讀不到那個鍵；自帶解析度下限）" "scripts/checks/table_filter_key_wiring_audit.py"
+run_step "129" "承辦身分合併展開（alias 帳號上的指派；只認 canonical id 會讓案憑空消失）" "scripts/checks/staff_alias_scope_parity_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

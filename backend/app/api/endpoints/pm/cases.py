@@ -235,6 +235,7 @@ async def get_summary(
     result = await service.get_summary(
         year=req.year, include_converted=req.include_converted,
         status=req.status, category=req.category,
+        staff_user_id=req.staff_user_id,
     )
     return SuccessResponse(data=result)
 
