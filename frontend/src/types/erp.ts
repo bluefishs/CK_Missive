@@ -376,6 +376,11 @@ export interface InvoiceSummaryItem {
 export interface InvoiceSummaryRequest {
   invoice_type?: string;
   year?: number;
+  /** 排序欄位（invoice_number／invoice_date／amount）—— 2026-09-09 接後端 sort_utils 白名單。
+   *  ⚠️ 此前欄位標了 `sorter: true` 而型別與後端都沒有這兩個欄位，箭頭是裝飾品；
+   *  而**展開運算子會繞過 TS 的多餘屬性檢查**，所以少了它們 tsc 也不會紅。 */
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
   /** 一次搜發票號／案號／報價單號／案名（2026-09-07；伺服器分頁下前端過濾只看得到當頁） */
   search?: string;
   skip?: number;

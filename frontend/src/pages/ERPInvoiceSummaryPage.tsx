@@ -4,6 +4,7 @@
  * 功能：跨案件發票彙總 + 銷項/進項篩選 + 年度篩選
  */
 import React, { useState, useMemo } from 'react';
+import { serverFilter, pickFilter, pickSort } from '../utils/tableFilters';
 import { fmtMoney } from '../utils/money';
 import {
   Card, Tag, Select, Typography, Row, Col, Space, Alert, Input,
@@ -101,6 +102,12 @@ const ERPInvoiceSummaryPage: React.FC = () => {
     },
     {
       title: '類型', dataIndex: 'invoice_type', key: 'invoice_type', width: 80,
+      // 2026-09-09：後端本來就支援 invoice_type（工具列下拉在用），這裡把同一個條件
+      // 也做成表頭漏斗，兩邊共用 params.invoice_type ⇒ 在哪一邊改另一邊都會同步。
+      ...serverFilter<InvoiceSummaryItem>(
+        [{ value: 'sales', label: '銷項' }, { value: 'purchase', label: '進項' }],
+        params.invoice_type,
+      ),
       render: (v: string) => {
         const label = ERP_INVOICE_TYPE_LABELS[v as keyof typeof ERP_INVOICE_TYPE_LABELS] ?? v;
         return <Tag color={v === 'sales' ? 'blue' : 'orange'}>{label}</Tag>;
@@ -200,6 +207,13 @@ const ERPInvoiceSummaryPage: React.FC = () => {
           dataSource={items}
           rowKey="id"
           loading={isLoading}
+          onChange={(_pagination, filters, sorter) => setParams((p) => ({
+            ...p,
+            invoice_type: pickFilter(filters, 'invoice_type'),
+            // 2026-09-09：欄位早就標了 sorter: true，而後端此前沒有 sort_by ⇒ 箭頭是裝飾品。
+            ...pickSort(sorter),
+            skip: 0,
+          }))}
           pagination={{
             current: Math.floor((params.skip ?? 0) / (params.limit ?? 20)) + 1,
             pageSize: params.limit ?? 20,

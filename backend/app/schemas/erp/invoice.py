@@ -85,6 +85,11 @@ class InvoiceSummaryRequest(BaseModel):
     # 2026-09-07 owner：「CK2025_PM、QT2025_001 也無處可查」——一次搜四個欄位，
     # 因為人手上拿到的可能是發票號、案號、報價單號或案名裡的任何一個。
     search: Optional[str] = Field(None, max_length=100, description="發票號／案號／報價單號／案名")
+    #: 2026-09-09 owner「表頭篩選請完善」：欄位早就標了 `sorter: true`，
+    #: 而**後端沒有這兩個參數** ⇒ 那些排序箭頭是裝飾品，點了什麼都不會發生。
+    #: 允許的欄位由 repository 用白名單解析（sort_utils），不接受任意字串。
+    sort_by: Optional[str] = Field(None, description="排序欄位（invoice_number／invoice_date／amount）")
+    sort_order: Optional[str] = Field("desc", description="asc／desc")
     skip: int = 0
     limit: int = 50
 

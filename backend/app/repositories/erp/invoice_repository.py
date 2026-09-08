@@ -35,6 +35,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
     async def get_invoice_summary(
         self, invoice_type: Optional[str] = None, year: Optional[int] = None,
         search: Optional[str] = None,
+        sort_by: Optional[str] = None, sort_order: Optional[str] = "desc",
         skip: int = 0, limit: int = 50,
     ) -> tuple:
         """跨案件發票彙總 — 銷項/進項分類查詢"""
@@ -109,7 +110,14 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
         }
 
         # Results
-        query = query.order_by(ERPInvoice.invoice_date.desc()).offset(skip).limit(limit)
+        # 2026-09-09：欄位早就標了 `sorter: true` 而這裡是寫死的 order_by ⇒ 箭頭是裝飾品。
+        # 走 order_by_clause 才有欄位白名單與 NULLS LAST（DESC 時 PostgreSQL 預設把 NULL 當最大，
+        # 「由大到小」的第一頁會是一整頁空值）。
+        from app.repositories.sort_utils import order_by_clause
+        query = query.order_by(
+            order_by_clause(ERPInvoice, sort_by, ERPInvoice.invoice_date,
+                            descending=(sort_order or "desc") == "desc")
+        ).offset(skip).limit(limit)
         result = await self.db.execute(query)
         rows = result.all()
 

@@ -161,12 +161,15 @@ class ERPInvoiceService(AuditableServiceMixin):
         invoice_type: Optional[str] = None,
         year: Optional[int] = None,
         search: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
         skip: int = 0,
         limit: int = 50,
     ) -> dict:
         """跨案件發票彙總（`search` 一次搜發票號／案號／報價單號／案名）"""
         items, total, totals = await self.repo.get_invoice_summary(
-            invoice_type=invoice_type, year=year, search=search, skip=skip, limit=limit,
+            invoice_type=invoice_type, year=year, search=search,
+            sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit,
         )
         # totals＝分頁前全量合計（統計卡分母，2026-08-29）
         return {"items": items, "total": total, "totals": totals}

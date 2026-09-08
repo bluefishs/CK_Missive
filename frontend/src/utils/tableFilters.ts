@@ -47,7 +47,7 @@ type AntdFilters = Record<string, (React.Key | boolean)[] | null> | undefined;
  *                不傳 `filteredValue` 的話，漏斗與工具列下拉會各持一份狀態。
  */
 export function serverFilter<T>(
-  options: FilterOption[],
+  options: readonly FilterOption[],
   current?: string | number | null,
   opts?: { multiple?: boolean; search?: boolean },
 ): Pick<ColumnType<T>, 'filters' | 'filterMultiple' | 'filteredValue' | 'filterSearch'> {
@@ -66,7 +66,7 @@ export function serverFilter<T>(
  * @param get 從一列取出要比對的值
  */
 export function clientFilter<T>(
-  options: FilterOption[],
+  options: readonly FilterOption[],
   get: (record: T) => string | number | null | undefined,
   opts?: { multiple?: boolean; search?: boolean },
 ): Pick<ColumnType<T>, 'filters' | 'filterMultiple' | 'onFilter' | 'filterSearch'> {
@@ -124,7 +124,7 @@ export function pickSort(
  * 而畫面上只會看到「篩了之後一列都沒有」，看起來像沒有資料而不像判準錯了。
  */
 export function clientFilterAny<T>(
-  options: FilterOption[],
+  options: readonly FilterOption[],
   getAll: (record: T) => (string | number | null | undefined)[] | undefined,
   opts?: { multiple?: boolean; search?: boolean },
 ): Pick<ColumnType<T>, 'filters' | 'filterMultiple' | 'onFilter' | 'filterSearch'> {

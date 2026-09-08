@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { serverFilter, pickFilter, pickFilterNumber } from '../../utils/tableFilters';
 import {
   Button,
   Input,
@@ -54,7 +55,7 @@ const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute 
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchText, setSearchText] = useState('');
-  const [businessTypeFilter, setBusinessTypeFilter] = useState<string>('');
+  const [businessTypeFilter, setBusinessTypeFilter] = useState<string | undefined>('');
   const [ratingFilter, setRatingFilter] = useState<number | undefined>();
   const [statFilter, setStatFilter] = useState<string | null>(null);
 
@@ -138,8 +139,10 @@ const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute 
           key: 'business_type',
           width: 130,
           sorter: (a, b) => (a.business_type || '').localeCompare(b.business_type || '', 'zh-TW'),
-          filters: BUSINESS_TYPE_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
-          onFilter: (value, record) => record.business_type === value,
+          // 2026-09-09：後端分頁的表格帶 onFilter 會被 stripClientOnlyColumnFeatures
+          // 連 filters 一起剝掉 ⇒ 原始碼看得到漏斗、線上看不到。
+          // 後端本來就支援 business_type（vendor_repository.py:100），缺的是把值送過去。
+          ...serverFilter<Vendor>(BUSINESS_TYPE_OPTIONS, businessTypeFilter),
           render: (text: string) => text ? (
             <Tag icon={<ShopOutlined />} color={getBusinessTypeColor(text)}>{text}</Tag>
           ) : <span style={{ color: '#999' }}>未設定</span>,
@@ -149,15 +152,10 @@ const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute 
           dataIndex: 'rating',
           key: 'rating',
           sorter: (a, b) => (a.rating || 0) - (b.rating || 0),
-          filters: [
-            { text: '5星', value: 5 },
-            { text: '4星', value: 4 },
-            { text: '3星', value: 3 },
-            { text: '2星', value: 2 },
-            { text: '1星', value: 1 },
-            { text: '未評價', value: 0 },
-          ],
-          onFilter: (value, record) => (record.rating || 0) === value,
+          ...serverFilter<Vendor>(
+            [5, 4, 3, 2, 1].map((n) => ({ value: n, label: `${n}星` })).concat([{ value: 0, label: '未評價' }]),
+            ratingFilter,
+          ),
           render: (rating: number) => (
             rating ? (<Tag color={getRatingColor(rating)}>{rating} 星</Tag>) : <span style={{ color: '#999' }}>未評價</span>
           ),
@@ -284,6 +282,12 @@ const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute 
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },
           })}
+          onChange={(_pagination, filters) => {
+            // 2026-09-09：後端分頁 ⇒ 漏斗的值只能從這裡進查詢參數（欄位不得帶 onFilter）
+            setBusinessTypeFilter(pickFilter(filters, 'business_type'));
+            setRatingFilter(pickFilterNumber(filters, 'rating'));
+            setCurrent(1);
+          }}
           pagination={{
             current,
             pageSize: isMobile ? 10 : pageSize,

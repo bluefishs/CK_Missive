@@ -47,6 +47,8 @@ async def get_invoice_summary(
         invoice_type=params.invoice_type,
         year=params.year,
         search=params.search,
+        sort_by=params.sort_by,
+        sort_order=params.sort_order,
         skip=params.skip,
         limit=params.limit,
     )
