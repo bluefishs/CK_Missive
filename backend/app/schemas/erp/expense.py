@@ -63,6 +63,9 @@ AUTO_APPROVE_BELOW = Decimal(os.getenv("EXPENSE_AUTO_APPROVE_BELOW", "2000"))
 #
 # 這是誠實的決定。查證支持它：
 #   · 11 個在職帳號都有 `projects:write`，**沒有任何角色區分**
+#     ⚠️ 2026-09-08 更正：這句話**當時或許成立，現在不成立** —— `projects:write`
+#     已不存在於任何角色或使用者。四支端點改掛 `projects:edit`（等級）
+#     ＋ `app/core/case_scope.py`（範圍：只能動自己承辦的案）。
 #   · 沒有「財務」這個權限、沒有主管／部屬關係可依循
 #   · 實測 9 筆核銷只有 2 筆走完，卡住的 4 筆 16 天沒動
 #

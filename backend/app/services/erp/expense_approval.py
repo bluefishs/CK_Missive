@@ -69,7 +69,13 @@ class ExpenseApprovalService(AuditableServiceMixin):
         # 2026-08-16：擋自核。
         #
         # 查證發現這套「四層審批」在 2026-08-16 之前**不產生任何控制效果**：
-        # 每一層都只要 `projects:write`（11 個在職帳號都有）、
+        # 每一層都只要 `projects:write`、
+        # ⚠️ 2026-09-08 更正：上一行的「（11 個在職帳號都有）」**早就不成立** ——
+        #    實查 `projects:write` 這個碼在全系統不存在（role_permissions 0 筆、
+        #    12 位在職使用者 0 人、前端權限目錄也沒有）⇒ 那四支端點對所有
+        #    非 superuser **永遠 403**，而註解讓人以為是全開。
+        #    已改為 `projects:edit` ＋ `case_scope.assert_case_scope`
+        #    （等級用權限碼、範圍用承辦案件）。
         # `approve()` 根本不接收使用者（不知道也不記錄誰核的）、
         # 而且沒有防自核 —— 也就是同一個人可以把自己送的單點四次到底。
         # 9 筆核銷只有 2 筆走完，不是大家偷懶，是這個流程做了也沒意義。

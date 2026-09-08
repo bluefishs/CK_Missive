@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.core.dependencies import get_service, optional_auth, require_auth, require_permission
+from app.core.case_scope import assert_case_scope
 from app.extended.models import User
 from app.services.erp.expense_invoice import ExpenseInvoiceService
 from app.schemas.erp.expense import (
@@ -153,7 +154,7 @@ async def update_expense(
 async def approve_expense(
     params: ERPIdRequest,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_permission("projects:write")),
+    current_user: User = Depends(require_permission("projects:edit")),
 ):
     """多層審核推進 — 依金額自動決定下一審核階段
 
@@ -161,6 +162,13 @@ async def approve_expense(
     - >100%: 攔截 (HTTP 400)
     - >80%: 警告 (附在 message 中，仍放行)
     """
+    # ⭐ 2026-09-08 owner：「projects:write 重點要對能對應承辦同仁案件，以利管控」。
+    # 權限碼只回答「等級夠不夠」，範圍要另外問：這筆核銷的案子是不是我承辦的。
+    # 先查再動 —— 查不到就是 404，範圍不符就是 403，兩者要分得開。
+    target = await service.get_by_id(params.id)
+    if not target:
+        raise HTTPException(status_code=404, detail="發票不存在")
+    await assert_case_scope(service.db, current_user, [target.case_code], "審核")
     try:
         result = await service.approve(params.id, approver_id=current_user.id)
         if not result:
@@ -188,7 +196,7 @@ async def approve_expense(
 async def batch_approve_expenses(
     request: Request,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_permission("projects:write")),
+    current_user: User = Depends(require_permission("projects:edit")),
 ):
     """批次審核 — 多筆同時推進至下一審核階段
 
@@ -200,6 +208,13 @@ async def batch_approve_expenses(
         raise HTTPException(status_code=400, detail="ids 為必填陣列")
     if len(ids) > 50:
         raise HTTPException(status_code=400, detail="單次最多 50 筆")
+
+    # 批次要在動之前**整批**驗範圍：逐筆放行會讓批次變成繞過單筆守衛的後門。
+    targets = [await service.get_by_id(i) for i in ids]
+    await assert_case_scope(
+        service.db, current_user,
+        [t.case_code for t in targets if t is not None], "審核",
+    )
 
     results = {"success": [], "failed": []}
     for invoice_id in ids:
@@ -222,9 +237,13 @@ async def batch_approve_expenses(
 async def reject_expense(
     params: ExpenseInvoiceRejectRequest,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_permission("projects:write")),
+    current_user: User = Depends(require_permission("projects:edit")),
 ):
     """駁回報銷"""
+    target = await service.get_by_id(params.id)
+    if not target:
+        raise HTTPException(status_code=404, detail="發票不存在")
+    await assert_case_scope(service.db, current_user, [target.case_code], "駁回")
     try:
         result = await service.reject(params.id, reason=params.reason)
         if not result:
@@ -238,9 +257,13 @@ async def reject_expense(
 async def delete_expense(
     params: ERPIdRequest,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_permission("projects:write")),
+    current_user: User = Depends(require_permission("projects:edit")),
 ):
     """刪除費用核銷紀錄（僅 pending/rejected 狀態可刪）"""
+    target = await service.get_by_id(params.id)
+    if not target:
+        raise HTTPException(status_code=404, detail="發票不存在")
+    await assert_case_scope(service.db, current_user, [target.case_code], "刪除")
     try:
         await service.delete_expense(params.id)
         return SuccessResponse(data=None, message="已刪除")
