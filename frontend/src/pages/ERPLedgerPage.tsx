@@ -24,6 +24,7 @@ import {
   useCaseCodeMap,
 } from '../hooks';
 import type { FinanceLedger, LedgerQuery, LedgerEntryType } from '../types/erp';
+import { serverFilter, pickFilter } from '../utils/tableFilters';
 import { LEDGER_ENTRY_TYPE_LABELS, LEDGER_SOURCE_TYPE_OPTIONS, ledgerSourceLabel } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ColumnsType } from 'antd/es/table';
@@ -91,6 +92,12 @@ const ERPLedgerPage: React.FC = () => {
       dataIndex: 'entry_type',
       key: 'entry_type',
       width: 80,
+      // 後端早有 entry_type 參數（工具列下拉在用），這裡把同一個條件也做成表頭漏斗，
+      // 兩邊共用 params.entry_type ⇒ 在哪一邊改另一邊都會同步顯示。
+      ...serverFilter<FinanceLedger>(
+        Object.entries(LEDGER_ENTRY_TYPE_LABELS).map(([value, label]) => ({ value, label })),
+        params.entry_type,
+      ),
       render: (v: LedgerEntryType) => (
         <Tag color={v === 'income' ? 'green' : 'red'}>{LEDGER_ENTRY_TYPE_LABELS[v]}</Tag>
       ),
@@ -122,8 +129,10 @@ const ERPLedgerPage: React.FC = () => {
       // 標籤與篩選收在 types/erp.ts 單一處，兩個頁面共用 —— 不各寫一份對照。
       title: '來源', dataIndex: 'source_type', key: 'source_type', width: 110,
       render: (v: string | null) => ledgerSourceLabel(v),
-      filters: LEDGER_SOURCE_TYPE_OPTIONS.map(o => ({ text: o.label, value: o.value })),
-      onFilter: (value, record: FinanceLedger) => record.source_type === value,
+      // 2026-09-09：這一頁是**後端分頁**，原本帶 onFilter ⇒ 被 stripClientOnlyColumnFeatures
+      // 連 filters 一起刪掉，而後端也沒有 source_type 參數 —— 兩層都缺，
+      // 所以這個漏斗自宣告以來從來沒有真的存在過。現在兩層都接上了。
+      ...serverFilter<FinanceLedger>(LEDGER_SOURCE_TYPE_OPTIONS, params.source_type),
     },
     {
       title: '操作',
@@ -248,6 +257,7 @@ const ERPLedgerPage: React.FC = () => {
             placeholder="類型"
             allowClear
             style={{ width: 120 }}
+            value={params.entry_type}
             onChange={(v) => setParams(p => ({ ...p, entry_type: v as LedgerEntryType, skip: 0 }))}
             options={Object.entries(LEDGER_ENTRY_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
           />
@@ -269,6 +279,12 @@ const ERPLedgerPage: React.FC = () => {
           )}
           rowKey="id"
           loading={isLoading}
+          onChange={(_pagination, filters) => setParams((p) => ({
+            ...p,
+            source_type: pickFilter(filters, 'source_type'),
+            entry_type: pickFilter(filters, 'entry_type') as LedgerEntryType | undefined,
+            skip: 0,
+          }))}
           pagination={{
             current: Math.floor((params.skip ?? 0) / (params.limit ?? 20)) + 1,
             pageSize: params.limit ?? 20,

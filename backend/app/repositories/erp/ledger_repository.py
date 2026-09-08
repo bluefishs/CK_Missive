@@ -65,6 +65,8 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
             stmt = stmt.where(self.model.entry_type == params.entry_type)
         if params.category:
             stmt = stmt.where(self.model.category == params.category)
+        if params.source_type:
+            stmt = stmt.where(self.model.source_type == params.source_type)
         if params.user_id:
             # rls-noqa: 同 expense_invoice：可選篩選條件而非強制 RLS
             stmt = stmt.where(self.model.user_id == params.user_id)

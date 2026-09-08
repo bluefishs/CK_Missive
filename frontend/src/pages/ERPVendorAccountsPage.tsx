@@ -131,7 +131,9 @@ const ERPVendorAccountsPage: React.FC = () => {
       key: 'tax_id',
       width: 140,
     },
-    ...caseProfileColumns<VendorAccountSummaryItem>(),
+    // 2026-09-09：把目前載入的全部列傳進去，讓計畫類別／承辦同仁／案件狀態三欄長出表頭漏斗。
+    // 這一頁是全量在手（limit 1000 前端分頁），選項由資料推導必然與資料一致。
+    ...caseProfileColumns<VendorAccountSummaryItem>(items),
     {
       title: '合作案件數', hideOnMobile: true,
       dataIndex: 'case_count',

@@ -9,6 +9,7 @@
  * contracted→已承攬…）只在那一份裡；這裡不做任何翻譯，只負責呈現。
  */
 import { Tag, Tooltip } from 'antd';
+import { clientFilterAny, distinctOptions } from '../../utils/tableFilters';
 import type { ResponsiveColumn } from '../common/EnhancedTable';
 import type { CaseStaffRef, CaseStatusCount } from '../../types/erp';
 
@@ -74,8 +75,20 @@ export function renderStatuses(statuses?: CaseStatusCount[]) {
   );
 }
 
-/** 兩欄的定義；插在「統一編號」之後。泛型讓兩頁各自的列型別都能用。 */
-export function caseProfileColumns<T extends CaseProfileRow>(): ResponsiveColumn<T>[] {
+/**
+ * 三欄的定義；插在「統一編號」之後。泛型讓兩頁各自的列型別都能用。
+ *
+ * 2026-09-09 owner「表頭篩選請完善」：這三欄加上表頭漏斗。
+ * 兩頁都是**全量在手**（`limit: 1000` 前端分頁）⇒ 用 `clientFilterAny`（必須帶 `onFilter`），
+ * 而且語意是「**包含**」不是「等於」——一個委託單位名下有多個類別／承辦／狀態。
+ * 選項由當下的資料推導（全量在手時這樣做選項必然與資料一致）。
+ *
+ * @param rows 目前載入的全部列，用來推導漏斗選項。不傳則不加漏斗（詳情頁等場合）。
+ */
+export function caseProfileColumns<T extends CaseProfileRow>(rows?: T[]): ResponsiveColumn<T>[] {
+  const catOpts = distinctOptions(rows, (r) => r.categories);
+  const staffOpts = distinctOptions(rows, (r) => (r.staff ?? []).map((s) => s.name));
+  const statusOpts = distinctOptions(rows, (r) => (r.statuses ?? []).map((s) => s.label));
   return [
     {
       title: '計畫類別',
@@ -83,6 +96,7 @@ export function caseProfileColumns<T extends CaseProfileRow>(): ResponsiveColumn
       dataIndex: 'categories',
       key: 'categories',
       width: 150,
+      ...(catOpts.length ? clientFilterAny<T>(catOpts, (r) => r.categories) : {}),
       render: (_: unknown, r: T) => renderCategories(r.categories),
     },
     {
@@ -92,6 +106,8 @@ export function caseProfileColumns<T extends CaseProfileRow>(): ResponsiveColumn
       key: 'staff',
       width: 140,
       ellipsis: true,
+      // 承辦同仁基數中等（十幾人），給搜尋框避免下拉太長
+      ...(staffOpts.length ? clientFilterAny<T>(staffOpts, (r) => (r.staff ?? []).map((s) => s.name), { search: true }) : {}),
       render: (_: unknown, r: T) => renderStaff(r.staff),
     },
     {
@@ -100,6 +116,7 @@ export function caseProfileColumns<T extends CaseProfileRow>(): ResponsiveColumn
       dataIndex: 'statuses',
       key: 'statuses',
       width: 170,
+      ...(statusOpts.length ? clientFilterAny<T>(statusOpts, (r) => (r.statuses ?? []).map((s) => s.label)) : {}),
       render: (_: unknown, r: T) => renderStatuses(r.statuses),
     },
   ];

@@ -914,6 +914,8 @@ export interface LedgerQuery {
   user_id?: number;
   skip?: number;
   limit?: number;
+  /** 來源（erp_billing／expense_invoice…）—— 2026-09-09 表頭漏斗接後端 */
+  source_type?: string;
 }
 
 export interface LedgerBalanceRequest {

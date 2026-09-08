@@ -103,6 +103,10 @@ class LedgerQuery(BaseModel):
     case_code: Optional[str] = None
     entry_type: Optional[Literal["income", "expense"]] = None
     category: Optional[str] = None
+    #: 來源（erp_billing／expense_invoice…）。2026-09-09 owner「表頭篩選請完善」：
+    #: 前端「來源」欄早就宣告了漏斗，但因為帶 onFilter 被剝除器連 filters 一起刪掉，
+    #: 而**後端本來也沒有這個參數** —— 兩層都缺，所以那個漏斗從來沒有存在過。
+    source_type: Optional[str] = None
     date_from: Optional[datetime.date] = None
     date_to: Optional[datetime.date] = None
     user_id: Optional[int] = None
