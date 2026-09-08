@@ -41,7 +41,17 @@ except Exception:
 ROOT = repo_root()
 DOCS = ROOT / "docs"
 BASELINE = Path(__file__).resolve().parent / ".doc_lifecycle_baseline.txt"
-SKIP = {"archived", "health", "reports", "knowledge-map", "wiki", "release"}
+# ⭐ 2026-09-08 加入 "adr"（由跨 session 的 CK_AaaP 提出，我方實查證實）：
+# **ADR 已經有自己的狀態欄** —— 25 份裡 17 份帶 `> **狀態**: accepted/superseded/
+# removed/proposed`，且它由 `CK_AaaP/scripts/generate-adr-registry.py` 跨 repo 統計。
+# 若本支也要求 ADR 蓋 `lifecycle:` 檔頭 ⇒ **一份文件兩個狀態欄位，而它們可以不一致**，
+# 且不一致時兩支守門都還是綠的（同 L52 家族）。
+#
+# ⚠️ 加這一行同時修掉一個既有的假綠：本支的 RED 規則是「superseded 卻不在
+# archived/」，而它只看 `lifecycle:` 檔頭 ⇒ **對那 17 份實際在用的狀態欄是全盲的**。
+# 現況就有 1 份 ADR 標著 superseded 留在活區，而本支回 GREEN。
+# ⇒ 排除之後，ADR 的作廢判定明確地歸 ADR registry 管，不再假裝有人在看。
+SKIP = {"archived", "health", "reports", "knowledge-map", "wiki", "release", "adr"}
 HDR = re.compile(r"^>\s*`?lifecycle:\s*status=(current|provisional|superseded)\s+reviewed=(\d{4}-\d{2}-\d{2})(?:\s+owner=\S+)?(?:\s+superseded_by=\S+)?`?", re.M)
 STALE_DAYS = 90
 

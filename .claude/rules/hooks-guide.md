@@ -1,3 +1,14 @@
+---
+paths:
+  - .claude/hooks/**
+  - .claude/settings*.json
+  - frontend/.husky/**
+  - .git/hooks/**
+  - scripts/checks/hook_reachability_audit.py
+---
+
+<!-- 2026-09-08 /doctor：加上 paths 改為**延遲載入**（領域專屬，只在動到這些路徑時才需要）。
+     內容零刪除；只是不再每個 session 都進 context。 -->
 # Hooks 自動化配置
 
 ## 自動觸發 Hooks

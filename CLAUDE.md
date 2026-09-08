@@ -103,20 +103,25 @@ CK_Missive 是企業級公文管理系統（公文／行事曆／邀標報價／
 
 ## 規範索引
 
-> 以下規範位於 `.claude/rules/`，啟動時**自動載入**，無需手動引用。
+> 以下規範位於 `.claude/rules/`。**載入時機分兩種**（2026-09-08 /doctor 校正）——
+> 沒有 `paths:` frontmatter 的每個 session 都載入；有的只在動到那些路徑時載入。
+> ⚠️ 原表列了一份 `security.md`，而**那個檔案不存在**（安全規範的實際位置見下方「其他重要文件」
+> 與 `C:/Users/User1/.claude/rules/security.md`）——一份宣告說有、而檔案沒有，
+> 是本 repo 反覆記載的同一個形狀，只是這次方向相反。
 
-| 規範檔案 | 說明 |
-|---------|------|
-| `skills-inventory.md` | Skills / Commands / Agents 完整清單 |
-| `hooks-guide.md` | Hooks 自動化配置與協議 |
-| `ci-cd.md` | CI/CD 工作流 |
-| `auth-environment.md` | 認證與環境檢測規範 |
-| `development-rules.md` | 開發強制規範 (SSOT, 型別, API, 服務層, DI) |
-| `architecture.md` | 專案結構總覽（索引） |
-| `architecture-backend.md` | 後端：Models/Services/API/Repositories |
-| `architecture-frontend.md` | 前端：Pages/Hooks/型別/錯誤處理 |
-| `security.md` | 安全規範 |
-| `testing.md` | 測試規範 |
+| 規範檔案 | 載入 | 說明 |
+|---------|------|------|
+| `skills-inventory.md` | 常駐 | Skills / Commands / Agents 清單（檢核腳本正典在 `scripts/checks/README.md`）|
+| `development-rules.md` | 常駐 | 開發強制規範 (SSOT, 型別, API, 服務層, DI) |
+| `cross-file-ssot-governance.md` | 常駐 | 跨檔資源 SSOT 治理（L41–L45 家族）|
+| `architecture.md` | 常駐 | 專案結構總覽（索引） |
+| `testing.md` | 常駐 | 測試規範 |
+| `architecture-backend.md` | `backend/**` | 後端：Models/Services/API/Repositories |
+| `architecture-frontend.md` | `frontend/**` | 前端：Pages/Hooks/型別/錯誤處理 |
+| `adr-anti-half-wired-sop.md` | `docs/adr/**`、`docs/architecture/**` | ADR 級半接通防範 |
+| `hooks-guide.md` | `.claude/hooks/**`、`.claude/settings*.json`、`frontend/.husky/**`、`.git/hooks/**` | Hooks 自動化配置與協議 |
+| `ci-cd.md` | `.github/**`、`scripts/checks/**` | CI/CD 工作流 |
+| `auth-environment.md` | `frontend/src/config/**`、`frontend/src/api/**`、`backend/app/core/auth*` | 認證與環境檢測規範 |
 
 ### 其他重要文件
 
