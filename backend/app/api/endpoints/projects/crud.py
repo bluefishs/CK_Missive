@@ -268,5 +268,7 @@ async def delete_project(
             deleted_id=project_id
         )
     except ValueError as e:
-        logger.warning("刪除專案衝突: %s", e)
-        raise ConflictException(message="專案刪除失敗，可能仍有關聯資料")
+        # 2026-09-09：原本把訊息換成「可能仍有關聯資料」——而服務層算得出**有幾筆、
+        # 各是什麼、下一步做什麼**，換掉等於把唯一有用的資訊丟掉，使用者只能猜。
+        logger.warning("刪除專案被擋: %s", e)
+        raise ConflictException(message=str(e))

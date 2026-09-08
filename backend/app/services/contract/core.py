@@ -534,6 +534,14 @@ class ProjectService(AuditableServiceMixin):
         if not db_project:
             return False
 
+        # 0. 金流防呆（owner 2026-09-09）——**這一步在最前面，因為後面是物理刪除。**
+        #    外鍵只保護 documents／承辦／廠商／桃園那幾張表；金流是用字串 case_code
+        #    橋接的，資料庫不會擋，刪了就是一堆指向不存在案號的孤兒紀錄。
+        #    有金流就擋下來並說出有幾筆、各要怎麼處理，見 case_footprint 的檔頭。
+        from app.services.contract import case_footprint as _fp
+        _f = await _fp.collect(self.db, db_project.case_code, db_project.project_code)
+        _fp.assert_deletable(_f)
+
         try:
             # 1-4. 解除公文/桃園專案/派工單關聯 + 刪除機關聯絡人 — 委派至 Repository
             await self.repository.cascade_nullify_references(entity_id)

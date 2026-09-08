@@ -19,6 +19,10 @@
   · 執行中、0 承辦指派、建立 >7 天
 報告（不判燈）：全鏈對應矩陣、桃園 current_amount 總和 vs 合約額
   桃園 cumulative_amount 是全案累計（每張派工單各帶一份），sum 會重複 N 次——只用 current_amount。
+反向（2026-09-09 owner「成案註銷刪除流程與防呆」）：金流回頭找主檔 ——
+  · 報價單／帳本分錄／費用核銷的 case_code 在 contract_projects 與 pm_cases 都找不到 = YELLOW
+  判 YELLOW 不判 RED：舊制案號殘留（08-29 案號收斂）與主檔被刪是同一個症狀，
+  而處置完全不同（前者回填、後者要查誰刪的），需要人看一眼才知道是哪一種。
 連不到 DB → YELLOW（未驗）。
 """
 from __future__ import annotations
@@ -65,7 +69,22 @@ SELECT json_build_object(
   'yel_active_no_bill_365', (SELECT count(*) FROM chain WHERE status='執行中' AND contract_amount>0 AND n_bill=0 AND start_date < CURRENT_DATE-365),
   'yel_active_no_bill_365_amt', (SELECT COALESCE(sum(contract_amount),0)::bigint FROM chain WHERE status='執行中' AND contract_amount>0 AND n_bill=0 AND start_date < CURRENT_DATE-365),
   'yel_active_no_staff', (SELECT json_agg(json_build_array(id,case_code)) FROM chain WHERE status='執行中' AND n_staff=0 AND created_at < now()-interval '7 days'),
-  'taoyuan', (SELECT json_agg(json_build_array(id,case_code,n_ty,ty_paid::bigint,contract_amount::bigint)) FROM chain WHERE n_ty>0)
+  'taoyuan', (SELECT json_agg(json_build_array(id,case_code,n_ty,ty_paid::bigint,contract_amount::bigint)) FROM chain WHERE n_ty>0),
+  -- 反向（2026-09-09）：上面全部 FROM contract_projects 出發，**主檔被刪掉的金流一筆都看不到**。
+  -- 承攬案刪除此前是物理刪除且沒有金流防呆，而金流是字串 case_code 橋接、沒有外鍵擋。
+  -- 這一段從金流回頭問「你的案還在嗎」，是同一條鏈的另一個方向。
+  'orphan_quotation', (SELECT json_agg(json_build_array(q.id,q.quotation_no,q.case_code)) FROM erp_quotations q
+     WHERE q.deleted_at IS NULL AND q.case_code IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM contract_projects c WHERE c.case_code=q.case_code)
+       AND NOT EXISTS (SELECT 1 FROM pm_cases p WHERE p.case_code=q.case_code)),
+  'orphan_ledger', (SELECT json_agg(json_build_array(l.id,l.ledger_code,l.case_code,l.amount::bigint)) FROM finance_ledgers l
+     WHERE l.case_code IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM contract_projects c WHERE c.case_code=l.case_code)
+       AND NOT EXISTS (SELECT 1 FROM pm_cases p WHERE p.case_code=l.case_code)),
+  'orphan_expense', (SELECT json_agg(json_build_array(e.id,e.case_code)) FROM expense_invoices e
+     WHERE e.case_code IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM contract_projects c WHERE c.case_code=e.case_code)
+       AND NOT EXISTS (SELECT 1 FROM pm_cases p WHERE p.case_code=e.case_code))
 )::text
 """
 
@@ -139,6 +158,32 @@ def main() -> int:
         for r in ns[:5]:
             print(f"     #{r[0]} {r[1]}")
         yels.append(("執行中無指派", len(ns)))
+
+    # 反向：金流回頭找主檔（2026-09-09）。上面每一條都 FROM contract_projects 出發，
+    # 主檔被刪掉的金流在那個方向永遠是隱形的。
+    orphan_specs = [
+        ("orphan_quotation", "報價單", lambda r: f"#{r[0]:<4} {str(r[1] or ''):<14} 案號 {r[2]}"),
+        ("orphan_ledger", "帳本分錄", lambda r: f"#{r[0]:<4} {str(r[1] or ''):<14} 案號 {r[2]}　{r[3]:,}"),
+        ("orphan_expense", "費用核銷", lambda r: f"#{r[0]:<4} 案號 {r[1]}"),
+    ]
+    orphan_total = 0
+    for _key, _label, _fmt in orphan_specs:
+        rows = d.get(_key) or []
+        if not rows:
+            continue
+        orphan_total += len(rows)
+        print()
+        print(f"  ⚠ {_label}的案號在成案與 PM 案都找不到：{len(rows)} 筆")
+        for r in rows[:5]:
+            print(f"     {_fmt(r)}")
+        if len(rows) > 5:
+            print(f"     …另 {len(rows) - 5} 筆")
+    if orphan_total:
+        print("     兩種可能、處置不同：①舊制案號殘留（08-29 收斂）⇒ 回填新案號　"
+              "②主檔被刪而金流留下 ⇒ 查誰刪的、把金流轉掛回正確的案")
+        print("     ⚠️ 新的孤兒不該再出現：承攬案刪除自 2026-09-09 起有金流防呆"
+              "（app/services/contract/case_footprint.py），有金流就擋下來")
+        yels.append(("金流無主檔", orphan_total))
 
     print()
     if reds:
