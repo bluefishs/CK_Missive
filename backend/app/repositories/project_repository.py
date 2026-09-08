@@ -13,6 +13,7 @@ ProjectRepository - 專案資料存取層
 更新日期: 2026-02-04
 """
 
+from app.core.rls_filter import RLSFilter
 from app.core.roc_date import roc_year_to_ad
 import logging
 from typing import List, Optional, Dict, Any, Tuple
@@ -846,6 +847,7 @@ class ProjectRepository(BaseRepository[ContractProject]):
     async def get_project_statistics(
         self, year: Optional[int] = None, category: Optional[str] = None,
         status: Optional[str] = None, search: Optional[str] = None,
+        current_user=None,
     ) -> Dict[str, Any]:
         """取得專案統計資料（含狀態/年度分組 + 合約總額）。
 
@@ -865,7 +867,19 @@ class ProjectRepository(BaseRepository[ContractProject]):
                 | ContractProject.case_code.ilike(f"%{search}%")
             )
 
+        # 2026-09-09 owner：「列表已配合角色與登入帳號篩選，統計卡卻沒有跟著」。
+        # 實測：staff（承辦 6 案）列表看得到 6 件，而統計卡顯示 2026 全部 123 件。
+        # 列表走 `RLSFilter.apply_project_rls`（endpoint 傳 current_user 進來），統計這一支沒有
+        # ⇒ **同一個畫面上兩個口徑**。這裡沿用同一份規則，不另寫一份判定
+        # （另寫一份就是第二份宣告，那正是本 repo 反覆出事的形狀）。
+        def _rls(q):
+            if current_user is None:
+                return q
+            uid, is_admin, is_su = RLSFilter.get_user_rls_flags(current_user)
+            return RLSFilter.apply_project_rls(q, ContractProject, uid, is_admin, is_su)
+
         def _scoped(q):
+            q = _rls(q)
             return q.where(*scope) if scope else q
 
         total = (await self.db.execute(_scoped(select(func.count(ContractProject.id))))).scalar() or 0

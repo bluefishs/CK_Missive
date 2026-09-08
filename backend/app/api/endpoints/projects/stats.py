@@ -85,6 +85,8 @@ async def get_project_statistics(
     req = req or ProjectStatisticsRequest()
     stats = await project_service.get_project_statistics(
         year=req.year, category=req.category, status=req.status, search=req.search,
+        # 2026-09-09：統計卡與列表同一個身分範圍（列表 crud.py:113 也是傳 current_user）
+        current_user=current_user,
     )
     return SuccessResponse(
         success=True,

@@ -572,9 +572,9 @@ class ProjectService(AuditableServiceMixin):
         from app.services.contract.analytics import ProjectAnalyticsService
         return ProjectAnalyticsService(self.db)
 
-    async def get_project_statistics(self, year=None, category=None, status=None, search=None) -> dict:
+    async def get_project_statistics(self, year=None, category=None, status=None, search=None, current_user=None) -> dict:
         """取得專案統計資料 (委派至 ProjectAnalyticsService)"""
-        return await self._analytics().get_project_statistics(year=year, category=category, status=status, search=search)
+        return await self._analytics().get_project_statistics(current_user=current_user, year=year, category=category, status=status, search=search)
 
     async def get_distinct_options(
         self,

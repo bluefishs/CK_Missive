@@ -28,11 +28,11 @@ class ProjectAnalyticsService:
     # 統計
     # =========================================================================
 
-    async def get_project_statistics(self, year=None, category=None, status=None, search=None) -> dict:
+    async def get_project_statistics(self, year=None, category=None, status=None, search=None, current_user=None) -> dict:
         """取得專案統計資料（year／category／search＝分母範圍；status 只影響合約總額）"""
         try:
             return await self.repository.get_project_statistics(
-                year=year, category=category, status=status, search=search)
+                year=year, category=category, status=status, search=search, current_user=current_user)
         except Exception as e:
             logger.error(f"取得專案統計資料失敗: {e}", exc_info=True)
             return {
