@@ -34,10 +34,18 @@ class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
         
         return list(items), total or 0
 
-    async def query(self, params: ExpenseInvoiceQuery) -> Tuple[List[ExpenseInvoice], int]:
+    async def query(
+        self, params: ExpenseInvoiceQuery, scope_case_codes: Optional[set] = None,
+    ) -> Tuple[List[ExpenseInvoice], int]:
         from sqlalchemy.orm import selectinload
         stmt = select(self.model).options(selectinload(self.model.items))
-        
+
+        # 2026-09-08：承辦範圍限縮（owner：「列表也限縮到自己的案」）。
+        # `None` ＝ 全公司視角不限縮；`set()` ＝ 這個人一個案都沒有 ⇒ 應該看到空的，
+        # **不是看到全部** —— 這兩者若混用，權限最小的人會拿到最大的結果。
+        if scope_case_codes is not None:
+            stmt = stmt.where(self.model.case_code.in_(scope_case_codes or {"__none__"}))
+
         if params.case_code:
             stmt = stmt.where(self.model.case_code == params.case_code)
         if params.attribution_type:

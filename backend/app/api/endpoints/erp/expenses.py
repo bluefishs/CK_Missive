@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.core.dependencies import get_service, optional_auth, require_auth, require_permission
-from app.core.case_scope import assert_case_scope
+from app.core.case_scope import assert_case_scope, scope_filter, has_company_wide_scope
 from app.extended.models import User
 from app.services.erp.expense_invoice import ExpenseInvoiceService
 from app.schemas.erp.expense import (
@@ -33,7 +33,12 @@ async def list_expenses(
     current_user: User = Depends(require_auth()),
 ):
     """費用發票列表 (多條件查詢)"""
-    items, total = await service.query(params)
+    # 2026-09-08 owner：「給 staff，並把列表也限縮到自己的案」。
+    # 「看得到」與「動得了」用同一個口徑 —— 只擋動作的話，業務同仁打開這一頁
+    # 仍會看到全公司每一筆核銷的金額與明細，管控只做了一半。
+    items, total = await service.query(
+        params, scope_case_codes=await scope_filter(service.db, current_user),
+    )
     # 2026-08-17：一次查出人名（不在迴圈裡逐筆查 —— 那是 N+1）
     people = await service.attach_people(items)
     responses = []
@@ -58,6 +63,13 @@ async def grouped_expense_summary(
     current_user: User = Depends(require_auth()),
 ):
     """費用核銷按歸屬分組彙總 — 專案/營運/未歸屬各自統計"""
+    # 2026-09-08：這一支以 **erp_quotations 全量案件**為基底（見 service.grouped_summary
+    # 的說明），是跨案彙總不是我的案 ⇒ 與 financial-overview 同一個處置。
+    if not has_company_wide_scope(current_user):
+        from app.core.exceptions import ForbiddenException
+        raise ForbiddenException(
+            "分組彙總是跨全案件的統計，僅限管理者／高階主管／財務檢視。"
+        )
     body = await request.json()
     attribution_type = body.get("attribution_type")
     # 2026-08-29 owner 裁示：統計以當年度為基準。年度一律西元（§2.5）；
@@ -86,6 +98,18 @@ async def financial_overview(
     整合所有案件的 billing(應收) + vendor_payable(應付) + expense(核銷)。
     2026-07-20 DDD 標準化：聚合邏輯委派 ExpenseInvoiceService（原端點內直 SQL）。
     """
+    # ⭐ 2026-09-08：這一支的 docstring 自己就寫著「主管/財務視角」，而它是
+    # **跨全公司**的彙總（不是某一案）。把 `/erp/expenses` 開給 staff 之後，
+    # 若不另外擋，業務同仁會連全公司的應收／應付／核銷總覽一起拿到。
+    # ⇒ 與 `/erp/invoices/summary` 同一個處置：頁面權限放寬、跨案彙總另外守。
+    # 限縮成「我的案的總覽」則會改變它的語意（那個數字比不限縮更容易誤導，
+    # 同 2026-08-31 對委託／協力帳款「維持全公司視角、改用權限區分」的裁示）。
+    if not has_company_wide_scope(current_user):
+        from app.core.exceptions import ForbiddenException
+        raise ForbiddenException(
+            "全案件財務總覽是全公司彙總，僅限管理者／高階主管／財務檢視。"
+            "你可以在費用核銷列表看到自己承辦案件的明細。"
+        )
     return SuccessResponse(data=await service.get_financial_overview())
 
 
@@ -134,6 +158,9 @@ async def get_expense_detail(
     result = await service.get_by_id(params.id)
     if not result:
         raise HTTPException(status_code=404, detail="發票不存在")
+    # 2026-09-08：列表限縮了而詳情不擋，等於留下「知道 id 就看得到」的旁路 ——
+    # 那是本 repo 記過的「換出口沒換整條路」。用與列表同一個口徑。
+    await assert_case_scope(service.db, current_user, [result.case_code], "檢視")
     return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result))
 
 

@@ -202,8 +202,10 @@ class ExpenseInvoiceService(AuditableServiceMixin):
     async def list_by_case(self, case_code: str, skip=0, limit=20) -> Tuple[List[ExpenseInvoice], int]:
         return await self.repo.find_by_case_code(case_code, skip, limit)
 
-    async def query(self, params: ExpenseInvoiceQuery) -> Tuple[List[ExpenseInvoice], int]:
-        return await self.repo.query(params)
+    async def query(
+        self, params: ExpenseInvoiceQuery, scope_case_codes: Optional[set] = None,
+    ) -> Tuple[List[ExpenseInvoice], int]:
+        return await self.repo.query(params, scope_case_codes=scope_case_codes)
 
     async def grouped_summary(
         self, attribution_type: Optional[str] = None, year: Optional[int] = None,

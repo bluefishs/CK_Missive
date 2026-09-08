@@ -47,8 +47,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import is_superuser_user
 
-#: 全公司視角的角色 —— 與委託單位／協力廠商帳款兩頁同一組判準。
-_COMPANY_WIDE_ROLES = {"admin", "exec", "superuser"}
+#: 全公司視角的角色 —— 不受承辦案件範圍限制。
+#
+# 2026-09-08 owner 先說「全公司財務總覽，主管以上才能檢視」，實測後補裁示
+# 「財務算全公司視角」。兩句話不衝突：**財務不是一般業務同仁**，
+# 而 `/erp/expenses/financial-overview` 的 docstring 本來就寫著「主管/財務視角」。
+#
+# ⚠️ 首版只放 admin/exec/superuser，實測結果是**財務（賴秀玲）什麼都看不到**
+# —— 核銷列表被限縮成 0 筆（她不是任何案的承辦）、總覽 403。
+# 那是「照字面實作、而字面沒有涵蓋到的那個人剛好最需要它」。
+# ⇒ 判準要拿真實的人跑一遍才知道它切在哪裡。
+#
+# `ops`（營運管理）刻意不放：它持有 reports:expenses:view 但沒有財務職責，
+# 若日後要開，加在這裡一個字即可（而不是散在各端點各判一次）。
+_COMPANY_WIDE_ROLES = {"admin", "exec", "finance", "superuser"}
 
 
 def has_company_wide_scope(user) -> bool:
@@ -103,3 +115,20 @@ async def assert_case_scope(
             f"只能{action}自己承辦的案件。{'、'.join(outside[:3])}"
             f"{f' 等 {len(outside)} 案' if len(outside) > 3 else ''}不在你的承辦範圍內。"
         )
+
+
+async def scope_filter(db: AsyncSession, user) -> Optional[set[str]]:
+    """給**唯讀列表**用的範圍：全公司視角回 `None`（不限縮），其餘回案號集合。
+
+    2026-09-08 owner：「給 staff，並把列表也限縮到自己的案」。
+
+    為什麼列表也要限縮：`assert_case_scope` 只擋「動」，不擋「看」。
+    只擋動的話，業務同仁打開費用核銷頁會看到全公司每一筆核銷的金額與明細 ——
+    **「看得到」與「動得了」用同一個口徑**，否則管控只做了一半。
+
+    ⚠️ 回 `None`（不限縮）與回 `set()`（限縮成空）是兩件事，呼叫端不可混用：
+    前者是「這個人本來就看全部」，後者是「這個人一個案都沒有」。
+    """
+    if has_company_wide_scope(user):
+        return None
+    return await accessible_case_codes(db, getattr(user, "id", 0))
