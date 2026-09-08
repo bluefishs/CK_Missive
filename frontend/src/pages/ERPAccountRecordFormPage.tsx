@@ -217,7 +217,42 @@ const ERPAccountRecordFormPage: React.FC = () => {
     // 找對應 schema —— 這個 payload 交集最大的是 **Create**，
     // 於是 Update 缺的欄位沒有被看見。**掃描找錯了比對對象，就等於沒掃。**
     // 現由 `write_payload_schema_audit` 以端點常數為錨比對，不再用猜的。
-    mutation.mutate(isEdit ? payload : { erp_quotation_id: qid, ...payload });
+    // ⭐ 2026-09-08 owner：「開立發票應與請款同步，目前分兩次填報不便利」。
+    //
+    // 此前流程是：這一頁填請款 → 存檔 → 回列表 → 再點「開立發票」→ 再填一次日期。
+    // 而那兩件事在實務上是同一個動作（請款當下就開票）⇒ 併成一次送出。
+    //
+    // 為什麼不做成後端一支端點：開票有自己的防呆（號碼格式、全庫重號、一期一票），
+    // 失敗時要能明確告訴使用者「請款已建立、但發票沒開成」——**兩件事的成敗要能分開講**，
+    // 合成一支端點反而會讓「請款成功但發票號碼打錯」變成整筆回滾或整筆成功。
+    if (isEdit || !isReceivable || !values.sales_invoice_number) {
+      mutation.mutate(isEdit ? payload : { erp_quotation_id: qid, ...payload });
+      return;
+    }
+    try {
+      const res = await apiClient.post<{ data: { id: number } }>(
+        createEndpoint, { erp_quotation_id: qid, ...payload },
+      );
+      const billingId = res?.data?.id;
+      if (!billingId) throw new Error('請款已建立但沒有取到 id，無法接著開票');
+      try {
+        const { erpInvoicesApi } = await import('../api/erp/invoicesApi');
+        await erpInvoicesApi.createFromBilling({
+          billing_id: billingId,
+          invoice_number: values.sales_invoice_number,
+          invoice_date: (values.sales_invoice_date ?? values.billing_date)?.format('YYYY-MM-DD'),
+          tax_mode: values.tax_mode ?? 'taxable',
+        });
+        message.success('請款已新增，發票已開立並關聯');
+      } catch (e) {
+        // 請款已經進去了 —— 這裡**不能**只說「失敗」，否則使用者會再送一次而重複建立請款
+        message.warning(`請款已新增，但發票未開立：${extractApiMessage(e, '請洽管理員')}。可在列表上點「開立發票」補開。`);
+      }
+      invalidate();
+      backToQuotation();
+    } catch (e) {
+      message.error(extractApiMessage(e, '新增失敗'));
+    }
   };
 
   return (
@@ -276,6 +311,32 @@ const ERPAccountRecordFormPage: React.FC = () => {
             <Form.Item name="billing_amount" label="請款金額" rules={[{ required: true, message: '請輸入請款金額' }]}>
               <InputNumber style={{ width: '100%' }} min={0} inputMode="numeric" formatter={amountFormatter} />
             </Form.Item>
+
+            {/* ⭐ 2026-09-08 owner：「開立發票應與請款同步，目前分兩次填報不便利」。
+                只在**新增**時出現：編輯既有請款時，列表上的「開立發票」才是正確入口
+                （它會擋「一期一票」，而這裡再給一次會讓人以為可以開第二張）。
+                留白＝不開票，之後仍可在列表補開 —— 不強迫請款當下就有發票號碼。 */}
+            {!isEdit && (
+              <>
+                <Divider plain style={{ marginTop: 8 }}>同時開立發票（可留白）</Divider>
+                <Form.Item name="sales_invoice_number" label="發票號碼"
+                  normalize={(v?: string) => (v ?? '').toUpperCase().trim()}
+                  extra="留白＝先不開票，之後可在列表上補開"
+                  rules={[{ pattern: /^[A-Z]{2}\d{8}$/, message: '統一發票為 2 個英文字母＋8 碼數字（例 EE15019500）' }]}>
+                  <Input placeholder="AB12345678" maxLength={10} />
+                </Form.Item>
+                <Form.Item name="sales_invoice_date" label="開立日期" extra="留空則以請款日期為開立日">
+                  <DatePicker style={{ width: '100%' }} inputReadOnly={isMobile} />
+                </Form.Item>
+                <Form.Item name="tax_mode" label="稅別" initialValue="taxable"
+                  extra="請款金額為含稅額；未稅與稅額由它推導">
+                  <Select options={[
+                    { value: 'taxable', label: '應稅 5%（三聯式）' },
+                    { value: 'exempt', label: '免稅／零稅率（二聯式）' },
+                  ]} />
+                </Form.Item>
+              </>
+            )}
           </>
         ) : (
           <>

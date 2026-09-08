@@ -1,5 +1,5 @@
 """ERP 發票 Schemas"""
-from typing import Optional
+from typing import Literal, Optional
 from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict
@@ -36,6 +36,13 @@ class CreateFromBillingRequest(BaseModel):
     invoice_number: str = Field(..., max_length=50, description="發票號碼")
     invoice_date: Optional[date] = Field(None, description="開立日期 (預設今天)")
     notes: Optional[str] = None
+    # 2026-09-08 owner「為何會顯示免稅」：此前 create_from_billing 把 tax_amount
+    # **硬寫成 0**，於是走「開立發票」按鈕開出來的每一張都是免稅，而畫面忠實地
+    # 照著印。免稅（二聯式／零稅率）是真實存在的情形，所以不能反過來硬寫 5% ——
+    # 要讓填報的人講明是哪一種，預設應稅。
+    tax_mode: Literal["taxable", "exempt"] = Field(
+        "taxable", description="taxable＝應稅 5%（稅額由含稅額推導）；exempt＝免稅／零稅率"
+    )
 
 
 class ERPInvoiceUpdate(BaseModel):

@@ -207,12 +207,33 @@ class ERPInvoiceService(AuditableServiceMixin):
         await self.audit_update(inv.id, {"billing_id": billing_id, "source": "link_to_billing"})
         return ERPInvoiceResponse.model_validate(inv)
 
+    @staticmethod
+    def derive_tax(gross, tax_mode: str = "taxable"):
+        """由**含稅**額推導稅額（FIELD_SEMANTICS：`erp_invoices.amount` 是含稅）。
+
+        2026-09-08：此前這裡是一行 `"tax_amount": 0` —— 於是走「開立發票」按鈕
+        開出來的**每一張**都是免稅，而畫面照著印「免稅」，owner 因此問
+        「/erp/quotations/571 為何會顯示免稅」。查全庫：157 張的稅額 ≈ amount/21
+        （＝含稅推導，正確），16 張是 0；那 16 張裡 13 張是佔位號碼的系統補建，
+        真發票只有 2 張，而**兩張的含稅額都能被 1.05 整除**（29,925＝28,500＋1,425、
+        369,600＝352,000＋17,600）⇒ 它們是應稅而漏記，不是免稅。
+
+        ⇒ 「整除」是判斷「這張到底該不該有稅」的可驗證訊號，不是猜的。
+        """
+        from decimal import Decimal, ROUND_HALF_UP
+        g = Decimal(str(gross or 0))
+        if tax_mode == "exempt" or g <= 0:
+            return Decimal("0")
+        net = (g / Decimal("1.05")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return g - net
+
     async def create_from_billing(
         self,
         billing_id: int,
         invoice_number: str,
         invoice_date: Optional[date_type] = None,
         notes: Optional[str] = None,
+        tax_mode: str = "taxable",
     ) -> ERPInvoiceResponse:
         """從請款記錄建立銷項發票"""
         from app.extended.models.erp import ERPBilling
@@ -249,7 +270,8 @@ class ERPInvoiceService(AuditableServiceMixin):
             "invoice_number": invoice_number,
             "invoice_date": invoice_date or date_type.today(),
             "amount": billing.billing_amount,
-            "tax_amount": 0,
+            # 2026-09-08：由含稅額推導，不再硬寫 0（見 derive_tax 的說明）
+            "tax_amount": self.derive_tax(billing.billing_amount, tax_mode),
             "invoice_type": "sales",
             "description": f"請款期別: {billing.billing_period or '-'}",
             "status": "issued",

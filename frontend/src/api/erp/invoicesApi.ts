@@ -50,6 +50,9 @@ export const erpInvoicesApi = {
     invoice_number: string;
     invoice_date?: string;
     notes?: string;
+    /** 2026-09-08：此前後端把稅額硬寫 0 ⇒ 按鈕開出來的每一張都顯示「免稅」。
+     *  免稅是真實情形，所以由填報的人指定，預設應稅。 */
+    tax_mode?: 'taxable' | 'exempt';
   }): Promise<ERPInvoice> {
     const response = await apiClient.post<SuccessResponse<ERPInvoice>>(
       ERP_ENDPOINTS.INVOICES_CREATE_FROM_BILLING,

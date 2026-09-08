@@ -196,6 +196,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const { data: quotationInvoices } = useERPInvoices(isReceivable ? erpQuotationId : null);
   const unlinkedInvoices = (quotationInvoices ?? []).filter((i) => !i.billing_id && i.status !== 'voided');
   const existingInvoiceId = Form.useWatch('existing_invoice_id', invoiceForm);
+  const taxMode = Form.useWatch('tax_mode', invoiceForm) ?? 'taxable';
   const { message: msg } = App.useApp();
   const totalRequest = records.reduce((s, r) => s + (r.request_amount || 0), 0);
   const totalPaid = records.reduce((s, r) => s + (r.payment_amount || 0), 0);
@@ -294,8 +295,13 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
     // 改為報價單日期辦理稽催，避免誤解 09/03 真的已辦理請款作業」。
     // 自動建立的第一期，請款日原本是「系統建立這筆的日子」，畫面上與真的請款日期
     // 長得一模一樣。兩個日期並列，才看得出這一筆的時間錨點是報價還是請款。
+    // 2026-09-08 owner：「報價單日期顯示 無須時間 00:00:00 無意義」。
+    // `quoted_at` 是 **datetime** 欄位（'2026-06-09T00:00:00'），而同一張表的
+    // billing_date／payment_date 是 **date** ⇒ 只有這一欄印出時間。
+    // 同型的第三次：09-07 的 COALESCE(billing_date, quoted_at) 也是栽在
+    // 「一個是 date、一個是 datetime」，那次症狀是型別錯誤，這次是版面。
     { title: '報價單日期', dataIndex: 'quoted_at', width: 110, hideOnMobile: true,
-      render: (v?: string) => v || <span style={{ color: '#bfbfbf' }}>—</span> },
+      render: (v?: string) => (v ? String(v).slice(0, 10) : <span style={{ color: '#bfbfbf' }}>—</span>) },
     { title: '請款日期', dataIndex: 'request_date', width: 110, hideOnMobile: true },
     // 2026-08-17 owner：「建議列表表單僅顯示已收款經費資訊」。
     // 請款金額與收款金額實測 36/36 完全相同（見 ERPAccountRecordFormPage 的說明），
@@ -411,6 +417,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
               invoice_number: v.invoice_number,
               invoice_date: v.invoice_date?.format('YYYY-MM-DD'),
               notes: v.notes,
+              tax_mode: v.tax_mode ?? 'taxable',
             });
             msg.success('發票已開立並關聯到此請款');
             setInvoiceFor(null);
@@ -436,7 +443,33 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
             extra="留空則以今日為開立日">
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="notes" label="備註">
+          {/* 2026-09-08 owner「為何會顯示免稅」：後端此前把稅額硬寫 0，
+              於是這個按鈕開出來的每一張都是免稅。免稅（二聯式／零稅率）是
+              真實存在的情形，所以不能反過來硬寫 5% —— 讓填報的人講明，預設應稅。
+              三個數同時顯示，是因為複核看的就是這三個（與發票 tooltip 同口徑）。 */}
+          <Form.Item name="tax_mode" label="稅別" initialValue="taxable"
+            extra="請款金額為含稅額；未稅與稅額由它推導">
+            <Select
+              options={[
+                { value: 'taxable', label: '應稅 5%（三聯式）' },
+                { value: 'exempt', label: '免稅／零稅率（二聯式）' },
+              ]}
+            />
+          </Form.Item>
+          {(() => {
+            const gross = invoiceFor?.request_amount ?? 0;
+            const exempt = taxMode === 'exempt';
+            const net = exempt ? gross : Math.round((gross / 1.05) * 100) / 100;
+            const tax = gross - net;
+            return (
+              <div style={{ background: '#fafafa', padding: '8px 12px', borderRadius: 4, fontSize: 13, lineHeight: 1.8 }}>
+                <div>未稅 <b>{net.toLocaleString()}</b></div>
+                <div>稅額 <b>{tax.toLocaleString()}</b>（{exempt ? '免稅／零稅率' : '5%'}）</div>
+                <div>含稅 <b>{gross.toLocaleString()}</b>（＝該期請款額）</div>
+              </div>
+            );
+          })()}
+          <Form.Item name="notes" label="備註" style={{ marginTop: 16 }}>
             <Input.TextArea rows={2} maxLength={200} />
           </Form.Item>
         </Form>

@@ -238,7 +238,10 @@ export const useLinkInvoiceToBilling = () => {
 export const useCreateInvoiceFromBilling = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { billing_id: number; invoice_number: string; invoice_date?: string; notes?: string }) =>
+    // 2026-09-08：原本這裡手抄了一份參數型別，於是後端加 `tax_mode`、
+    // api 層加了、**這一層沒加** ⇒ tsc 擋在頁面那一行，而錯誤訊息指的是頁面不是這裡。
+    // 改成從 api 層取型別（§3 型別 SSOT：同一個契約只能有一個定義）。
+    mutationFn: (data: Parameters<typeof erpInvoicesApi.createFromBilling>[0]) =>
       erpInvoicesApi.createFromBilling(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: erpKeys.invoices.all });
