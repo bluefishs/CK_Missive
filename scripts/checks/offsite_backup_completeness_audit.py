@@ -177,13 +177,17 @@ def check_attachments(reds: list[str], rows: list[str]) -> None:
             remote += 1
     # 長檔名（>255 bytes，中文約 85 字）存不進 Linux/Samba，改打包上傳。
     # 因此本機檔數 > NAS 直接檔數是預期的，差額必須被 zip 覆蓋。
+    # 同步是 /XO 不用 /MIR（刻意保留 NAS 既有），所以「NAS 比本機多」是本機刪過檔的正常殘留，
+    # 不是涵蓋不全；09-08 改短 9 個超長檔名後 NAS 多出舊名副本就是這一型（已清）。
+    # 只有「本機 > NAS 且沒有打包封存」才是缺備份。NAS 多的列 YELLOW 提醒，不判 RED。
     gap = local - remote
-    ok = gap == 0 or (gap > 0 and archived_zips > 0)
+    ok = gap <= 0 or archived_zips > 0
     if not ok:
         reds.append(f"附件涵蓋不全：本機 {local} 檔、NAS {remote} 檔、缺 {gap} 且無打包封存")
-    rows.append(f"  [{'GREEN' if ok else 'RED  '}] 公文附件          "
-                f"本機 {local}｜NAS 直接 {remote}｜打包封存 {archived_zips} "
-                f"({'涵蓋完整' if ok else f'缺 {gap}'})")
+    tag = "GREEN" if ok and gap >= 0 else ("YELLOW" if ok else "RED  ")
+    note = "涵蓋完整" if gap == 0 else (f"NAS 多 {-gap}（本機已刪的殘留，同步不用 /MIR）" if gap < 0 else f"缺 {gap}")
+    rows.append(f"  [{tag}] 公文附件          "
+                f"本機 {local}｜NAS 直接 {remote}｜打包封存 {archived_zips} ({note})")
 
 
 def check_secrets(reds: list[str], rows: list[str]) -> None:
