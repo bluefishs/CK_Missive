@@ -163,7 +163,11 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         if year is not None:
             # 2026-09-04：年度＝案件年度（建案案號 CK{年}_…），不是報價單 year 欄——
             # 舊案在 2026 補建的錨點報價單 year=2026，用 year 欄篩會把 114 年的案子列進 2026。
-            conditions.append(ERPQuotation.case_code.like(f"CK{int(year)}_%"))
+            # 2026-09-08：改用唯一定義（year 欄優先）——原本這裡手抄了一份
+            # 「只看案號年」，於是開口契約 CK2025_01_03_001（115 年度＝2026）
+            # 在專案帳款頁也一樣消失。
+            from app.repositories.erp.case_year import quotation_case_year_condition
+            conditions.append(quotation_case_year_condition(int(year)))
         if category in ("01", "02"):
             conditions.append(ERPQuotation.case_code.op("~")(rf"^CK\d{{4}}_(PM_)?{category}_"))
         if case_status:

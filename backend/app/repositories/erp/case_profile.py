@@ -8,7 +8,7 @@
 | | 案件從哪裡來 | 年度口徑 |
 |---|---|---|
 | 委託單位帳款 | PM 案件（有主檔鍵者）＋ 承攬案（PM 沒涵蓋的） | `PMCase.year`／`ContractProject.year`（案號年） |
-| 協力廠商帳款 | 應付 → 報價單 → 案號 | `quotation_case_year_condition`（案號年） |
+| 協力廠商帳款 | 應付 → 報價單 → 案號 | `quotation_case_year_condition`（year 欄優先，09-08 改） |
 
 兩邊要顯示的是同一件事（這家往來對象名下的案是什麼類別、現在什麼狀態），
 所以**標籤映射與狀態優先序只能有一份** —— 分開寫就是下一個「同一個 2026 三頁三種答案」。
@@ -130,8 +130,11 @@ async def vendor_case_codes(db: AsyncSession, year: Optional[int]) -> dict[str, 
           JOIN erp_quotations q ON q.id = vp.erp_quotation_id
          WHERE q.case_code IS NOT NULL
            AND (CAST(:yr AS INTEGER) IS NULL
-                OR q.case_code LIKE 'CK' || CAST(:yr AS INTEGER)::text || '_%'
-                OR (q.case_code NOT LIKE 'CK%' AND q.year = CAST(:yr AS INTEGER)))
+                -- 2026-09-08：year 欄優先、案號年僅在 year 為空時備援。
+                -- 與 `case_year.quotation_case_year_condition` 同一套判準；
+                -- 這裡是手寫 SQL 無法直接 import，**改那邊時這兩處必須一起改**。
+                OR q.year = CAST(:yr AS INTEGER)
+                OR (q.year IS NULL AND q.case_code LIKE 'CK' || CAST(:yr AS INTEGER)::text || '_%'))
     """), {"yr": yr})).all():
         out.setdefault(r.vkey, set()).add(r.code)
     return out
@@ -227,7 +230,7 @@ async def vendor_case_profiles(
     yr = int(year) if year else None
     codes = sorted(only_codes) if only_codes is not None else None
 
-    # 年度＝案號年，與 quotation_case_year_condition 同一套判準（CK 制看案號，其餘退回 year 欄）
+    # 年度＝year 欄（案號年僅備援），與 quotation_case_year_condition 同一套判準（2026-09-08 改）
     sql = f"""
         SELECT COALESCE('id:' || vp.vendor_id::text, 'name:' || vp.vendor_name) AS vkey,
                COALESCE(cp.category, p.category) AS category,
@@ -238,8 +241,11 @@ async def vendor_case_profiles(
           LEFT JOIN contract_projects cp ON cp.case_code = q.case_code
           LEFT JOIN pm_cases p           ON p.case_code = q.case_code
          WHERE (CAST(:yr AS INTEGER) IS NULL
-                OR q.case_code LIKE 'CK' || CAST(:yr AS INTEGER)::text || '_%'
-                OR (q.case_code NOT LIKE 'CK%' AND q.year = CAST(:yr AS INTEGER)))
+                -- 2026-09-08：year 欄優先、案號年僅在 year 為空時備援。
+                -- 與 `case_year.quotation_case_year_condition` 同一套判準；
+                -- 這裡是手寫 SQL 無法直接 import，**改那邊時這兩處必須一起改**。
+                OR q.year = CAST(:yr AS INTEGER)
+                OR (q.year IS NULL AND q.case_code LIKE 'CK' || CAST(:yr AS INTEGER)::text || '_%'))
            AND (CAST(:codes AS TEXT[]) IS NULL OR q.case_code = ANY(CAST(:codes AS TEXT[])))
          GROUP BY 1, 2, 3
     """

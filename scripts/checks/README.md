@@ -234,13 +234,15 @@
 | `rwd_mobile_quality_gate.py`＋`rwd_mobile_quality_probe.cjs` | 手機品質五指標：截字／字級<11px／點擊目標<28px／fixed 遮蔽／統計卡獨列；host 以 adapter 簽憑證、Playwright 390px 登入量；基線 `.rwd_quality_baseline.json`（weekly 111） |
 | `rwd_crushed_column_control.cjs` | weekly 111 `crushedCol` 判準的正負向控制（判準自檢，跑在走查之前）——正向：名稱欄被固定欄寬擠到 ~30px 要紅；負向：60px 的兩字數值欄與 220px 的名稱欄都不能紅。引用探針的 `measure`，不另抄一份判準 | weekly 111 內部 |
 | `role_enum_drift_audit.py` | 角色列舉 vs `role_permissions` 漂移——`exec`／`ops`／`finance` 2026-08-27 就進了資料表與權限頁，而 `UserRole` 沒跟上 ⇒ 指派這三個角色一律 422 且無訊息，卡了 11 天沒人知道原因。DB 有而列舉沒有＝RED（指派不上去）；列舉有而 DB 沒有＝YELLOW（選了沒權限） | weekly 118 |
-| `permission_catalog_drift_audit.py` | 權限目錄漂移與「無法獨立勾選」——①權限管理頁兩個分頁是兩個來源（依選單階層讀 DB、依權限分類讀前端 PERMISSION_CATEGORIES），不在前端目錄的碼在分類頁看不見（實測差 `admin:database`，而管理員正在用）＝RED ②一個碼綁多頁＝勾一個等於開全部（首跑 8 個碼綁 46 頁），走基線、新增才提 | weekly 119 |（09-08 加 ⑤ 父階擋子項：角色有子項的碼卻拿不到祖先的碼 ⇒ RED；首跑抓到 staff 的專案帳款與 finance／ops 的 ERP 圖譜，判準在 `lib/nav_parent_gate.py`）
+| `permission_catalog_drift_audit.py` | 權限目錄漂移與「無法獨立勾選」——①權限管理頁兩個分頁是兩個來源（依選單階層讀 DB、依權限分類讀前端 PERMISSION_CATEGORIES），不在前端目錄的碼在分類頁看不見（實測差 `admin:database`，而管理員正在用）＝RED ②一個碼綁多頁＝勾一個等於開全部（首跑 8 個碼綁 46 頁），走基線、新增才提 | weekly 119 |
+（09-08 加 ⑤ 父階擋子項：角色有子項的碼卻拿不到祖先的碼 ⇒ RED；首跑抓到 staff 的專案帳款與 finance／ops 的 ERP 圖譜，判準在 `lib/nav_parent_gate.py`）
 | `quotation_master_table_diff.py` | 報價單彙整總表 vs 資料庫——owner 09-07「苗栗大山…系統查詢不到」。真因：那一列**沒有報價單編號**而匯入以編號為鍵 ⇒ 必然略過且不報錯（同型 4 筆，含 218 萬那筆）。RED＝總表無編號／總表有而 DB 沒有；YELLOW＝同案不同版次（逐字比對會把版次差異誤報成缺件）、DB 有而總表沒有。檔案不在回 YELLOW 不回 GREEN | weekly 120 |
 | `billing_dunning_ssot_audit.py` | 稽催時間錨點的唯一定義——「這筆逾期幾天」原有三份各自實作，09-07 請款日改留白時，漏改一處那 86 筆佔位就從該消費端整批消失（實測逾期 198→118）。定義收在 `services/erp/billing_dunning.py`，這支盯第四份實作。⚠️ 只認真正的 import：首版認字串出現，而三個消費端註解裡都寫著模組名 ⇒ 負向控制不會紅 | weekly 121 |
 | `infra_facts_drift_audit.py` | 活文件不得再描述已不存在的基礎設施（sqlite／8003／Adminer 8080／GeminiCli／相對路徑憑證教學）——owner 09-08 從舊附件讀到「三套資料庫、兩套後端、兩條行事曆認證」，實查出處是 5 份未作廢的活文件。對過期宣告的處置是刪除不是同步。⚠️ 首版把掃描迴圈縮排到 continue 底下＝永遠綠，負向控制抓到 | weekly 122 |
 | `roc_date_ssot_audit.py` | 民國年解析只能有一份：`backend/app/` 裡手寫 `+ 1911` 而該檔不 import `app.core.roc_date` ⇒ RED（AST 掃、註解不算；豁免 `case_code.py` 輸入容錯）。收斂前 8 份 `_roc_to_date/_parse_roc_date` ＋ 19 處散裝 `+1911`，09-08 全部收到一份 | weekly 123 |
 | `duplicate_definition_audit.py` | 同名私有函式在幾個模組各有一份（≥3 列出）——重複版次此前沒有任何檢核在問「同一概念有幾份」，圖譜只記呼叫不記語意等價。存量走 `.duplicate_definition_baseline.json`，新名字或模組數增加即 RED | weekly 124 |
 | `doc_lifecycle_audit.py` | 文件生命週期：檔頭 `> \`lifecycle: status=current reviewed=YYYY-MM-DD owner=CK_Missive\``（CK_AaaP 拍板格式）；活區出現 superseded RED、新增無檔頭 RED、>90 天未核對 YELLOW；有檔頭比例只能往上（A118） | weekly 125 |
+| `quotation_year_semantics_audit.py` | **`erp_quotations.year` 必須是「案件年度」不是「建單那年」**——年度篩選（`case_year.quotation_case_year_condition`）09-08 起以 year 欄為準，而它的正確性依賴 year 欄乾淨。判準＝案名的民國年（含「112至113」「114~115」「112年及113年」區間，兩端都抓）vs year 欄；`finance_anchor` 排除。09-08 回填 13 筆髒 year 後 GREEN，負向控制實測（把 161 改髒 → RED exit 2，還原 → GREEN） | weekly 126 |
 | `async_sync_io_audit.py` | async 路徑上的同步 I/O（AST；一支卡全站）；基線 `.async_sync_io_baseline.txt`（weekly 112） |
 | `testing_map_report.py` | 自主測試機制圖（僅報告，產出 docs/health/TESTING_MAP.md）（weekly 113） |
 | `frontend_test_suite_health.py` | 前端 vitest 全套跑一次對基線 `frontend/tests/known_failures.json`：新失敗 RED、已修未除名 YELLOW；跑不起來（通過 <500／JSON 與解析不一致）不寫基線也不回綠（weekly 114） |
