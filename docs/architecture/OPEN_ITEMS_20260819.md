@@ -1958,7 +1958,7 @@ CK_AaaP session 把上一輪那個「只探 GET」的路標走完了，用極保
 
 | # | 項目 | 現況（量到的） | 建議 | 待誰 |
 |---|---|---|---|---|
-| A116 | **附件層級 RLS** | `/uploads` 09-08 已從「未登入可讀」改成「登入即可讀」（L148）；但 1,642 個附件裡派工 PDF 該只給該案承辦／管理員 | 附件路由查 `document_attachments`→公文→`RLSFilter`；證照附件只給本人與 admin | owner 排序 |
+| A116 | **附件層級 RLS** | ✅ **09-08 晚已辦**：`app/api/endpoints/uploads.py` 依路徑前綴判——證照＝本人／管理員／`/staff` 頁權限；公文附件走 `check_document_access`；派工／PM／收據／資產跟各自頁面的選單宣告；未知前綴只有管理員。線上驗：staff 派工 200、他案公文 403、公網未登入 401 | — | 已結 |
 | A117 | **LINE webhook 去重在行程內** | ✅ **09-08 已辦**：改 redis `SET NX EX 10`，redis 不在時退回行程內並 warning（`test_line_webhook_dedup.py`） | — | 已結 |
 | A118 | **文件生命週期標頭** | `docs/` 172 份活文件只有 32 份帶狀態欄；09-08 一天作廢 8 份 2025 規劃文件都是因為「沒人知道它過期」 | 每份文件檔頭 `狀態：現行／待驗證／已作廢＋最後核對日`；weekly 122 只抓得到「描述不存在的東西」，抓不到「描述已改變的東西」 | owner 拍板格式 |
 | A119 | **民國年解析 8 份實作** | ✅ **09-08 已辦**：8 份＋19 處散裝 `+1911` 收到 `app/core/roc_date.py`；weekly 123 守第九份 | — | 已結 |
@@ -1978,3 +1978,5 @@ D10 G2B2C 欄位對照：不做實作，owner 要的話另開一次對照。
 
 | A120 | **`_get_redis` 在 9 個模組各有一份**（weekly 124 首跑基線裡最大的一筆） | `app/core/redis_client.get_redis` 早就存在；9 份多半是各自抄的取連線包裝 | 同 A119 做法：逐一改委派、基線遞減 | 可直接做 |
 | A121 | **`deploy-public.sh` 第 6 步印出標題後不再輸出** | 09-08 03:55 部署完成、公網 200，腳本程序卻活到 07:47 沒結束（`--frontend-only`）；三次 curl 都帶 `--max-time 20`，卡點不在 curl | 查是哪一行；在此之前部署後以 `dist/index.html` mtime 與公網 chunk 雜湊為準 | 可直接做 |
+| A122 | **9 個公文附件檔名超過 Linux 255 bytes** | 08-29 上傳端已封頂 200 bytes，但 2–4 月的 9 個舊檔（doc_848／885／2366／2445／2446）容器讀取 I/O error ⇒ 下載 404、備份 Errno 5 | ✅ 09-08 改名至 ≤200 bytes 並更新 `file_path`（原始檔名仍在 `file_name`）；容器 find 0 錯誤、`/api/files/149/download` 200 | 已結 |
+| A121 補記 | 部署腳本第 6 步不結束 | `deploy_verify.py` 單獨跑 exit 0（14 行、GREEN），**不是它**；卡點在第 6 步的 bash 本體 | 待查 | 可直接做 |
