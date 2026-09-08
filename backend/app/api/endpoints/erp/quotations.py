@@ -189,8 +189,23 @@ async def update_quotation(
 async def delete_quotation(
     req: ERPIdRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+    current_user: User = Depends(require_auth()),
 ):
-    """刪除報價"""
+    """刪除報價 —— **依登入身分限縮**（2026-09-09）。
+
+    此前這支只要求登入：列表、統計卡、下拉都走 `_quotation_scope` 限縮，
+    唯獨刪除沒有 ⇒ **業務同仁刪得掉自己在列表上根本看不到的報價單**。
+    「看得到」與「動得了」用同一個口徑，否則管控只做了一半（同 case_scope 的判準）。
+    """
+    scope = await _quotation_scope(service.db, current_user)
+    if scope is not None:
+        target = await service.repo.get_by_id(req.id)
+        if not target:
+            raise HTTPException(status_code=404, detail="報價不存在")
+        # 找不到案號的報價單，非全公司視角者一律拒絕 —— 歸屬不明的東西不該讓
+        # 「只能動自己案子」的人動（與 case_scope 對 case_code 為空的處置一致）。
+        if not target.case_code or target.case_code not in scope:
+            raise HTTPException(status_code=403, detail="這張報價單不在你承辦的案件範圍內")
     success = await service.delete(req.id)
     if not success:
         raise HTTPException(status_code=404, detail="報價不存在")

@@ -133,6 +133,12 @@ const ERPAssetListPage: React.FC = () => {
       dataIndex: 'category',
       key: 'category',
       width: 90,
+      // 2026-09-09 §2.6 ④：篩選走表頭。這是**後端分頁**的表格 ⇒ 勾選值經 Table onChange
+      // 進查詢參數、由後端篩全庫；欄位**不得帶 onFilter**（帶了會被 stripClientOnlyColumnFeatures
+      // 連 filters 一起剝掉 ⇒ 原始碼看得到漏斗、線上看不到）。
+      filters: CATEGORY_OPTIONS.map((o) => ({ text: o.label, value: o.value })),
+      filterMultiple: false,
+      filteredValue: params.category ? [params.category] : null,
       render: (val: string) => (
         <Tag>{CATEGORY_LABELS[val] ?? val}</Tag>
       ),
@@ -185,6 +191,9 @@ const ERPAssetListPage: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 90,
+      filters: STATUS_OPTIONS.map((o) => ({ text: o.label, value: o.value })),
+      filterMultiple: false,
+      filteredValue: params.status ? [params.status] : null,
       render: (status: string) => (
         <Tag color={STATUS_COLORS[status] ?? 'default'}>
           {STATUS_LABELS[status] ?? status}
@@ -278,7 +287,7 @@ const ERPAssetListPage: React.FC = () => {
               title="使用中" value={stats?.in_use ?? 0}
               icon={<CheckCircleOutlined />} color="#52c41a"
               active={statFilter === 'in_use'}
-              onClick={() => { setStatFilter('in_use'); setParams(p => ({ ...p, status: 'in_use', skip: 0 })); }}
+              onClick={() => { const off = statFilter === 'in_use'; setStatFilter(off ? null : 'in_use'); setParams(p => ({ ...p, status: off ? undefined : 'in_use', skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={4}>
@@ -286,7 +295,7 @@ const ERPAssetListPage: React.FC = () => {
               title="維修中" value={stats?.maintenance ?? 0}
               icon={<ToolOutlined />} color="#fa8c16"
               active={statFilter === 'maintenance'}
-              onClick={() => { setStatFilter('maintenance'); setParams(p => ({ ...p, status: 'maintenance', skip: 0 })); }}
+              onClick={() => { const off = statFilter === 'maintenance'; setStatFilter(off ? null : 'maintenance'); setParams(p => ({ ...p, status: off ? undefined : 'maintenance', skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={4}>
@@ -294,7 +303,7 @@ const ERPAssetListPage: React.FC = () => {
               title="閒置" value={stats?.idle ?? 0}
               icon={<PauseCircleOutlined />} color="#1890ff"
               active={statFilter === 'idle'}
-              onClick={() => { setStatFilter('idle'); setParams(p => ({ ...p, status: 'idle', skip: 0 })); }}
+              onClick={() => { const off = statFilter === 'idle'; setStatFilter(off ? null : 'idle'); setParams(p => ({ ...p, status: off ? undefined : 'idle', skip: 0 })); }}
             />
           </Col>
           <Col xs={12} sm={8}>
@@ -319,10 +328,13 @@ const ERPAssetListPage: React.FC = () => {
               setParams((p) => ({ ...p, keyword: val, skip: 0 }));
             }}
           />
+          {/* 2026-09-09：下拉綁 value —— 工具列、表頭漏斗、統計卡共用同一份狀態。
+              此前沒綁 value ⇒ 點統計卡篩了資料，下拉仍顯示「未選」（反向也不同步）。 */}
           <Select
             placeholder="類別"
             allowClear
             style={{ width: 120 }}
+            value={params.category ?? undefined}
             options={CATEGORY_OPTIONS}
             onChange={(v) => setParams((p) => ({ ...p, category: v, skip: 0 }))}
           />
@@ -330,8 +342,9 @@ const ERPAssetListPage: React.FC = () => {
             placeholder="狀態"
             allowClear
             style={{ width: 120 }}
+            value={params.status ?? undefined}
             options={STATUS_OPTIONS}
-            onChange={(v) => setParams((p) => ({ ...p, status: v, skip: 0 }))}
+            onChange={(v) => { setStatFilter(v ?? null); setParams((p) => ({ ...p, status: v, skip: 0 })); }}
           />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
             重新整理
@@ -357,6 +370,17 @@ const ERPAssetListPage: React.FC = () => {
               setParams((p) => ({ ...p, skip: (page - 1) * pageSize, limit: pageSize })),
             showSizeChanger: true,
             showTotal: (t, range) => `第 ${range[0]}-${range[1]} 項，共 ${t} 項`,
+          }}
+          onChange={(_pagination, filters) => {
+            // 取消勾選時要送 undefined 而不是空字串 —— 空字串會被後端當成「篩一個叫空字串的值」。
+            const pick = (k: string) => {
+              const v = (filters?.[k] as (string | number | null)[] | null)?.[0];
+              return v === undefined || v === null || v === '' ? undefined : String(v);
+            };
+            const category = pick('category');
+            const status = pick('status');
+            setStatFilter(status ?? null);
+            setParams((p) => ({ ...p, category, status, skip: 0 }));
           }}
           onRow={(record) => ({
             onClick: () => navigate(`${ROUTES.ERP_ASSETS}/${record.id}`),

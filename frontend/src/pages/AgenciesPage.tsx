@@ -166,7 +166,10 @@ export const AgenciesPage: React.FC = () => {
               color="#fa541c"
               size={isMobile ? 'small' : 'default'}
               active={statFilter === 'other'}
-              onClick={() => handleStatFilter('other')}
+              // 2026-09-09：原本不帶 category ⇒ categoryFilter 變空字串 ⇒ 列表回到全部，
+              // 而卡片仍然高亮＝假互動。後端本來就支援 '其他單位'，且它涵蓋的正是這張卡加總的
+              // 那四種（其他機關／其他單位／社會團體／教育機構，見 services/agency/statistics.py）。
+              onClick={() => handleStatFilter('other', '其他單位')}
             />
           </Col>
         </Row>

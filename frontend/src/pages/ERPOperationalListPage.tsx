@@ -104,6 +104,11 @@ const ERPOperationalListPage: React.FC = () => {
       dataIndex: 'category',
       key: 'category',
       width: 110,
+      // 2026-09-09 §2.6 ④：後端分頁的表格，篩選走表頭、值經 onChange 送後端；
+      // **不得帶 onFilter**（會被剝除器連 filters 一起刪掉）。
+      filters: CATEGORY_OPTIONS.map((o) => ({ text: o.label, value: o.value })),
+      filterMultiple: false,
+      filteredValue: params.category ? [params.category] : null,
       render: (val: string) => (
         <Tag>{OPERATIONAL_CATEGORIES[val] ?? val}</Tag>
       ),
@@ -114,6 +119,9 @@ const ERPOperationalListPage: React.FC = () => {
       key: 'fiscal_year',
       width: 80,
       align: 'center',
+      filters: YEAR_OPTIONS.map((o) => ({ text: String(o.label), value: o.value })),
+      filterMultiple: false,
+      filteredValue: params.fiscal_year ? [params.fiscal_year] : null,
     },
     {
       title: '預算',
@@ -153,6 +161,9 @@ const ERPOperationalListPage: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 90,
+      filters: STATUS_OPTIONS.map((o) => ({ text: o.label, value: o.value })),
+      filterMultiple: false,
+      filteredValue: params.status ? [params.status] : null,
       render: (status: string) => (
         <Tag color={STATUS_COLORS[status] ?? 'default'}>
           {OPERATIONAL_STATUS[status] ?? status}
@@ -229,6 +240,7 @@ const ERPOperationalListPage: React.FC = () => {
             placeholder="類別"
             allowClear
             style={{ width: 130 }}
+            value={params.category ?? undefined}
             options={CATEGORY_OPTIONS}
             onChange={(v) => setParams((p) => ({ ...p, category: v, skip: 0 }))}
           />
@@ -247,6 +259,7 @@ const ERPOperationalListPage: React.FC = () => {
             placeholder="狀態"
             allowClear
             style={{ width: 100 }}
+            value={params.status ?? undefined}
             options={STATUS_OPTIONS}
             onChange={(v) => setParams((p) => ({ ...p, status: v, skip: 0 }))}
           />
@@ -277,6 +290,20 @@ const ERPOperationalListPage: React.FC = () => {
               setParams((p) => ({ ...p, skip: (page - 1) * pageSize, limit: pageSize })),
             showSizeChanger: true,
             showTotal: (t, range) => `第 ${range[0]}-${range[1]} 項，共 ${t} 項`,
+          }}
+          onChange={(_pagination, filters) => {
+            // 取消勾選要送 undefined 不是空字串（空字串會被後端當成「篩一個叫空字串的值」）。
+            const pick = (k: string) => {
+              const v = (filters?.[k] as (string | number | null)[] | null)?.[0];
+              return v === undefined || v === null || v === '' ? undefined : v;
+            };
+            setParams((p) => ({
+              ...p,
+              category: pick('category') as string | undefined,
+              status: pick('status') as string | undefined,
+              fiscal_year: pick('fiscal_year') as number | undefined,
+              skip: 0,
+            }));
           }}
           onRow={(record) => ({
             onClick: () => navigate(`${ROUTES.ERP_OPERATIONAL}/${record.id}`),
