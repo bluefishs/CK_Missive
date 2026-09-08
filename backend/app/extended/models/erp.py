@@ -30,6 +30,13 @@ class ERPQuotation(Base):
     # 金額
     total_price = Column(Numeric(15, 2), comment="總價 (含稅)")
     tax_amount = Column(Numeric(15, 2), default=0, comment="稅額")
+    # ⭐ 2026-09-08 owner：「小記已含稅，故報價單需增列勾選『總價是否含稅』」。
+    # 對應總表 K 欄「稅內含」——匯入器讀了它卻只丟進 notes。
+    #   true  ⇒ 工項小計即為總價（不再 ×1.05），tax_amount 不另計
+    #   false ⇒ 工項小計是未稅，總價 ＝ 小計 × 1.05
+    # 預設 false 沿用現行行為；存量不動（要不要標含稅是逐案的事實，不能用一句 SQL 猜）。
+    tax_included = Column(Boolean, nullable=False, server_default="false",
+                          comment="總價是否已含稅（總表 K 欄「稅內含」）")
 
     # 成本拆解
     outsourcing_fee = Column(Numeric(15, 2), default=0, comment="外包費")
@@ -151,7 +158,22 @@ class ERPInvoice(Base):
     status = Column(String(30), default="issued", index=True,
                     comment="狀態: issued/voided/cancelled")
     voided_at = Column(DateTime, nullable=True, comment="作廢時間")
-    notes = Column(Text, comment="備註")
+    notes = Column(Text, comment="備註（系統訊息，例「系統自動補建」）")
+
+    # ⭐ 2026-09-08：總表的「發票明細」工作表本來就有這四項，而系統沒有欄位存
+    # ⇒ 只能塞在備註文字裡（「發票抬頭:樂昱建設有限公司 統編:92602248」），搜尋不到也對不了帳。
+    #
+    # ⚠️ 聯式**不影響稅額**：owner 提供的實體發票 EE15019500（買受人桃園市政府工務局）
+    # 是二聯式而課稅別勾應稅。此前 UI 把兩者混成一個選項（「免稅／零稅率（二聯式）」），
+    # 照那個標籤選會讓機關的二聯式發票被記成免稅、少掉 5% 的稅。
+    invoice_kind = Column(String(10), nullable=True,
+                          comment="發票種類：triplicate=三聯式／duplicate=二聯式")
+    #: 買受人**不等於**委託單位：那五案的委託單位是鎮泓，而抬頭有蔡蕙宇（個人）與樂昱建設。
+    buyer_name = Column(String(200), nullable=True, comment="發票抬頭（買受人）")
+    buyer_tax_id = Column(String(20), nullable=True, comment="買受人統編；二聯式可為空")
+    #: 與 `notes` 分開 —— 這是**寫在發票上的字**（例「訂購編號：XD-QA0132-00 台銀」），
+    #: 而 notes 裝的是系統訊息。混在一起，任一方都會被另一方污染。
+    invoice_remark = Column(String(200), nullable=True, comment="發票備註（印在發票上）")
     #: 來源（2026-09-03）：manual／xls_import／auto_from_billing——此前靠 notes 前綴分辨
     source = Column(String(24), nullable=True, comment="manual/xls_import/auto_from_billing")
 

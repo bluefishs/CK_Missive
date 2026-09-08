@@ -27,6 +27,8 @@ class ERPQuotationCreate(BaseModel):
     year: Optional[int] = Field(None, description="年度（西元）")
     total_price: Optional[Decimal] = Field(None, description="總價 (含稅)")
     tax_amount: Decimal = Field(Decimal("0"), description="稅額")
+    #: 總價是否已含稅（總表 K 欄「稅內含」）
+    tax_included: Optional[bool] = False
     outsourcing_fee: Decimal = Field(Decimal("0"), description="外包費")
     personnel_fee: Decimal = Field(Decimal("0"), description="人事費")
     overhead_fee: Decimal = Field(Decimal("0"), description="管銷費")
@@ -96,6 +98,8 @@ class ERPQuotationUpdate(BaseModel):
     year: Optional[int] = None
     total_price: Optional[Decimal] = None
     tax_amount: Optional[Decimal] = None
+    #: 2026-09-08：總價是否已含稅（總表 K 欄「稅內含」）——勾了則工項小計即總價、稅額 0
+    tax_included: Optional[bool] = None
     outsourcing_fee: Optional[Decimal] = None
     personnel_fee: Optional[Decimal] = None
     overhead_fee: Optional[Decimal] = None
@@ -171,6 +175,8 @@ class ERPQuotationResponse(BaseModel):
 
     total_price: Optional[Decimal] = None
     tax_amount: Decimal = Decimal("0")
+    #: 總價是否已含稅（總表 K 欄「稅內含」）
+    tax_included: Optional[bool] = False
     outsourcing_fee: Decimal = Decimal("0")
     personnel_fee: Decimal = Decimal("0")
     overhead_fee: Decimal = Decimal("0")

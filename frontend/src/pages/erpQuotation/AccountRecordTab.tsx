@@ -14,7 +14,7 @@
  * @date 2026-08-02
  */
 import React, { useState } from 'react';
-import { Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip, Space, Select } from 'antd';
+import { Button, Tag, Row, Col, Alert, Modal, Form, Input, DatePicker, App, Tooltip, Space, Select, Switch } from 'antd';
 import ClickableStatCard from '../../components/common/ClickableStatCard';
 import { useCreateInvoiceFromBilling, useLinkInvoiceToBilling, useERPInvoices } from '../../hooks/business/useERPQuotations';
 import { EnhancedTable } from '../../components/common/EnhancedTable';
@@ -196,7 +196,7 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const { data: quotationInvoices } = useERPInvoices(isReceivable ? erpQuotationId : null);
   const unlinkedInvoices = (quotationInvoices ?? []).filter((i) => !i.billing_id && i.status !== 'voided');
   const existingInvoiceId = Form.useWatch('existing_invoice_id', invoiceForm);
-  const taxMode = Form.useWatch('tax_mode', invoiceForm) ?? 'taxable';
+  const taxExempt = Form.useWatch('tax_exempt', invoiceForm) ?? false;
   const { message: msg } = App.useApp();
   const totalRequest = records.reduce((s, r) => s + (r.request_amount || 0), 0);
   const totalPaid = records.reduce((s, r) => s + (r.payment_amount || 0), 0);
@@ -417,7 +417,11 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
               invoice_number: v.invoice_number,
               invoice_date: v.invoice_date?.format('YYYY-MM-DD'),
               notes: v.notes,
-              tax_mode: v.tax_mode ?? 'taxable',
+              invoice_kind: v.invoice_kind ?? 'triplicate',
+              tax_exempt: !!v.tax_exempt,
+              buyer_name: v.buyer_name || undefined,
+              buyer_tax_id: v.buyer_tax_id || undefined,
+              invoice_remark: v.invoice_remark || undefined,
             });
             msg.success('發票已開立並關聯到此請款');
             setInvoiceFor(null);
@@ -447,25 +451,50 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
               於是這個按鈕開出來的每一張都是免稅。免稅（二聯式／零稅率）是
               真實存在的情形，所以不能反過來硬寫 5% —— 讓填報的人講明，預設應稅。
               三個數同時顯示，是因為複核看的就是這三個（與發票 tooltip 同口徑）。 */}
-          <Form.Item name="tax_mode" label="稅別" initialValue="taxable"
-            extra="請款金額為含稅額；未稅與稅額由它推導">
+          {/* ⭐ 2026-09-08（第二版）owner：「課稅別改對應選取發票種類（三聯／二聯），
+              因為原用意是書寫發票所需數據，係由發票金額反算稅額(發票)與銷售額(發票)」。
+              第一版把聯式與課稅別混成一個選項（「免稅／零稅率（二聯式）」）——
+              而 owner 提供的實體發票 EE15019500（買受人桃園市政府工務局）是**二聯式且應稅**，
+              照那個標籤選會讓機關的二聯式發票被記成免稅、少掉 5% 的稅。 */}
+          <Form.Item name="invoice_kind" label="發票種類" initialValue="triplicate"
+            extra="決定聯式與要不要買受人統編；**不影響稅額** —— 二聯式（機關／個人）一樣可以是應稅">
             <Select
               options={[
-                { value: 'taxable', label: '應稅 5%（三聯式）' },
-                { value: 'exempt', label: '免稅／零稅率（二聯式）' },
+                { value: 'triplicate', label: '三聯式（營業人，需統編）' },
+                { value: 'duplicate', label: '二聯式（機關或個人）' },
               ]}
             />
           </Form.Item>
+          <Form.Item name="buyer_name" label="發票抬頭（買受人）"
+            extra="可能與委託單位不同（實例：委託單位鎮泓、抬頭樂昱建設）；留空則以委託單位為抬頭">
+            <Input maxLength={200} placeholder="例：樂昱建設有限公司" />
+          </Form.Item>
+          <Form.Item name="buyer_tax_id" label="買受人統編"
+            rules={[{ pattern: /^[0-9]{8}$/, message: '統一編號為 8 碼數字' }]}
+            extra="三聯式必填；二聯式（機關／個人）可留空">
+            <Input maxLength={8} placeholder="12345678" />
+          </Form.Item>
+          <Form.Item name="invoice_remark" label="發票備註"
+            extra="會印在發票上（例：訂購編號：XD-QA0132-00 台銀）">
+            <Input maxLength={200} />
+          </Form.Item>
+          <Form.Item name="tax_exempt" label="零稅率／免稅" valuePropName="checked"
+            initialValue={false} extra="與聯式無關；勾了才不計 5% 營業稅">
+            <Switch checkedChildren="免稅" unCheckedChildren="應稅 5%" />
+          </Form.Item>
           {(() => {
+            // 這三個數就是要寫在發票上的欄位（總表「發票明細」的銷售額／稅額／金額）。
+            // 一律**由發票金額反算**，且四捨五入到元 —— 發票上不會出現角分。
+            // 實例：MT18585759 金額 15,000 ⇒ 銷售額 14,286、稅額 714。
             const gross = invoiceFor?.request_amount ?? 0;
-            const exempt = taxMode === 'exempt';
-            const net = exempt ? gross : Math.round((gross / 1.05) * 100) / 100;
+            const exempt = !!taxExempt;
+            const net = exempt ? gross : Math.round(gross / 1.05);
             const tax = gross - net;
             return (
               <div style={{ background: '#fafafa', padding: '8px 12px', borderRadius: 4, fontSize: 13, lineHeight: 1.8 }}>
-                <div>未稅 <b>{net.toLocaleString()}</b></div>
-                <div>稅額 <b>{tax.toLocaleString()}</b>（{exempt ? '免稅／零稅率' : '5%'}）</div>
-                <div>含稅 <b>{gross.toLocaleString()}</b>（＝該期請款額）</div>
+                <div>銷售額 <b>{net.toLocaleString()}</b></div>
+                <div>稅額 <b>{tax.toLocaleString()}</b>（{exempt ? '零稅率／免稅' : '5%'}）</div>
+                <div>發票金額 <b>{gross.toLocaleString()}</b>（＝該期請款額）</div>
               </div>
             );
           })()}

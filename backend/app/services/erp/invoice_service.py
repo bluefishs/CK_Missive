@@ -224,7 +224,10 @@ class ERPInvoiceService(AuditableServiceMixin):
         g = Decimal(str(gross or 0))
         if tax_mode == "exempt" or g <= 0:
             return Decimal("0")
-        net = (g / Decimal("1.05")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        # ⚠️ 2026-09-08（第二版）：改為**四捨五入到元**再相減，與總表的實例一致 ——
+        # MT18585759 金額 15,000 ⇒ 銷售額 14,286（15,000/1.05＝14,285.71 進位）、稅額 714。
+        # 原本 quantize 到分（14,285.71）會得到稅額 714.29，而發票上不會出現角分。
+        net = (g / Decimal("1.05")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
         return g - net
 
     async def create_from_billing(
@@ -234,6 +237,10 @@ class ERPInvoiceService(AuditableServiceMixin):
         invoice_date: Optional[date_type] = None,
         notes: Optional[str] = None,
         tax_mode: str = "taxable",
+        invoice_kind: str = "triplicate",
+        buyer_name: Optional[str] = None,
+        buyer_tax_id: Optional[str] = None,
+        invoice_remark: Optional[str] = None,
     ) -> ERPInvoiceResponse:
         """從請款記錄建立銷項發票"""
         from app.extended.models.erp import ERPBilling
@@ -272,6 +279,11 @@ class ERPInvoiceService(AuditableServiceMixin):
             "amount": billing.billing_amount,
             # 2026-09-08：由含稅額推導，不再硬寫 0（見 derive_tax 的說明）
             "tax_amount": self.derive_tax(billing.billing_amount, tax_mode),
+            # 聯式與買受人 —— 總表的「發票明細」本來就有這些，系統此前沒有欄位可放
+            "invoice_kind": invoice_kind,
+            "buyer_name": buyer_name,
+            "buyer_tax_id": buyer_tax_id,
+            "invoice_remark": invoice_remark,
             "invoice_type": "sales",
             "description": f"請款期別: {billing.billing_period or '-'}",
             "status": "issued",

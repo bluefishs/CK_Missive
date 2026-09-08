@@ -1031,6 +1031,10 @@ class QuotationLegacyImportService:
                 year=r["year"] or date.today().year,
                 total_price=r["total_price"],
                 tax_amount=r["tax_amount"],
+                # ⭐ 2026-09-08：總表 K 欄「稅內含」＝v ⇒ 報價金額本身已含稅。
+                # 此前這個旗標被讀進來卻只丟進 notes ——「有權威值就不要重算」的另一半：
+                # 有旗標也不要忽略。勾了之後工項小計不再 ×1.05（quotation_items）。
+                tax_included=bool(str(r.get("tax_included") or "").strip()),
                 # 「是否成立=v」＝這張報價客戶接受了 ⇒ confirmed；其餘留 draft。
                 # 不寫成 contracted —— 那是承攬案件的狀態，不是報價單的。
                 status="confirmed" if r["established"] else "draft",

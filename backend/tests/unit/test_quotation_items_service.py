@@ -41,11 +41,16 @@ def _svc_with(quotation):
     return QuotationItemService(db), db
 
 
-def _quotation(total="253120.00", tax="12656.00"):
+def _quotation(total="253120.00", tax="12656.00", tax_included=False):
     q = MagicMock()
     q.id = 390
     q.total_price = Decimal(total)
     q.tax_amount = Decimal(tax)
+    # ⚠️ 2026-09-08：`tax_included` **必須明確設值**。MagicMock 的任何屬性都是
+    # truthy 物件 ⇒ 不設就等於「這張已含稅」，於是小計不再 ×1.05、稅額變 0，
+    # 而兩支既有測試會以「總價 8,000／稅 0」失敗。今天第二次踩到同一個形狀
+    # （PM 案刪除閘門那支的 `project_code` 也是）。
+    q.tax_included = tax_included
     return q
 
 
@@ -117,3 +122,27 @@ async def test_amount_is_qty_times_unit_price():
     ])
     assert r["items_total"] == 5000.0
     assert q.tax_amount == Decimal("250")
+
+
+@pytest.mark.asyncio
+async def test_tax_included_means_subtotal_is_the_total():
+    """⭐ 2026-09-08 owner：「其小記已含稅，故報價單需增列勾選『總價是否含稅』」。
+
+    勾了之後：**小計即總價、稅額不另計**。不分流的話含稅的小計會被再加一次 5%，
+    而畫面上三個數字彼此自洽、看不出錯。
+    """
+    q = _quotation(total="8400.00", tax="400.00", tax_included=True)
+    svc, _ = _svc_with(q)
+    await svc.replace_items(390, [{"item_name": "測量", "qty": 1, "unit": "式", "unit_price": 8000}])
+    assert q.total_price == Decimal("8000"), "含稅時小計即總價，不得再 ×1.05"
+    assert q.tax_amount == Decimal("0"), "含稅時稅額不另計"
+
+
+@pytest.mark.asyncio
+async def test_tax_not_included_still_grosses_up():
+    """負向對照：沒勾的照舊 ×1.05 —— 修法不得把原本正確的那條路一起改掉。"""
+    q = _quotation(total="8400.00", tax="400.00", tax_included=False)
+    svc, _ = _svc_with(q)
+    await svc.replace_items(390, [{"item_name": "測量", "qty": 1, "unit": "式", "unit_price": 8000}])
+    assert q.total_price == Decimal("8400")
+    assert q.tax_amount == Decimal("400")

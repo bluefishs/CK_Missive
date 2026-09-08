@@ -250,7 +250,10 @@ const ERPAccountRecordFormPage: React.FC = () => {
           billing_id: billingId,
           invoice_number: values.sales_invoice_number,
           invoice_date: (values.sales_invoice_date ?? values.billing_date)?.format('YYYY-MM-DD'),
-          tax_mode: values.tax_mode ?? 'taxable',
+          invoice_kind: values.invoice_kind ?? 'triplicate',
+          buyer_name: values.buyer_name || undefined,
+          buyer_tax_id: values.buyer_tax_id || undefined,
+          invoice_remark: values.invoice_remark || undefined,
         });
         message.success(isEdit ? '請款已更新，發票已開立並關聯' : '請款已新增，發票已開立並關聯');
       } catch (e) {
@@ -370,12 +373,24 @@ const ERPAccountRecordFormPage: React.FC = () => {
                     照那個標籤選，機關的二聯式發票會被記成免稅而少掉 5% 的稅。
                     聯式由買受人身分決定（機關＝二聯、營業人＝三聯），不影響稅額計算，
                     故這裡只問課稅別。 */}
-                <Form.Item name="tax_mode" label="課稅別" initialValue="taxable"
-                  extra="與「幾聯式」無關 —— 二聯式（機關）一樣可以是應稅。請款金額為含稅額，未稅與稅額由它推導。">
+                {/* 2026-09-08（第二版）：改問**發票種類**（聯式），課稅別另給一個開關。
+                    聯式不影響稅額 —— 二聯式（機關／個人）一樣可以是應稅。 */}
+                <Form.Item name="invoice_kind" label="發票種類" initialValue="triplicate"
+                  extra="三聯式需買受人統編；二聯式（機關／個人）可不填">
                   <Select options={[
-                    { value: 'taxable', label: '應稅 5%' },
-                    { value: 'exempt', label: '零稅率／免稅' },
+                    { value: 'triplicate', label: '三聯式（營業人，需統編）' },
+                    { value: 'duplicate', label: '二聯式（機關或個人）' },
                   ]} />
+                </Form.Item>
+                <Form.Item name="buyer_name" label="發票抬頭（買受人）" extra="留空則以委託單位為抬頭">
+                  <Input maxLength={200} />
+                </Form.Item>
+                <Form.Item name="buyer_tax_id" label="買受人統編"
+                  rules={[{ pattern: /^[0-9]{8}$/, message: '統一編號為 8 碼數字' }]}>
+                  <Input maxLength={8} placeholder="12345678" />
+                </Form.Item>
+                <Form.Item name="invoice_remark" label="發票備註" extra="會印在發票上">
+                  <Input maxLength={200} />
                 </Form.Item>
               </>
             )}

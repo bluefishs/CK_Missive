@@ -1676,6 +1676,9 @@ export interface QuotationItemsDetail {
   total: number;
   /** 沒有明細時對外報價單不呈現逐項區塊 */
   has_items: boolean;
+  /** 2026-09-08：總價是否已含稅（總表 K 欄「稅內含」）。true ⇒ 小計即總計、不再加稅。
+   *  ⚠️ 後端加了欄位而這份手寫介面沒加，前端會拿不到（同 08-18 `billing_code` 那次）。 */
+  tax_included?: boolean;
 }
 
 

@@ -101,7 +101,16 @@ class QuotationItemService:
             from app.extended.models.pm import PMCase
             from app.extended.models.core import ContractProject
             from sqlalchemy import func as _fn
-            gross = (total * Decimal("1.05")).quantize(Decimal("1"))
+            # ⭐ 2026-09-08 owner：「/erp/quotations/369?tab=items 其小記已含稅，
+            # 故報價單需增列勾選『總價是否含稅』；如對應總表 K 欄，則
+            # 報價金額(total_price)＝總價(grand_total)、無稅額(tax_amount)」。
+            #
+            # 此前這裡**無條件** ×1.05 —— 對「工項已經是含稅價」的案，那是**多算一次稅**，
+            # 而畫面上看不出來（小計、總價、稅額三個數都印得出來且彼此自洽）。
+            # ⇒ 依 `tax_included` 分兩條：勾了就是小計即總價、稅額 0。
+            tax_included = bool(getattr(quotation, "tax_included", False))
+            gross = (total if tax_included
+                     else (total * Decimal("1.05")).quantize(Decimal("1")))
             if quotation.total_price is not None and Decimal(str(quotation.total_price)) != gross:
                 n_bill = (await self.db.execute(select(_fn.count(ERPBilling.id)).where(ERPBilling.erp_quotation_id == quotation_id))).scalar()
                 n_bill = n_bill if isinstance(n_bill, int) else 0
@@ -136,7 +145,11 @@ class QuotationItemService:
             #
             # 5% 是法定營業稅率，此處寫死；若日後要可設定，
             # 照既有的 `site_configurations.erp_company_profit_rate` 形態加一個 key。
-            quotation.tax_amount = (total * Decimal("0.05")).quantize(Decimal("1"))
+            # 勾了「總價已含稅」⇒ 稅額不另計（總表 K 欄＝v 的那些列，稅額欄本來就是空的／0）。
+            # ⚠️ 不能改成「由含稅反算」：那是**發票**的算法（發票要印銷售額與稅額），
+            # 而報價單勾含稅的用意是「這個價就是這個價，不再拆」。兩者別混。
+            quotation.tax_amount = (Decimal("0") if tax_included
+                                    else (total * Decimal("0.05")).quantize(Decimal("1")))
             # 成案即應收：已成案且尚無請款者，總價一到位就建第一期（與 quotation_service.update 同掛點）
             try:
                 from app.services.erp.billing_service import ERPBillingService
@@ -192,6 +205,9 @@ class QuotationItemService:
             ],
             "subtotal": float(subtotal),
             "tax_amount": float(tax),
+            # 2026-09-08：前端要知道「這張的總價是不是已含稅」，否則它會自己再加一次稅
+            # （這個畫面 08-29 才因為「後端算對了、前端又自己算一次」出過同型的錯）。
+            "tax_included": bool(getattr(quotation, "tax_included", False)),
             "total": float(subtotal + tax) if items else float(_money(quotation.total_price)),
             # 沒有明細時對外報價單不該呈現逐項區塊 —— 讓前端知道要顯示什麼
             "has_items": bool(items),

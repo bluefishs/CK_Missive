@@ -136,8 +136,12 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
   const tax = data?.tax_amount ?? 0;
   const noItems = rows.length === 0;
   const storedTotal = data?.total ?? 0;
-  const subtotal = noItems ? Math.max(storedTotal - tax, 0) : itemsSubtotal;
-  const total = noItems ? storedTotal : itemsSubtotal + tax;
+  // ⭐ 2026-09-08 owner：「/erp/quotations/369?tab=items 其小記已含稅，
+  // 故報價單需增列勾選『總價是否含稅』」。勾了之後：小計即總計、不再另加稅。
+  // 不分流的話，含稅的小計會被再加一次 5%（而三個數字彼此自洽，看不出錯）。
+  const taxIncluded = !!data?.tax_included;
+  const subtotal = noItems ? Math.max(storedTotal - (taxIncluded ? 0 : tax), 0) : itemsSubtotal;
+  const total = noItems ? storedTotal : (taxIncluded ? itemsSubtotal : itemsSubtotal + tax);
 
   const { isMobile, isTablet } = useResponsive();
   const isNarrow = isMobile || isTablet;
@@ -302,7 +306,7 @@ export const QuotationItemsTab: React.FC<Props> = ({ quotationId, caseName, case
           <Col><Text strong>{money(subtotal)}</Text></Col></Row>
         {tax > 0 && (
           <Row justify="space-between" style={{ marginTop: 4 }}>
-            <Col><Text type="secondary">稅額</Text></Col><Col>{money(tax)}</Col></Row>
+            <Col><Text type="secondary">{taxIncluded ? '稅額（總價已含稅，不另計）' : '稅額'}</Text></Col><Col>{money(tax)}</Col></Row>
         )}
         <Divider style={{ margin: '8px 0' }} />
         <Row justify="space-between" align="middle">

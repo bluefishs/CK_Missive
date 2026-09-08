@@ -50,9 +50,15 @@ export const erpInvoicesApi = {
     invoice_number: string;
     invoice_date?: string;
     notes?: string;
-    /** 2026-09-08：此前後端把稅額硬寫 0 ⇒ 按鈕開出來的每一張都顯示「免稅」。
-     *  免稅是真實情形，所以由填報的人指定，預設應稅。 */
-    tax_mode?: 'taxable' | 'exempt';
+    /** 2026-09-08（第二版）：填的是**發票種類**（聯式），而銷售額與稅額一律由發票金額反算。
+     *  owner：「原用意是書寫發票所需數據，係由發票金額反算稅額(發票)與銷售額(發票)」。
+     *  ⚠️ 聯式與課稅別是兩個維度 —— 二聯式（機關／個人）一樣可以是應稅。 */
+    invoice_kind?: 'triplicate' | 'duplicate';
+    /** 零稅率／免稅（與聯式無關） */
+    tax_exempt?: boolean;
+    buyer_name?: string;
+    buyer_tax_id?: string;
+    invoice_remark?: string;
   }): Promise<ERPInvoice> {
     const response = await apiClient.post<SuccessResponse<ERPInvoice>>(
       ERP_ENDPOINTS.INVOICES_CREATE_FROM_BILLING,

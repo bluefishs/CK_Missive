@@ -87,7 +87,11 @@ async def create_invoice_from_billing(
             invoice_number=params.invoice_number,
             invoice_date=params.invoice_date,
             notes=params.notes,
-            tax_mode=params.tax_mode,
+            tax_mode=("exempt" if params.tax_exempt else "taxable"),
+            invoice_kind=params.invoice_kind,
+            buyer_name=params.buyer_name,
+            buyer_tax_id=params.buyer_tax_id,
+            invoice_remark=params.invoice_remark,
         )
         return SuccessResponse(data=invoice, message="發票開立成功")
     except ValueError as e:

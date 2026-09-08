@@ -36,13 +36,23 @@ class CreateFromBillingRequest(BaseModel):
     invoice_number: str = Field(..., max_length=50, description="發票號碼")
     invoice_date: Optional[date] = Field(None, description="開立日期 (預設今天)")
     notes: Optional[str] = None
-    # 2026-09-08 owner「為何會顯示免稅」：此前 create_from_billing 把 tax_amount
-    # **硬寫成 0**，於是走「開立發票」按鈕開出來的每一張都是免稅，而畫面忠實地
-    # 照著印。免稅（二聯式／零稅率）是真實存在的情形，所以不能反過來硬寫 5% ——
-    # 要讓填報的人講明是哪一種，預設應稅。
-    tax_mode: Literal["taxable", "exempt"] = Field(
-        "taxable", description="taxable＝應稅 5%（稅額由含稅額推導）；exempt＝免稅／零稅率"
+    # 2026-09-08（第二版）owner：「課稅別改對應選取發票種類（三聯／二聯），
+    # 因為原用意是書寫發票所需數據，係由發票金額反算稅額(發票)與銷售額(發票)」。
+    #
+    # 第一版把「聯式」與「課稅別」混成一個選項（「免稅／零稅率（二聯式）」）——
+    # 而 owner 提供的實體發票 EE15019500（買受人桃園市政府工務局）是**二聯式且應稅**，
+    # 照那個標籤選會讓機關的二聯式發票被記成免稅、少掉 5% 的稅。
+    #
+    # 真正要填的是**發票種類**（決定聯式與要不要買受人統編），而銷售額與稅額
+    # 一律**由發票金額反算**（總表的實例：MT18585759 金額 15,000 ⇒ 銷售額 14,286、稅額 714）。
+    invoice_kind: Literal["triplicate", "duplicate"] = Field(
+        "triplicate", description="triplicate=三聯式（營業人，需統編）／duplicate=二聯式（機關或個人）"
     )
+    #: 零稅率／免稅仍然存在，但那是**課稅別**不是聯式 —— 兩者獨立，預設應稅。
+    tax_exempt: bool = Field(False, description="零稅率／免稅（與聯式無關）")
+    buyer_name: Optional[str] = Field(None, max_length=200, description="發票抬頭（買受人）")
+    buyer_tax_id: Optional[str] = Field(None, max_length=20, description="買受人統編")
+    invoice_remark: Optional[str] = Field(None, max_length=200, description="發票備註（印在發票上）")
 
 
 class ERPInvoiceUpdate(BaseModel):
@@ -88,6 +98,13 @@ class ERPInvoiceResponse(BaseModel):
     invoice_date: date
     amount: Decimal
     tax_amount: Decimal = Decimal("0")
+    #: 2026-09-08：總表「發票明細」本來就有這四項，此前只能塞在備註文字裡。
+    #: ⚠️ Pydantic 對 schema 沒宣告的欄位是**靜默丟棄**（weekly 61 的形狀）——
+    #: ORM 加了欄位而 Response 沒加，前端永遠看不到，且不會有任何錯誤。
+    invoice_kind: Optional[str] = None
+    buyer_name: Optional[str] = None
+    buyer_tax_id: Optional[str] = None
+    invoice_remark: Optional[str] = None
     invoice_type: str = "sales"
     description: Optional[str] = None
     status: str = "issued"
