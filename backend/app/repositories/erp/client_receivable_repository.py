@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.extended.models.erp import ERPQuotation, ERPBilling
 from app.extended.models.pm import PMCase
 from app.extended.models.core import PartnerVendor, ContractProject
+from app.repositories.erp.pm_coverage import contract_covered_by_pm
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,22 @@ class ClientReceivableRepository:
         elif year == 0:
             year = None
 
+        # ⭐ 2026-09-08：PM 案的金流可能掛在「共用 project_code 的承攬案」那一側
+        # （case_code 一個 PM 制、一個 GN 制）。腿 1 原本只用 PMCase.case_code 接
+        # billing_agg ⇒ 那種案在列表上是 0，而明細頁沿別名接得到 ⇒ **兩層數字不同**。
+        # ⇒ 先解析出「這個 PM 案的金流實際掛在哪個 case_code」，再用它 join。
+        # 全庫此型實測只有 1 筆，但它會隨每一次「PM 案 + GN 標案指向同一件工作」再長出來。
+        _cp_alias = (
+            select(
+                ContractProject.project_code.label("pc"),
+                func.min(ContractProject.case_code).label("cp_case_code"),
+            )
+            .where(ContractProject.project_code.isnot(None), ContractProject.case_code.isnot(None))
+            .group_by(ContractProject.project_code)
+            .subquery()
+        )
+        _eff_case_code = func.coalesce(_cp_alias.c.cp_case_code, PMCase.case_code)
+
         # ── 腿 1：PM 案件 FK 路徑 ──
         # 2026-08-28：billing_agg 由 inner 改 outer join —— 有 FK 但還沒建
         # 報價單的案件原本整案消失（連 case_count 都不計），案量靜默蒸發。
@@ -111,7 +128,8 @@ class ClientReceivableRepository:
                 func.coalesce(func.sum(billing_agg.c.total_received), 0).label("total_received"),
             )
             .join(PartnerVendor, PMCase.client_vendor_id == PartnerVendor.id)
-            .outerjoin(billing_agg, PMCase.case_code == billing_agg.c.case_code)
+            .outerjoin(_cp_alias, _cp_alias.c.pc == PMCase.project_code)
+            .outerjoin(billing_agg, _eff_case_code == billing_agg.c.case_code)
             .where(
                 PMCase.client_vendor_id.isnot(None),
                 PartnerVendor.vendor_type == "client",
@@ -139,10 +157,10 @@ class ClientReceivableRepository:
         )
 
         # ── 腿 2：承攬案件文字客戶路徑（case_code 不在腿 1 覆蓋範圍者）──
-        covered_case_codes = select(PMCase.case_code).where(
-            PMCase.client_vendor_id.isnot(None),
-            PMCase.case_code.isnot(None),
-        ).scalar_subquery()
+        # 2026-09-08：排除規則收斂到 `pm_coverage.contract_covered_by_pm()` ——
+        # 原本這裡只比對 case_code，而 PM 與承攬案還有**第二條連法**（共用 project_code）。
+        # owner 從 /erp/client-accounts/80 回報「同一個案名兩列」正是漏了那一條。
+        covered = contract_covered_by_pm()
 
         # 2026-09-05 owner「桃園 1 案 64,800 另列一列」：腿 2 此前只用名稱快照分組，快照與主檔差一個字就另起一列。
         # 承攬案 09-04 起有主檔鍵 client_vendor_id ⇒ 先用鍵分組（鍵是關聯、名稱是快照），沒有鍵的才退回名稱。
@@ -160,7 +178,7 @@ class ClientReceivableRepository:
                 ContractProject.client_agency.isnot(None),
                 ContractProject.client_agency != "",
                 ContractProject.case_code.isnot(None),
-                ~ContractProject.case_code.in_(covered_case_codes),
+                ~covered,
             )
             .group_by(ContractProject.client_vendor_id, ContractProject.client_agency)
         )
@@ -305,18 +323,36 @@ class ClientReceivableRepository:
         # ── 腿 2（2026-08-28）：名下只存在於承攬案件的 case ──
         # 與 get_client_summary_list 同一套判準；不加這一段的話，
         # 列表說 6 案、點進明細只剩 1 案 —— 兩層說法不同。
-        covered_case_codes = select(PMCase.case_code).where(
-            PMCase.client_vendor_id.isnot(None),
-            PMCase.case_code.isnot(None),
-        ).scalar_subquery()
+        # 2026-09-08：排除規則收斂到 `pm_coverage.contract_covered_by_pm()` ——
+        # 原本這裡只比對 case_code，而 PM 與承攬案還有**第二條連法**（共用 project_code）。
+        # owner 從 /erp/client-accounts/80 回報「同一個案名兩列」正是漏了那一條。
+        covered = contract_covered_by_pm()
         cp_query = select(ContractProject).where(
             or_(ContractProject.client_vendor_id == vendor_id, ContractProject.client_agency == vendor.vendor_name),
             ContractProject.case_code.isnot(None),
-            ~ContractProject.case_code.in_(covered_case_codes),
+            ~covered,
         )
         if year:
             cp_query = cp_query.where(ContractProject.year == year)
         contract_only = (await self.db.execute(cp_query)).scalars().all()
+
+        # ⭐ 2026-09-08：去重之後，留下的是 PM 那一列，而金流可能掛在被排除的
+        # 承攬案上（兩者靠 project_code 相連、case_code 各自不同）。
+        # 只去重不接金流的話，**那一列會顯示 0，整筆錢從畫面上消失** ——
+        # 比原本「重複兩列」更糟（實測：合約總額 2,260,000 → 1,260,000）。
+        # ⇒ 建一張別名表，讓 PM 案能沿著 project_code 找到真正承載金流的 case_code。
+        alias_rows = (await self.db.execute(
+            select(PMCase.case_code, ContractProject.case_code.label("cp_case_code"))
+            .join(ContractProject, ContractProject.project_code == PMCase.project_code)
+            .where(
+                PMCase.client_vendor_id == vendor_id,
+                PMCase.project_code.isnot(None),
+                PMCase.case_code.isnot(None),
+                ContractProject.case_code.isnot(None),
+                ContractProject.case_code != PMCase.case_code,
+            )
+        )).all()
+        case_alias = {r.case_code: r.cp_case_code for r in alias_rows}
 
         cp_name_map = {cp.case_code: cp.project_name for cp in contract_only}
         cp_year_map = {cp.case_code: cp.year for cp in contract_only}
@@ -340,7 +376,8 @@ class ClientReceivableRepository:
         quotations = (
             await self.db.execute(
                 select(ERPQuotation).where(
-                    ERPQuotation.case_code.in_(case_codes),
+                    # 別名也要查 —— PM 案自己沒有報價單，報價單掛在承攬案那一側
+                    ERPQuotation.case_code.in_(list(case_codes) + list(case_alias.values())),
                     ERPQuotation.deleted_at.is_(None),
                 ).order_by(ERPQuotation.project_code.is_(None), ERPQuotation.id.desc())
             )
@@ -351,7 +388,7 @@ class ClientReceivableRepository:
         # 承攬金額（議價→契約→報價總價）——與列表、/erp/quotations、/contract-cases 同一個算法
         cp_amt_rows = (await self.db.execute(
             select(ContractProject.case_code, ContractProject.winning_amount, ContractProject.contract_amount)
-            .where(ContractProject.case_code.in_(case_codes))
+            .where(ContractProject.case_code.in_(list(case_codes) + list(case_alias.values())))
         )).all()
         cp_amt_map = {r.case_code: (r.winning_amount, r.contract_amount) for r in cp_amt_rows}
 
@@ -385,10 +422,19 @@ class ClientReceivableRepository:
         total_received = Decimal("0")
 
         for case_code in case_codes:
-            quot = quot_map.get(case_code)
+            # 先看自己，沒有就沿 project_code 的別名找（見上方 case_alias 的說明）
+            src = case_alias.get(case_code)
+            quot = quot_map.get(case_code) or (quot_map.get(src) if src else None)
             if not quot:
                 # 2026-08-28：還沒建報價單的案不再整案消失 —— 列出零額列，
                 # 讓「案存在但沒有報價單」與「案不存在」在畫面上分得開
+                # 2026-09-08：合約金額改為「自己的 → 別名的」，而且**要計入總額** ——
+                # 此前這一支寫死 "0" 又直接 continue，於是「有合約但還沒建報價單」的案
+                # 在明細列是 0、在總額裡也是 0，兩處一起錯而互相印證。
+                _nw, _nc = (cp_amt_map.get(case_code)
+                            or (cp_amt_map.get(src) if src else None) or (None, None))
+                no_quot_amt = Decimal(str((_nw or 0) or (_nc or 0) or 0))
+                total_contract += no_quot_amt
                 result_cases.append({
                     "erp_quotation_id": None,
                     "case_code": case_code,
@@ -396,7 +442,7 @@ class ClientReceivableRepository:
                     "case_name": case_name_map.get(case_code),
                     "year": case_year_map.get(case_code),
                     "quotation_status": None,
-                    "contract_amount": "0",
+                    "contract_amount": str(no_quot_amt),
                     "total_billed": "0",
                     "total_received": "0",
                     "outstanding": "0",
@@ -404,7 +450,7 @@ class ClientReceivableRepository:
                 })
                 continue
 
-            _w, _c = cp_amt_map.get(case_code, (None, None))
+            _w, _c = cp_amt_map.get(case_code) or (cp_amt_map.get(src) if src else None) or (None, None)
             contract_amt = Decimal(str((_w or 0) or (_c or 0) or (quot.total_price or 0)))
             case_billings = billing_map.get(quot.id, [])
 

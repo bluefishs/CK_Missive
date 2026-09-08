@@ -109,9 +109,16 @@ async def client_case_codes(db: AsyncSession, year: Optional[int]) -> dict[str, 
         SELECT cp.client_vendor_id AS vid, btrim(cp.client_agency) AS vname, cp.case_code AS code
           FROM contract_projects cp
          WHERE COALESCE(btrim(cp.client_agency), '') <> '' AND cp.case_code IS NOT NULL
-           AND cp.case_code NOT IN (
-               SELECT case_code FROM pm_cases
-                WHERE client_vendor_id IS NOT NULL AND case_code IS NOT NULL)
+           -- 2026-09-08：兩條連法都要認（case_code 相同、或共用 project_code）。
+           -- 與 `pm_coverage.contract_covered_by_pm()` 是同一條規則，
+           -- 手寫 SQL 無法 import ⇒ 改那邊時這裡要一起改。
+           AND NOT (
+                cp.case_code IN (SELECT case_code FROM pm_cases
+                                  WHERE client_vendor_id IS NOT NULL AND case_code IS NOT NULL)
+             OR (cp.project_code IS NOT NULL
+                 AND cp.project_code IN (SELECT project_code FROM pm_cases
+                                          WHERE client_vendor_id IS NOT NULL AND project_code IS NOT NULL))
+           )
            AND (CAST(:yr AS INTEGER) IS NULL OR cp.year = CAST(:yr AS INTEGER))
     """), {"yr": yr})).all():
         key = f"id:{r.vid}" if r.vid is not None else f"name:{r.vname}"
@@ -204,9 +211,16 @@ async def client_case_profiles(
           FROM contract_projects cp
          WHERE COALESCE(btrim(cp.client_agency), '') <> ''
            AND cp.case_code IS NOT NULL
-           AND cp.case_code NOT IN (
-               SELECT case_code FROM pm_cases
-                WHERE client_vendor_id IS NOT NULL AND case_code IS NOT NULL)
+           -- 2026-09-08：兩條連法都要認（同 `pm_coverage.contract_covered_by_pm()`）。
+           -- ⚠️ 本檔這條規則有兩處，首次修法只改到上面那處 —— 同型漏改，
+           --    症狀是「case_count 2 而 statuses 合計 3」自己跟自己矛盾。
+           AND NOT (
+                cp.case_code IN (SELECT case_code FROM pm_cases
+                                  WHERE client_vendor_id IS NOT NULL AND case_code IS NOT NULL)
+             OR (cp.project_code IS NOT NULL
+                 AND cp.project_code IN (SELECT project_code FROM pm_cases
+                                          WHERE client_vendor_id IS NOT NULL AND project_code IS NOT NULL))
+           )
            AND (CAST(:yr AS INTEGER) IS NULL OR cp.year = CAST(:yr AS INTEGER))
            AND (CAST(:codes AS TEXT[]) IS NULL OR cp.case_code = ANY(CAST(:codes AS TEXT[])))
          GROUP BY 1, 2, 3, 4
