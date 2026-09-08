@@ -419,3 +419,15 @@ powershell -File scripts\backup\secrets-offsite-nas.ps1   # 產生新的 .enc �
 | 6 | pg_dump 版本對齊（rebuild backend） | 1h | 還原時少一個絆腳石 |
 
 **第 1 項排最前面不是筆誤**：金鑰都能重新申請，但前提是進得去那些平台。
+
+## 報價單資料的四個落點（2026-09-08，owner：「報價單等也需納入異地備份機制」）
+
+| 東西 | 在哪 | 異地備份 |
+|---|---|---|
+| 報價單／請款／發票／應付**資料** | PostgreSQL（`erp_quotations` 等） | 每日 dump → NAS `missive_databsae` |
+| 系統產出與回簽上傳的報價單 PDF | `backend/uploads/pm_attachments/` | 隨附件 robocopy → NAS `missive_attachments` |
+| 產出範本 | `backend/app/templates/quotation_template.xlsx`（在 git） | git bundle |
+| **owner 的彙整總表與各承辦的回簽原件**（`D:\報價單\`，106 檔） | 系統之外的工作目錄；匯入與 weekly 120 以它為來源 | **09-08 起** → NAS `missive_quotation_master\current\`（整棵樹 /E /XO）＋ `snapshots\`（只有試算表，來源較新時另存 `<yyyyMMdd_HHmm>_<相對路徑>`，保留 30 份） |
+
+還原總表：從 `snapshots\` 挑要回去的那一版，不是 `current\`（current 是最新一次同步，存壞的那版也會在裡面）。
+守門：`offsite_backup_completeness_audit.check_quotation_master`（daily）——current 缺或比來源舊、或沒有任何快照 ⇒ RED。

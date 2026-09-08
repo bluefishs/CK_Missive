@@ -1980,3 +1980,4 @@ D10 G2B2C 欄位對照：不做實作，owner 要的話另開一次對照。
 | A121 | **`deploy-public.sh` 第 6 步印出標題後不再輸出** | 09-08 03:55 部署完成、公網 200，腳本程序卻活到 07:47 沒結束（`--frontend-only`）；三次 curl 都帶 `--max-time 20`，卡點不在 curl | 查是哪一行；在此之前部署後以 `dist/index.html` mtime 與公網 chunk 雜湊為準 | 可直接做 |
 | A122 | **9 個公文附件檔名超過 Linux 255 bytes** | 08-29 上傳端已封頂 200 bytes，但 2–4 月的 9 個舊檔（doc_848／885／2366／2445／2446）容器讀取 I/O error ⇒ 下載 404、備份 Errno 5 | ✅ 09-08 改名至 ≤200 bytes 並更新 `file_path`（原始檔名仍在 `file_name`）；容器 find 0 錯誤、`/api/files/149/download` 200 | 已結 |
 | A121 補記 | 部署腳本第 6 步不結束 | `deploy_verify.py` 單獨跑 exit 0（14 行、GREEN），**不是它**；卡點在第 6 步的 bash 本體 | 待查 | 可直接做 |
+| A123 | **報價單納入異地備份**（owner 09-08） | 資料／產出 PDF／範本本來就在三條備份線上；**沒有的是 `D:\報價單\` 整棵樹**（總表＋106 個回簽原件） | ✅ 已辦：offsite-sync 加 current 鏡像＋試算表日期快照（首跑 106 檔對齊、快照 7 份）；稽核加 `check_quotation_master`。⚠️ 首版 `-Include` 配 `-LiteralPath` 不過濾，把 99 個 PDF 也做成快照，已清 | 已結 |

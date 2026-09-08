@@ -63,6 +63,42 @@ MS_DIR = DB_DIR / "_milestones"
 ATTACH_DIR = NAS / "missive_attachments"
 SECRETS_DIR = NAS / "missive_secrets"
 LOCAL_UPLOADS = REPO / "backend" / "uploads"
+# 報價單彙整總表（owner 的工作檔，2026-09-08 納入）：current\ 鏡像 + snapshots\ 日期快照
+LOCAL_QUOTE = Path(r"D:\報價單")
+QUOTE_DIR = NAS / "missive_quotation_master"
+
+
+def check_quotation_master(reds: list[str], rows: list[str]) -> None:
+    """owner 09-08：「報價單等也需納入異地備份機制」。
+
+    報價單**資料**在 DB dump、產出／回簽 PDF 在 uploads（隨附件同步）、範本在 git bundle；
+    此前沒有任何備份的是 D:\\報價單\\*.xlsx —— 匯入與 weekly 120 都以它為來源。
+    判準：來源每個試算表在 NAS current\\ 都有同名且不比來源舊（>2 分鐘）的一份 ⇒ 否則 RED；
+    snapshots\\ 至少一份，否則 RED（就地覆寫的檔沒有快照＝壞掉的那版會蓋掉好的那版）。
+    """
+    if not LOCAL_QUOTE.exists():
+        rows.append(f"  [YELLOW] 報價單總表        來源不存在: {LOCAL_QUOTE}（略過）")
+        return
+    # 整棵樹都要在 current\（回簽報價單原件也在裡面）；快照只看試算表
+    src = [p for p in LOCAL_QUOTE.rglob("*") if p.is_file()]
+    cur = QUOTE_DIR / "current"
+    snap = QUOTE_DIR / "snapshots"
+    if not cur.exists():
+        reds.append(f"報價單總表：NAS 無 current 目錄 {cur} —— 總表沒有任何異地備份")
+        rows.append("  [RED  ] 報價單總表        NAS 無 current 目錄")
+        return
+    stale = []
+    for p in src:
+        q = cur / p.relative_to(LOCAL_QUOTE)
+        if not q.exists() or q.stat().st_mtime < p.stat().st_mtime - 120:
+            stale.append(p.name)
+    snaps = sum(1 for _ in snap.glob("*")) if snap.exists() else 0
+    ok = not stale and snaps > 0
+    if stale:
+        reds.append(f"報價單總表：{len(stale)} 個檔 NAS 副本缺或比來源舊：{', '.join(stale[:3])}")
+    if snaps == 0:
+        reds.append("報價單總表：沒有任何日期快照（就地覆寫的檔必須有快照）")
+    rows.append(f"  [{'GREEN' if ok else 'RED  '}] 報價單總表        來源 {len(src)} 檔｜NAS current 對齊 {len(src) - len(stale)}｜快照 {snaps} 份")
 
 MIN_DUMPS = 20            # 保留 30 份，低於 20 代表輪替或同步出問題
 DUMP_MAX_AGE_H = 30       # 每日 02:00 產、03:00 同步 → 逾 30h 就是漏了一天
@@ -486,6 +522,7 @@ def main() -> int:
     check_attachments(reds, rows)
     check_secrets(reds, rows)
     check_restore_drill(reds, rows)
+    check_quotation_master(reds, rows)
     portfolio_notes = check_portfolio(rows)
 
     print()

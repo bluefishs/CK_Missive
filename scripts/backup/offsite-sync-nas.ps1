@@ -28,6 +28,13 @@ param(
     # 與 2026-08-09 在 DigitalTunnel 發現的「MinIO 是備份的目的地、資料與備份同一顆磁碟」同型。
     [string]$AttachSource = "D:\CKProject\CK_Missive\backend\uploads",
     [string]$AttachDest   = "\\CKNAS\CK_Project\#Project_data\missive_attachments",
+    # 2026-09-08（owner：「報價單等也需納入異地備份機制」）：報價單**資料**在 DB dump、
+    # 系統產出／回簽的報價單 PDF 在 backend/uploads/pm_attachments（已隨附件同步）、
+    # 範本 backend/app/templates/quotation_template.xlsx 在 git bundle ——
+    # 唯一沒有任何備份的是 owner 的彙整總表 D:\報價單\*.xlsx（匯入與 weekly 120 的來源）。
+    # 它是就地覆寫的工作檔，只用 /XO 鏡像會把「存壞的那一版」同步過去，所以另留日期快照。
+    [string]$QuotationSource = "D:\報價單",
+    [string]$QuotationDest   = "\\CKNAS\CK_Project\#Project_data\missive_quotation_master",
     [int]$KeepCount = 30,
     [switch]$DryRun
 )
@@ -131,6 +138,16 @@ function Write-SyncStatus {
         $j | Add-Member -NotePropertyName attachment_remote_path     -NotePropertyValue $AttachDest -Force
         $j | Add-Member -NotePropertyName attachment_remote_count    -NotePropertyValue $aCnt -Force
         $j | Add-Member -NotePropertyName attachment_remote_size_mb  -NotePropertyValue $aMB -Force
+        # 報價單總表（2026-09-08）：current\ 最新檔時間與 snapshots\ 份數
+        $qLatestTime = $null; $qSnapCount = 0
+        try {
+            $qc = Get-ChildItem -LiteralPath (Join-Path $QuotationDest "current") -Recurse -File -ErrorAction Stop | Sort-Object LastWriteTime -Descending
+            if ($qc.Count -gt 0) { $qLatestTime = $qc[0].LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss") }
+            $qSnapCount = @(Get-ChildItem -LiteralPath (Join-Path $QuotationDest "snapshots") -File -ErrorAction Stop).Count
+        } catch { }
+        $j | Add-Member -NotePropertyName quotation_master_remote_path -NotePropertyValue $QuotationDest -Force
+        $j | Add-Member -NotePropertyName quotation_master_remote_time -NotePropertyValue $qLatestTime -Force
+        $j | Add-Member -NotePropertyName quotation_master_snapshots   -NotePropertyValue $qSnapCount -Force
         ($j | ConvertTo-Json) | Set-Content -Path $cfgPath -Encoding UTF8
         Log "已寫入同步狀態: result=$Result nas_files=$cnt latest=$latestName 附件=$aCnt 檔/$aMB MB"
     } catch { Log "WARN 更新 config 失敗: $_" }
@@ -355,6 +372,53 @@ if (Test-Path $AttachSource) {
 # 5. 寫入同步狀態 + NAS 實際內容（供 admin/backup UI 顯示 / 容器 mount 可見）
 #    附件若有失敗且未被打包救回 → 整體判 error。
 #    「DB 同步成功但附件漏了」不得顯示成綠燈 —— 那正是這次要根治的形態。
+# ---------------------------------------------------------------------------
+# 5. 報價單彙整總表（2026-09-08）：current\ 鏡像 + snapshots\ 日期快照
+#   總表是 owner 就地覆寫的工作檔。current\ 用 /XO 只複製較新；snapshots\ 在
+#   來源比最新快照新時另存一份 <yyyyMMdd_HHmm>_<name>，保留最近 $KeepCount 份，
+#   讓「存壞的那一版被同步過去」還回得去前一版。
+# ---------------------------------------------------------------------------
+$quoteResult = "skipped"; $quoteSnapshots = 0; $quoteLatest = $null
+if (Test-Path $QuotationSource) {
+    $qCur = Join-Path $QuotationDest "current"
+    $qSnap = Join-Path $QuotationDest "snapshots"
+    if (-not $DryRun) {
+        foreach ($d in @($qCur, $qSnap)) {
+            if (-not (Test-Path $d)) { try { New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop | Out-Null } catch { Log "ERROR 無法建立 $d : $_" } }
+        }
+    }
+    # 整棵樹鏡像：D:\報價單 裡除了總表，還有各承辦的**回簽報價單原件**（PDF／JPG）與合約（09-08 實跑看到 106 個），
+    # 它們同樣此前沒有任何備份。快照只做試算表（就地覆寫的那種）。
+    $qArgs = @($QuotationSource, $qCur, "/E", "/XO", "/R:2", "/W:5", "/NP", "/NDL", "/NJH", "/NFL")
+    if ($DryRun) { $qArgs += "/L" }
+    Log "robocopy(報價單總表) $($qArgs -join ' ')"
+    & robocopy @qArgs | Out-Null
+    $qCode = $LASTEXITCODE
+    Log "robocopy(報價單總表) exit=$qCode"
+    $quoteResult = if ($qCode -ge 8) { "error" } else { "ok" }
+    try {
+        # ⚠️ `-Include` 配 `-LiteralPath` 不會過濾（09-08 實跑把 106 個 PDF／JPG 也做成快照）——用 Where-Object
+        foreach ($src in (Get-ChildItem -LiteralPath $QuotationSource -File -Recurse -ErrorAction Stop | Where-Object { $_.Extension -in @('.xlsx', '.xls', '.csv') })) {
+            # 快照名帶相對子路徑（子資料夾裡可能有同名檔，只用檔名會互相覆蓋——DryRun 實測兩個 20260416_1211 同名）
+            $relName = ($src.FullName.Substring($QuotationSource.Length).TrimStart('\') -replace '\\', '__')
+            $existing = @(Get-ChildItem -LiteralPath $qSnap -File -Filter "*_$relName" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+            $newest = if ($existing.Count -gt 0) { $existing[0].LastWriteTime } else { [datetime]::MinValue }
+            if ($src.LastWriteTime -gt $newest.AddMinutes(1)) {
+                $t = Join-Path $qSnap ("{0}_{1}" -f $src.LastWriteTime.ToString("yyyyMMdd_HHmm"), $relName)
+                if ($DryRun) { Log "  [DryRun] 總表快照待建: $t" }
+                else { Copy-Item -LiteralPath $src.FullName -Destination $t -ErrorAction Stop; Log "  總表快照: $(Split-Path $t -Leaf)" }
+            }
+            $all = @(Get-ChildItem -LiteralPath $qSnap -File -Filter "*_$relName" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+            if ($all.Count -gt $KeepCount -and -not $DryRun) { $all | Select-Object -Skip $KeepCount | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force; Log "  prune 舊快照: $($_.Name)" } }
+        }
+        $snaps = @(Get-ChildItem -LiteralPath $qSnap -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+        $quoteSnapshots = $snaps.Count
+        if ($snaps.Count -gt 0) { $quoteLatest = $snaps[0].LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss") }
+    } catch { Log "ERROR 總表快照失敗: $_"; $quoteResult = "error" }
+} else {
+    Log "WARN 報價單總表來源不存在: $QuotationSource（略過）"
+}
+
 if ($attachFailed -gt 0 -and $attachArchived -eq 0) {
     Write-SyncStatus -Result "error" -Message "附件同步失敗 $attachFailed 檔且未能打包"
     Log "=== 異地同步完成（附件有失敗）==="
@@ -368,6 +432,7 @@ Write-SyncStatus -Result "success" -Message $(
 # 資料都寫完了，才寫目的地狀態檔（順序不可顛倒，見 Write-DestStatus 註解）
 Write-DestStatus -Result "ok" -Dest $Dest -Detail "db+attachments+secrets"
 if ($AttachDest) { Write-DestStatus -Result "ok" -Dest $AttachDest -Detail "attachments" }
+if ($quoteResult -ne "skipped") { Write-DestStatus -Result $quoteResult -Dest $QuotationDest -Detail "quotation master (snapshots=$quoteSnapshots latest=$quoteLatest)" }
 
 Log "=== 異地同步完成 ==="
 exit 0
