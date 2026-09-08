@@ -57,22 +57,73 @@ function subscribeLayout(fn: () => void): () => void {
   window.addEventListener('storage', fn);
   return () => { layoutListeners.delete(fn); window.removeEventListener('storage', fn); };
 }
-/** 登入裝置是不是行動裝置——只算一次（UA 不會在同一個 session 變） */
+/**
+ * 登入裝置是不是行動裝置——只算一次（UA 不會在同一個 session 變）。
+ *
+ * ⚠️ **2026-09-09 owner：「採用不同行動裝置有時仍會誤判為桌機」。實查根因：**
+ *
+ * 舊版把 `navigator.userAgentData.mobile` 當成**排他性**答案 ——
+ * 只要它回了布林值就直接採用，`false` 時**完全不看 UA 字串那一層證據**。
+ * 而那個旗標有兩個已知盲區：
+ *   · **Android 平板回 `false`**（規格上 `mobile` 指的是手機形態，不是「行動裝置」）
+ *   · 部分廠商瀏覽器與 WebView 也回 `false`
+ * ⇒ 一台 UA 明明寫著 Android、指標是粗的、有觸控的平板，被判成桌機。
+ *
+ * **修法：把它從「答案」降為「其中一個證據」。** 任何一項指向行動裝置就算行動裝置；
+ * 只有每一項都不指向時才判桌機。失敗方向刻意偏向「當成行動裝置」——
+ * 手機拿到桌面版是**看不完的表格**，桌機拿到手機版只是卡片比較大，
+ * 而且使用者可以在右上角一鍵切回去（`layoutMode`）。
+ *
+ * ⚠️ `screen.width < 1024` 這條**只用在最弱的那個證據上**（純觸控推斷）。
+ * 舊版把它套在所有情況，於是 1024 寬的平板必然出局。
+ */
 let _deviceMobile: boolean | null = null;
+
+/** 給診斷用：把每一項證據攤開，讓「為什麼判成桌機」看得見 */
+export function deviceEvidence(): Record<string, unknown> {
+  try {
+    const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+    const ua = navigator.userAgent || '';
+    return {
+      uaDataMobile: nav.userAgentData?.mobile ?? null,
+      uaString: ua.slice(0, 120),
+      uaLooksMobile: /Android|iPhone|iPad|iPod|Mobile|Windows Phone|Silk|Kindle|PlayBook|BB10|Tablet/i.test(ua),
+      iPadOsMasquerade: /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1,
+      coarsePointer: typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches,
+      noHover: typeof window.matchMedia === 'function' && window.matchMedia('(hover: none)').matches,
+      maxTouchPoints: navigator.maxTouchPoints,
+      screenWidth: window.screen?.width,
+      result: detectMobileDevice(),
+    };
+  } catch {
+    return { error: 'unavailable' };
+  }
+}
+
 export function detectMobileDevice(): boolean {
   if (_deviceMobile !== null) return _deviceMobile;
   try {
     const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
-    if (typeof nav.userAgentData?.mobile === 'boolean') {
-      _deviceMobile = nav.userAgentData.mobile;
-    } else {
-      const ua = navigator.userAgent || '';
-      const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(ua)
-        // iPadOS 13+ 的 Safari 自稱 Macintosh：靠觸控點數認出來
-        || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
-      const coarse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-      _deviceMobile = uaMobile || (coarse && navigator.maxTouchPoints > 0 && window.screen.width < 1024);
-    }
+    const ua = navigator.userAgent || '';
+
+    // 證據 1：UA-CH 明說是手機（只有 true 有意義，false 不代表不是行動裝置）
+    const hintMobile = nav.userAgentData?.mobile === true;
+
+    // 證據 2：UA 字串。補上平板常見標記（Tablet／Silk／Kindle…），
+    // 舊版的清單漏掉平板，而平板正是 UA-CH 會回 false 的那一類。
+    const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Windows Phone|Silk|Kindle|PlayBook|BB10|Tablet/i.test(ua)
+      // iPadOS 13+ 的 Safari 自稱 Macintosh：靠觸控點數認出來
+      || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+
+    // 證據 3：粗指標 ＋ 無 hover ＋ 有觸控 —— 三者同時成立才算，避免觸控筆電誤判。
+    // 這一條是最弱的證據，所以額外要求螢幕不寬（純觸控的大螢幕多半是桌機外接觸控螢幕）。
+    const mm = typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : null;
+    const coarse = !!mm && mm('(pointer: coarse)').matches;
+    const noHover = !!mm && mm('(hover: none)').matches;
+    const touchOnly = coarse && noHover && navigator.maxTouchPoints > 0
+      && (window.screen?.width ?? 9999) < 1024;
+
+    _deviceMobile = hintMobile || uaMobile || touchOnly;
   } catch { _deviceMobile = false; }
   return _deviceMobile;
 }

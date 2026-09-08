@@ -73,6 +73,16 @@ async def get_database_tables(conn: AsyncConnection) -> Set[str]:
     return {row.table_name for row in result}
 
 
+#: 由資料庫自己維護、刻意不進 ORM 模型的欄位（表名 → 欄位集合）。
+#: 目前只有一個：`documents.search_vector` 是全文檢索的 tsvector，
+#: 由索引／觸發器維護，應用層從不讀寫它。
+#: ⚠️ 往這裡加東西之前先問「它真的是資料庫維護的嗎」——若只是模型忘了加欄位，
+#: 那是真的漂移，加進白名單就是把訊號關掉。
+_DB_MANAGED_COLUMNS: dict[str, frozenset[str]] = {
+    "documents": frozenset({"search_vector"}),
+}
+
+
 def get_model_columns(model_class) -> Dict[str, dict]:
     """取得 SQLAlchemy 模型的欄位資訊"""
     columns = {}
@@ -116,7 +126,15 @@ async def validate_table(
         ))
 
     # 檢查資料庫有但模型沒有的欄位
-    missing_in_model = db_column_names - model_column_names
+    #
+    # ⚠️ 2026-09-09：有些欄位是**刻意**不進 ORM 的 —— 由資料庫自己維護（觸發器／生成欄位），
+    # 應用層從不讀寫。把它們報成「不一致」的代價不是噪音而已：那句訊息會建議
+    # 「請執行 alembic upgrade head」，而**一個永遠出現的 migration 提示，與一個真的
+    # 待套用的 migration，在訊息上長得一模一樣**（CK_AaaP 09-09 就因此無法判斷
+    # 我們是不是處在半套 schema 狀態）。
+    #
+    # 加白名單而不是關掉整條檢查 —— 真的漂移仍要出聲。
+    missing_in_model = db_column_names - model_column_names - _DB_MANAGED_COLUMNS.get(table_name, frozenset())
     for col in missing_in_model:
         mismatches.append(SchemaMismatch(
             table_name, "COLUMN_MISSING_IN_MODEL",

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Layout, Typography, Button, Avatar, Dropdown, Space, Tooltip, Tag } from 'antd';
+import { Layout, Typography, Button, Avatar, Dropdown, Space, Tooltip, Tag, Modal } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -21,7 +21,7 @@ import authService from '../../services/authService';
 import { NotificationCenter } from '../common';
 import { IdleCountdownBadge } from './IdleCountdownBadge';
 import { logger } from '../../services/logger';
-import { useResponsive } from '../../hooks/utility/useResponsive';
+import { useResponsive, deviceEvidence } from '../../hooks/utility/useResponsive';
 import { getRoleDisplayName } from '../../constants/permissions';
 
 const { Header: AntHeader } = Layout;
@@ -86,6 +86,32 @@ const Header: React.FC<HeaderProps> = ({
         { key: 'layout-auto', label: `自動${layoutMode === 'auto' ? ' ✓' : ''}`, onClick: () => setLayoutMode('auto') },
         { key: 'layout-mobile', label: `手機版${layoutMode === 'mobile' ? ' ✓' : ''}`, onClick: () => setLayoutMode('mobile') },
         { key: 'layout-desktop', label: `桌面版${layoutMode === 'desktop' ? ' ✓' : ''}`, onClick: () => setLayoutMode('desktop') },
+        { type: 'divider' as const },
+        {
+          // 2026-09-09 owner「動態偵測登入端裝置機制請再複查，不同行動裝置有時仍會誤判為桌機」。
+          // 判定依據此前只存在於程式裡 ⇒ 使用者回報「誤判」時，雙方都沒有東西可以對照。
+          // 這一項把每一項證據攤開，在自己的裝置上一眼看得出是哪一項沒認出來。
+          key: 'layout-diag',
+          label: '偵測依據…',
+          onClick: () => {
+            const e = deviceEvidence();
+            Modal.info({
+              title: `裝置偵測：${e.result ? '行動裝置' : '桌機'}`,
+              width: 520,
+              content: (
+                <div style={{ fontSize: 12, lineHeight: 1.8, wordBreak: 'break-all' }}>
+                  <div>UA-CH mobile：<b>{String(e.uaDataMobile)}</b>（null＝瀏覽器沒提供；<b>false 不代表不是行動裝置</b>，Android 平板就回 false）</div>
+                  <div>UA 看起來像行動裝置：<b>{String(e.uaLooksMobile)}</b></div>
+                  <div>iPadOS 偽裝成 Mac：<b>{String(e.iPadOsMasquerade)}</b></div>
+                  <div>粗指標／無 hover／觸控點：<b>{String(e.coarsePointer)}</b> / <b>{String(e.noHover)}</b> / <b>{String(e.maxTouchPoints)}</b></div>
+                  <div>螢幕寬：<b>{String(e.screenWidth)}</b></div>
+                  <div style={{ marginTop: 8, color: '#888' }}>UA：{String(e.uaString)}</div>
+                  <div style={{ marginTop: 8 }}>判成桌機而你認為是行動裝置的話，把這一頁的內容給我，並先用上面的「手機版」擋著。</div>
+                </div>
+              ),
+            });
+          },
+        },
       ],
     },
     { type: "divider" as const },
