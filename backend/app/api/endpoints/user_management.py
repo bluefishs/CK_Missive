@@ -52,7 +52,7 @@ async def get_users(
     admin_user: User = Depends(require_admin())
 ):
     """取得使用者列表 (管理員功能) - POST-only"""
-    users, total = await user_repo.get_users_filtered(
+    users, total, _active = await user_repo.get_users_filtered(
         role=params.role,
         is_active=params.is_active,
         search=params.q,

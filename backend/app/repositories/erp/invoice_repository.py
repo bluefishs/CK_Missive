@@ -81,8 +81,21 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
             ERPInvoice.invoice_type,
             func.coalesce(func.sum(ERPInvoice.amount), 0),
         ).join(ERPQuotation, ERPInvoice.erp_quotation_id == ERPQuotation.id)
-        if invoice_type:
-            sum_q = sum_q.where(ERPInvoice.invoice_type == invoice_type)
+        # 2026-09-09 §2.6：統計卡是分母，**不該隨自己的篩選歸零**。
+        # 原本這裡跟著 `invoice_type` 篩 ⇒ 點「銷項總額」卡之後，進項顯示 0、
+        # 「淨額」變成等於銷項（那不是淨額）。同一支 repository 裡另一個方向也錯：
+        # `search` 套在列表 query 卻沒套在這裡 ⇒ 搜尋時列表縮小而卡片維持全量。
+        # 正解與 ERPLedgerPage 的 `entry_type: undefined` 同形狀：
+        # **分母跟著「範圍類」條件（年度／關鍵字）走，不跟著「這張卡自己是誰」走。**
+        if search:
+            kw = f"%{search.strip()}%"
+            sum_q = sum_q.where(or_(
+                ERPInvoice.invoice_number.ilike(kw),
+                ERPInvoice.invoice_ref.ilike(kw),
+                ERPQuotation.case_code.ilike(kw),
+                ERPQuotation.quotation_no.ilike(kw),
+                ERPQuotation.case_name.ilike(kw),
+            ))
         if year:
             sum_q = sum_q.where(func.extract('year', ERPInvoice.invoice_date) == year)
         sums = {"sales": Decimal("0"), "purchase": Decimal("0")}

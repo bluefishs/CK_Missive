@@ -288,11 +288,12 @@ class UserRepository(BaseRepository[User]):
             limit: 每頁筆數（預設 20）
 
         Returns:
-            (users, total) 元組：使用者列表與符合條件的總筆數
+            (users, total, active_total) 元組：使用者列表、符合條件的總筆數、
+            以及其中 is_active 的筆數（**分頁前全量**，給統計卡當分母用）
 
         Example:
             repo = UserRepository(db)
-            users, total = await repo.get_users_filtered(
+            users, total, _active = await repo.get_users_filtered(
                 role="admin",
                 search="john",
                 sort_by="created_at",
@@ -342,6 +343,15 @@ class UserRepository(BaseRepository[User]):
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
 
+        # 啟用中的筆數 —— **分頁前的全量**（owner 2026-09-09 §2.6 ①）。
+        # 原本前端拿當頁 10 筆 `.filter(is_active).length` 當「啟用中」、
+        # 用 total 減它當「已停用」⇒ 兩個數字都錯，而且翻頁還會變。
+        # 這裡沿用同一組 where（count_query 已套完所有篩選），只多加一個條件，
+        # 否則就是第二份篩選宣告 —— 那正是本 repo 反覆出事的形狀。
+        active_result = await self.db.execute(
+            count_query.where(User.is_active.is_(True)))
+        active_total = active_result.scalar() or 0
+
         # 排序
         # 空值一律排最後：PostgreSQL 的 DESC 預設 NULLS FIRST ⇒
         # 「由大到小」第一頁會是一整頁空值（見 sort_utils.order_by_clause）。
@@ -355,7 +365,7 @@ class UserRepository(BaseRepository[User]):
         result = await self.db.execute(data_query)
         users = list(result.scalars().all())
 
-        return users, total
+        return users, total, active_total
 
     async def get_line_user_ids(self) -> List[str]:
         """取得所有已綁定 LINE 的使用者 line_user_id 列表"""

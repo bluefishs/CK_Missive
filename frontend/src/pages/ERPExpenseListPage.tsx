@@ -110,9 +110,16 @@ const ERPExpenseListPage: React.FC = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
 
-  // Pending count — use a lightweight expenses query
-  const { data: pendingSummary } = useExpenses({ status: 'pending', skip: 0, limit: 1 });
-  const actualPendingCount = pendingSummary?.pagination?.total ?? 0;
+  // 未歸屬筆數 —— 卡片點下去是切到「未歸屬」分頁，所以卡片的**值也必須是未歸屬**。
+  // 2026-09-09 修正前：值是 status='pending'（待審核），動作卻是 attribution='none'（未歸屬）——
+  // **兩個不同維度**，使用者點進去看到的不是卡片上那批資料；而且那支查詢沒帶年度，
+  // 同一排四張卡有三張是當年度、它是歷年，四個數字不同基準。
+  // ⚠️「待審核」本身仍值得看，但這一頁沒有依狀態篩選的分頁 ⇒ 要做成卡片得先有那個篩選（留給 owner 決定）。
+  const { data: unattributedSummary } = useExpenses({
+    attribution_type: 'none', skip: 0, limit: 1,
+    ...(year ? { date_from: `${year}-01-01`, date_to: `${year}-12-31` } : {}),
+  });
+  const unattributedCount = unattributedSummary?.pagination?.total ?? 0;
 
   // ---------------------------------------------------------------------------
   // Expanded row: fetch invoices for a specific group
@@ -266,9 +273,9 @@ const ERPExpenseListPage: React.FC = () => {
           </Col>
           <Col xs={12} sm={6}>
             <ClickableStatCard
-              title="待審核" value={actualPendingCount.toLocaleString()}
+              title="未歸屬" value={unattributedCount.toLocaleString()}
               icon={<ClockCircleOutlined />}
-              color={actualPendingCount > 0 ? '#faad14' : '#52c41a'}
+              color={unattributedCount > 0 ? '#faad14' : '#52c41a'}
               active={activeTab === 'none'}
               onClick={() => setActiveTab(activeTab === 'none' ? 'all' : 'none')}
             />

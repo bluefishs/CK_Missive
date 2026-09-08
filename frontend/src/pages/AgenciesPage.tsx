@@ -243,6 +243,10 @@ export const AgenciesPage: React.FC = () => {
           rowKey="id"
           loading={isLoading}
           pagination={false}
+          // 2026-09-09：這一頁是後端分頁（查詢帶 page/limit），但分頁器掛在表格外面
+          // ⇒ 元件的自動判準看不到 total，剝除器不啟動，欄位的排序與漏斗照跑
+          // **卻只作用於當頁 20 筆**——不是空白、不是報錯，是一個看起來合理的錯答案（L122 家族）。
+          serverPaged
           scroll={{ x: isMobile ? 300 : 700 }}
           mobileHiddenColumns={['agency_code', 'created_at']}
           tableLayout="fixed"

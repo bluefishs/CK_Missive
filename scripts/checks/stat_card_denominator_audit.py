@@ -144,8 +144,11 @@ LOCAL_SUM = re.compile(
 YEAR_SETTER = re.compile(r"\b(?:set\w*[Yy]ear\w*\s*\(|\b(?:fiscal_year|year)\s*:\s*v\b)")
 # 預設值的兩種合法形狀：獨立 state，或包在 params 物件裡
 YEAR_STATE = re.compile(r"const\s*\[\s*\w*[Yy]ear\w*\s*,\s*set\w+\s*\]\s*=\s*useState[^;]*;")
+# ⚠️ 2026-09-09：原本要求 `useState(` 後面直接接 `{`，於是 **lazy initializer**
+# （`useState<T>(() => { … return { year: … } })`，ERPQuotationListPage 09-05 起改用）看不到 ⇒
+# 對一個本來就正確的頁面報 RED。**誤報比漏報更貴**：它會讓人去「修」一個對的東西。
 YEAR_IN_PARAMS = re.compile(
-    r"useState\s*(?:<[^>]*>)?\s*\(\s*\{[^{}]*\b(?:fiscal_year|year)\s*:\s*([^,}\n]+)", re.S)
+    r"useState\s*(?:<[^>]*>)?\s*\(\s*(?:\(\s*\)\s*=>\s*(?:(?!useState)[\s\S]){0,800}?return\s*)?\{(?:(?!useState)[\s\S]){0,800}?\b(?:fiscal_year|year)\s*:\s*([^,}\n]+)", re.S)
 # 同檔內等同於 getFullYear() 的別名（`const currentYear = new Date().getFullYear()`）
 YEAR_ALIAS = re.compile(r"\bconst\s+(\w+)\s*=\s*new\s+Date\(\)\.getFullYear\(\)")
 # 顯示綁定 —— 篩了卻不顯示＝隱形篩選，比不篩更糟
@@ -269,7 +272,10 @@ def main() -> int:
             print("\n⚠️ 年度那一類的危險是**歷年混算**：數字大得莫名其妙，但沒有任何錯誤。")
             print("   而「篩了卻不顯示」更糟 —— 使用者不知道自己看到的是子集。")
         print(f"\nStatus: [RED] ① {len(reds)} 個統計卡用當頁當分母／③ {len(year_reds)} 個年度篩選違規")
-        return 1
+        # 2026-09-09：原本回 1。而 runner 的三態是 0=GREEN／1=YELLOW／2+=RED
+        # ⇒ **真的 §2.6 違規在週報上顯示成「非故障，待確認」，而偵測器自己壞掉（回 2）才顯示成 RED**，
+        # 兩者剛好顛倒。同輪的 weekly 108 用的就是正確的對應。
+        return 2
 
     # ⚠️ 措辭必須等於判準做了什麼。原本印「統計卡都走後端全量彙總」——
     # 而判準只查「有沒有在分頁陣列上 reduce/for-of」。用 `.map().filter().length`、

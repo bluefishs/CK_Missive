@@ -108,7 +108,9 @@ export const StaffPage: React.FC = () => {
       if (departmentFilter) requestBody.department = departmentFilter;
 
       const response = await apiClient.post(API_ENDPOINTS.USERS.LIST, requestBody);
-      return response as { items?: Staff[]; users?: Staff[]; total?: number };
+      return response as { items?: Staff[]; users?: Staff[]; total?: number;
+        // 分頁前全量（後端 /users/list 的 totals）——統計卡的分母
+        totals?: { total?: number; active?: number; inactive?: number } };
     },
     ...defaultQueryOptions.list,
   });
@@ -119,14 +121,18 @@ export const StaffPage: React.FC = () => {
     return Array.isArray(items) ? items : [];
   }, [staffData]);
   const total = staffData?.total || 0;
+  // 2026-09-09 owner §2.6 ①：統計卡的分母不得是當頁。
+  // 原本 `staffList.filter(is_active).length` 只數得到當頁 10 筆，
+  // 「已停用」＝總數減當頁 ⇒ 兩個數字都錯，而且翻到第 2 頁又變一組數字。
+  // 現在由後端在同一組篩選條件下算全量（/users/list 的 totals）。
   const stats = useMemo(() => {
-    const activeCount = staffList.filter((s) => s.is_active).length;
+    const t = staffData?.totals;
     return {
-      total,
-      active: activeCount,
-      inactive: total - activeCount,
+      total: t?.total ?? total,
+      active: t?.active ?? 0,
+      inactive: t?.inactive ?? Math.max(total - (t?.active ?? 0), 0),
     };
-  }, [staffList, total]);
+  }, [staffData, total]);
 
   const loadStaffList = () => {
     queryClient.invalidateQueries({ queryKey: ['users', 'list'] });

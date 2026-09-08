@@ -132,7 +132,14 @@ run_step() {
     # 不加引號：`$script` 可能是 "xxx.py --gate"，加引號會整串被當成檔名。
     # 這裡的路徑與旗標都不含空白，展開是安全的。
     # shellcheck disable=SC2086
-    PYTHONIOENCODING=utf-8 python $script 2>&1 || rc=$?
+    # 2026-09-09：依副檔名分派。原本硬寫 `python $script`，而 step 116 註冊的是 `.sh`
+    # ⇒ python 讀到 `set -uo pipefail` 直接 SyntaxError、rc=1 ⇒ 落進 YELLOW「非故障，待確認」，
+    # **那一步從註冊起就沒有真的執行過**。而 weekly 30（視覺走查新鮮度）因為有人手動跑過而顯示 GREEN
+    # ⇒ 兩層互相掩蓋（memory/monitoring_mutual_masking.md 同型）。
+    case "$script_file" in
+        *.sh) bash $script 2>&1 || rc=$? ;;
+        *)    PYTHONIOENCODING=utf-8 python $script 2>&1 || rc=$? ;;
+    esac
     STEP_RESULTS+=("$step_num|$step_name|$rc")
     if [[ $rc -eq 1 ]]; then
         WARN_COUNT=$((WARN_COUNT+1)); WARN_STEPS+=("$step_num $step_name")

@@ -112,6 +112,10 @@ class UserListResponse(PaginatedResponse):
     }
     """
     items: List[UserResponse] = Field(default=[], description="使用者列表")
+    #: 分頁前的全量統計（§2.6 ①：統計卡的分母不得是當頁）。
+    #: 2026-09-09 之前 /staff 的「啟用中」是前端對當頁 10 筆 filter 出來的，
+    #: 「已停用」＝總數減當頁 ⇒ 兩個數字都錯，翻頁還會變。
+    totals: dict = Field(default_factory=dict, description="全量統計：total／active／inactive")
 
 
 # ============================================================================

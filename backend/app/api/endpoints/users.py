@@ -162,7 +162,7 @@ async def get_users(
     }
     ```
     """
-    users, total = await user_repo.get_users_filtered(
+    users, total, active_total = await user_repo.get_users_filtered(
         role=query.role,
         is_active=query.is_active,
         department=query.department,
@@ -194,6 +194,7 @@ async def get_users(
 
     return UserListResponse(
         items=items,
+        totals={"total": total, "active": active_total, "inactive": total - active_total},
         pagination=PaginationMeta.create(
             total=total,
             page=query.page,
