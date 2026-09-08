@@ -214,8 +214,13 @@ async def delete_case(
     req: PMCaseIdRequest,
     service: PMCaseService = Depends(get_service(PMCaseService)),
 ):
-    """刪除案件"""
-    success = await service.delete(req.id)
+    """刪除案件（已成案或已有金流者會被擋下並說明原因）"""
+    try:
+        success = await service.delete(req.id)
+    except ValueError as e:
+        # 2026-09-08：閘門用 ValueError 表達「不該刪」，這裡要轉 400 ——
+        # 不轉的話使用者看到的是 500，而 500 讀起來像「系統壞了」不是「這件事不該做」。
+        raise HTTPException(status_code=400, detail=str(e))
     if not success:
         raise HTTPException(status_code=404, detail="案件不存在")
     return DeleteResponse(deleted_id=req.id)

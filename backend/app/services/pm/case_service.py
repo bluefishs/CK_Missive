@@ -159,10 +159,64 @@ class PMCaseService:
         return await self._to_response(pm_case)
 
     async def delete(self, case_id: int) -> bool:
-        """刪除案件"""
+        """刪除案件 —— **已成案或已有金流者一律擋下**。
+
+        ⭐ 2026-09-08 owner：「如刪除誤植已成案案件，到底如何運作與系統提醒機制，
+        避免最後財務無法統整」。
+
+        查證當時的實際行為：這裡是 `db.delete()` **硬刪，零前置檢查**，而且
+          · `pm_cases` **沒有軟刪欄位** ⇒ 刪掉就是真的消失，救不回來
+          · 唯一指向它的外鍵是 `pm_milestones`（CASCADE）⇒ 里程碑跟著刪
+          · **報價單／請款／發票／帳本與 PM 案是靠 `case_code` 字串關聯，
+            沒有任何外鍵** ⇒ 資料庫完全不會擋
+        ⇒ 誤刪一筆已成案的 PM 案，該案的 247 張報價單量級的金流會**靜默變成孤兒**：
+          資料還在、追不回案件、沒有錯誤、沒有稽核紀錄。那正是「財務無法統整」。
+
+        判準：**能不能刪，看它有沒有留下痕跡**，不看狀態欄位怎麼寫。
+        已成案（有 `project_code`）或任一金流／指派引用存在 ⇒ 擋，並**逐項說出擋住的是什麼**
+        —— 只說「不能刪」會讓人去想辦法繞過，說清楚才知道下一步該做什麼。
+
+        真的要刪誤植的案：先把它的報價單與金流處理掉（或請管理者從資料端處理），
+        本閘門刻意不提供「強制刪除」旗標 —— 那會變成第二條寫入路徑（本 repo 的老問題）。
+        """
+        from sqlalchemy import text as _text
+
         pm_case = await self.repo.get_by_id(case_id)
         if not pm_case:
             return False
+
+        code = pm_case.case_code
+        blockers: list[str] = []
+        if pm_case.project_code:
+            blockers.append(f"已成案（正式編號 {pm_case.project_code}）")
+        if code:
+            counts = (await self.db.execute(_text("""
+                SELECT
+                  (SELECT count(*) FROM erp_quotations q
+                    WHERE q.case_code = :c AND q.deleted_at IS NULL) AS quotations,
+                  (SELECT count(*) FROM erp_billings b JOIN erp_quotations q2 ON q2.id = b.erp_quotation_id
+                    WHERE q2.case_code = :c) AS billings,
+                  (SELECT count(*) FROM erp_invoices i JOIN erp_quotations q3 ON q3.id = i.erp_quotation_id
+                    WHERE q3.case_code = :c) AS invoices,
+                  (SELECT count(*) FROM erp_vendor_payables v JOIN erp_quotations q4 ON q4.id = v.erp_quotation_id
+                    WHERE q4.case_code = :c) AS payables,
+                  (SELECT count(*) FROM finance_ledgers l WHERE l.case_code = :c) AS ledgers,
+                  (SELECT count(*) FROM contract_projects cp
+                    WHERE cp.case_code = :c OR cp.project_code = :p) AS contracts
+            """), {"c": code, "p": pm_case.project_code})).one()
+            for label, n in (("張報價單", counts.quotations), ("筆請款", counts.billings),
+                             ("張發票", counts.invoices), ("筆應付", counts.payables),
+                             ("筆帳本分錄", counts.ledgers), ("筆承攬案", counts.contracts)):
+                if n:
+                    blockers.append(f"{n} {label}")
+        if blockers:
+            detail = "；".join(blockers)
+            raise ValueError(
+                f"案件「{pm_case.case_name or code}」不能刪除 —— 它已經有下列紀錄："
+                f"{detail}。刪掉它不會刪掉這些紀錄，只會讓它們變成追不回案件的孤兒"
+                "（PM 案沒有軟刪，救不回來）。若確定是誤植，請先處理掉上列紀錄。"
+            )
+
         await self.db.delete(pm_case)
         await self.db.commit()
         return True
