@@ -258,8 +258,32 @@ class ERPBillingService(AuditableServiceMixin):
             if not getattr(q, "project_code", None) and getattr(q, "status", "") != "confirmed":
                 return None
             from sqlalchemy import select as _sel
-            existing = (await self.db.execute(_sel(ERPBilling.id).where(ERPBilling.erp_quotation_id == quotation_id).limit(1))).first()
-            if existing:
+            existing_rows = (await self.db.execute(
+                _sel(ERPBilling).where(ERPBilling.erp_quotation_id == quotation_id)
+            )).scalars().all()
+            if existing_rows:
+                # ⭐ 2026-09-08：此前這裡是「有任何請款就 return None」，於是
+                # **改了報價總價，自動建立的第一期不會跟著改**。
+                # owner 09-08 手動把三張匯入報價單的總價從未稅改成含稅之後，
+                # weekly 104 的 ①「一次請領請款額 ≠ 報價總價」立刻從 4 筆變 11 筆 ——
+                # 我批次更正 10 筆時也踩到同一個洞。⇒ 修法不能只補資料。
+                #
+                # 只同步「系統自動建立、一次請領、pending 且尚未收款」的那一筆：
+                # 人工建立的請款是人的決定（可能刻意分期或折讓），不該被自動蓋掉；
+                # 已收款的更不能改 —— 那是已經發生的事實。
+                from decimal import Decimal as _D
+                want = _D(str(total))
+                for b in existing_rows:
+                    if (b.billing_period == "一次請領"
+                            and (b.notes or "").startswith(self.AUTO_FIRST_NOTE)
+                            and b.payment_status == "pending"
+                            and _D(str(b.payment_amount or 0)) == 0
+                            and _D(str(b.billing_amount or 0)) != want):
+                        logger.info("第一期請款金額同步：#%s %s → %s（報價總額變更）",
+                                    b.id, b.billing_amount, want)
+                        b.billing_amount = want
+                        await self.db.commit()
+                        break
                 return None
             # ⚠️ 2026-09-07 owner：「原自動填列請款日期機制改為報價單日期辦理稽催，
             #    避免誤解 09/03 真的已辦理請款作業」。
