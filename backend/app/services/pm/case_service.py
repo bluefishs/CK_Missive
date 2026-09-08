@@ -234,7 +234,7 @@ class PMCaseService:
             sort_by=params.sort_by or "id",
             sort_order=params.sort_order.value if params.sort_order else "desc",
             include_converted=params.include_converted,
-            staff_user_id=getattr(params, 'staff_user_id', None),
+            staff_user_id=params.staff_user_id,
         )
 
         if not items:

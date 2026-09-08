@@ -222,7 +222,7 @@ async def get_profit_summary(
     scope = await _quotation_scope(service.db, current_user)
     result = await service.get_profit_summary(
         year=req.year, search=req.search,
-        category=getattr(req, "category", None), client_name=getattr(req, "client_name", None),
+        category=req.category, client_name=req.client_name,
         accessible_case_codes=scope,
     )
     return SuccessResponse(data=result)
@@ -237,7 +237,7 @@ async def get_client_options(
     """委託單位篩選選項＝案件實際客戶（含筆數），**與列表同年度／類別範圍**——見 service.get_client_options"""
     scope = await _quotation_scope(service.db, current_user)
     return SuccessResponse(data=await service.get_client_options(
-        year=req.year, category=getattr(req, "category", None), accessible_case_codes=scope))
+        year=req.year, category=req.category, accessible_case_codes=scope))
 
 
 @router.post("/profit-trend")

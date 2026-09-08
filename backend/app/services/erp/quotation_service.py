@@ -303,7 +303,7 @@ class ERPQuotationService(AuditableServiceMixin):
                 logger.error("可見範圍解析失敗，限縮為空：%s", e, exc_info=True)
                 accessible_case_codes = set()
 
-        staff_uid = getattr(params, "staff_user_id", None)
+        staff_uid = params.staff_user_id
         if staff_uid is not None:
             from app.repositories.erp.case_staff import case_codes_of_user
             mine = await case_codes_of_user(self.db, staff_uid)
@@ -315,7 +315,7 @@ class ERPQuotationService(AuditableServiceMixin):
         # ⭐ 2026-09-08：金流異常篩選。判準只有一份（finance_anomaly），
         # 這裡只是把它算出來的 id 清單交給查詢。
         anomaly_ids = None
-        if getattr(params, "anomaly", None):
+        if params.anomaly:
             from app.services.erp import finance_anomaly
             anomaly_ids = await finance_anomaly.anomaly_ids(
                 self.db, only_open=(params.anomaly == "open"))
@@ -331,10 +331,10 @@ class ERPQuotationService(AuditableServiceMixin):
             sort_order=params.sort_order.value if params.sort_order else "desc",
             include_unawarded=params.include_unawarded,
             accessible_case_codes=accessible_case_codes,
-            category=getattr(params, "category", None),
-            case_status=getattr(params, "case_status", None),
-            client_name=getattr(params, "client_name", None),
-            card=getattr(params, "card", None),
+            category=params.category,
+            case_status=params.case_status,
+            client_name=params.client_name,
+            card=params.card,
             anomaly_quotation_ids=anomaly_ids,
         )
 

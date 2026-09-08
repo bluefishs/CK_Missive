@@ -613,6 +613,7 @@ run_step "126" "報價單 year 欄語意（案名民國年 vs year 欄；年度�
 run_step "127" "金流異常判準方向一致性（逐案 vs 逐筆兩種粒度，一邊 0 一邊非 0 ＝ 只改了一邊）" "scripts/checks/finance_anomaly_parity_audit.py"
 run_step "128" "表頭篩選鍵接線（宣告了漏斗而 onChange 讀不到那個鍵；自帶解析度下限）" "scripts/checks/table_filter_key_wiring_audit.py"
 run_step "129" "承辦身分合併展開（alias 帳號上的指派；只認 canonical id 會讓案憑空消失）" "scripts/checks/staff_alias_scope_parity_audit.py"
+run_step "130" "請求物件的「猜」欄位（schema 已宣告卻用 getattr ⇒ 改名時靜默變 None）" "scripts/checks/request_field_guess_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

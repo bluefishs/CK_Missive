@@ -142,7 +142,7 @@ class ERPBillingService(AuditableServiceMixin):
         # 後果：統計卡「已收款額」顯示 **0**，而請款總額 3,383 萬。
         #
         # 這是 L83 家族（修一處沒掃同型）——同一條規則要在**所有寫入路徑**上。
-        if data.payment_status == "paid" and not getattr(data, "payment_amount", None):
+        if data.payment_status == "paid" and not data.payment_amount:
             raise ValueError(
                 "建立時標記為「已收款」必須同時填寫收款金額 —— "
                 "否則統計會顯示「請款 N 元、已收 0 元」而看不出是資料缺失。"
@@ -150,7 +150,7 @@ class ERPBillingService(AuditableServiceMixin):
             )
         # 2026-08-29（P2-6）：paid 也要有日期 —— 實測 2 筆 paid 缺 payment_date
         # （id 63/95，正是重複入帳那兩筆），入帳落 date.today() 使交易日期失真
-        if data.payment_status == "paid" and not getattr(data, "payment_date", None):
+        if data.payment_status == "paid" and not data.payment_date:
             raise ValueError(
                 "建立時標記為「已收款」必須同時填寫收款日期 —— "
                 "缺日期會讓帳本的交易日期失真為入帳當天。"

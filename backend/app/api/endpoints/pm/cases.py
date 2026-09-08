@@ -116,7 +116,7 @@ async def update_case(
         logger.warning("三方同步失敗 (不影響更新): %s", e)
 
     # 自動成案：status **由其他狀態變更為**已承攬時觸發（M2：不是「含 contracted」）
-    new_status = getattr(data, 'status', None)
+    new_status = data.status
     if new_status == 'contracted' and prev_status != 'contracted':
         try:
             case_code = result.case_code if hasattr(result, 'case_code') else getattr(result, 'case_code', None)
