@@ -46,6 +46,26 @@ def _parse_permission_required(raw) -> list:
     return []
 
 
+def _serialize_permission_required(value):
+    """寫回 DB 前把 string[] 轉回 JSON 字串 —— `_parse_permission_required` 的反向。
+
+    2026-09-08：選單管理頁拖曳排序 500（`asyncpg DataError: expected str, got list`）。
+    形狀是**同一個欄位在讀寫兩端有兩種表示法**：
+      · 欄位是 TEXT，存的是 `'["reports:erp:view"]'`
+      · `_item_to_dict` 讀出來刻意 parse 成 `list`（P-57：不 parse 前端會把 '[]' 當非空）
+      · 前端把整個 item 原樣 POST 回來 ⇒ `setattr(item, "permission_required", list)`
+      · 於是 **有解析沒有序列化**，中間沒有任何一層負責轉回去。
+    只有帶著非空權限的項目會炸（空 list 也會，但 `[]` 同樣不是 str）——
+    所以它看起來像「有時候可以拖、有時候 500」。
+    """
+    import json
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        return json.dumps(list(value), ensure_ascii=False)
+    return value
+
+
 def _item_to_dict(item: SiteNavigationItem) -> dict:
     """將導覽項目 ORM 物件轉換為字典"""
     return {
@@ -181,6 +201,15 @@ async def navigation_action(
 
                 new_parent_id = update_data.get("parent_id", old_parent_id)
                 new_sort_order = update_data.get("sort_order", old_sort_order)
+
+                # 2026-09-08：`permission_required` 讀出來是 list、欄位是 TEXT
+                # ⇒ 直接 setattr 會在 commit 當下爆 asyncpg DataError（500）。
+                # 這個迴圈是 blind setattr，任何「讀寫表示法不同」的欄位都會踩到，
+                # 所以正規化放在這裡而不是呼叫端。
+                if "permission_required" in update_data:
+                    update_data["permission_required"] = _serialize_permission_required(
+                        update_data["permission_required"]
+                    )
 
                 for key, value in update_data.items():
                     if value is not None or key in ("parent_id", "path"):
