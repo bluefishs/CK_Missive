@@ -19,7 +19,8 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Form, Input, InputNumber, DatePicker, Select, App, Button, Popconfirm, Divider, Space } from 'antd';
+import { fmtMoney } from '../utils/money';
+import { Form, Input, InputNumber, DatePicker, Select, App, Button, Popconfirm, Divider, Space, Alert } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -225,16 +226,24 @@ const ERPAccountRecordFormPage: React.FC = () => {
     // 為什麼不做成後端一支端點：開票有自己的防呆（號碼格式、全庫重號、一期一票），
     // 失敗時要能明確告訴使用者「請款已建立、但發票沒開成」——**兩件事的成敗要能分開講**，
     // 合成一支端點反而會讓「請款成功但發票號碼打錯」變成整筆回滾或整筆成功。
-    if (isEdit || !isReceivable || !values.sales_invoice_number) {
+    if (!isReceivable || !values.sales_invoice_number || (isEdit && record?.invoice_number)) {
       mutation.mutate(isEdit ? payload : { erp_quotation_id: qid, ...payload });
       return;
     }
     try {
-      const res = await apiClient.post<{ data: { id: number } }>(
-        createEndpoint, { erp_quotation_id: qid, ...payload },
-      );
-      const billingId = res?.data?.id;
-      if (!billingId) throw new Error('請款已建立但沒有取到 id，無法接著開票');
+      // ⚠️ 2026-09-08：編輯時**不可以**打 createEndpoint —— 那會再建一筆請款。
+      // 編輯走 update、用既有的 rid 開票；新增才建立並取回新 id。
+      let billingId: number | undefined;
+      if (isEdit) {
+        await apiClient.post(updateEndpoint, { id: rid, data: payload });
+        billingId = rid ?? undefined;
+      } else {
+        const res = await apiClient.post<{ data: { id: number } }>(
+          createEndpoint, { erp_quotation_id: qid, ...payload },
+        );
+        billingId = res?.data?.id;
+      }
+      if (!billingId) throw new Error('請款已儲存但沒有取到 id，無法接著開票');
       try {
         const { erpInvoicesApi } = await import('../api/erp/invoicesApi');
         await erpInvoicesApi.createFromBilling({
@@ -243,15 +252,15 @@ const ERPAccountRecordFormPage: React.FC = () => {
           invoice_date: (values.sales_invoice_date ?? values.billing_date)?.format('YYYY-MM-DD'),
           tax_mode: values.tax_mode ?? 'taxable',
         });
-        message.success('請款已新增，發票已開立並關聯');
+        message.success(isEdit ? '請款已更新，發票已開立並關聯' : '請款已新增，發票已開立並關聯');
       } catch (e) {
         // 請款已經進去了 —— 這裡**不能**只說「失敗」，否則使用者會再送一次而重複建立請款
-        message.warning(`請款已新增，但發票未開立：${extractApiMessage(e, '請洽管理員')}。可在列表上點「開立發票」補開。`);
+        message.warning(`請款已${isEdit ? '更新' : '新增'}，但發票未開立：${extractApiMessage(e, '請洽管理員')}。可在列表上點「開立發票」補開。`);
       }
       invalidate();
       backToQuotation();
     } catch (e) {
-      message.error(extractApiMessage(e, '新增失敗'));
+      message.error(extractApiMessage(e, isEdit ? '更新失敗' : '新增失敗'));
     }
   };
 
@@ -316,23 +325,56 @@ const ERPAccountRecordFormPage: React.FC = () => {
                 只在**新增**時出現：編輯既有請款時，列表上的「開立發票」才是正確入口
                 （它會擋「一期一票」，而這裡再給一次會讓人以為可以開第二張）。
                 留白＝不開票，之後仍可在列表補開 —— 不強迫請款當下就有發票號碼。 */}
-            {!isEdit && (
+            {/* ⭐ 2026-09-08 owner：「無法同時填列開立發票資訊…一次填寫且保留發票對應資訊」。
+                原本只在**新增**時出現，理由是「編輯時列表上的『開立發票』才是正確入口」——
+                那個理由對機制成立、對使用者不成立：他在這一頁編輯這一期，
+                卻要離開這一頁去別的地方開票。⇒ 編輯時也給，且**已開票就顯示出來**
+                （保留對應資訊），而不是留一個空欄讓人以為可以再開一張。 */}
+            <Divider plain style={{ marginTop: 8 }}>
+              {isEdit && record?.invoice_number ? '已開立發票' : '同時開立發票（可留白）'}
+            </Divider>
+            {isEdit && record?.invoice_number ? (
+              <Alert type="info" showIcon style={{ marginBottom: 16 }}
+                message={`發票號碼 ${record.invoice_number}`}
+                description={(() => {
+                  const gross = Number(record.invoice_amount ?? 0);
+                  const tax = Number(record.invoice_tax_amount ?? 0);
+                  return (
+                    <div style={{ lineHeight: 1.8 }}>
+                      <div>開立日期 {record.invoice_date ?? '—'}</div>
+                      <div>未稅 {fmtMoney(gross - tax)}｜稅額 {fmtMoney(tax)}
+                        （{tax === 0 ? '未填稅額' : `${Math.round((tax / Math.max(gross - tax, 1)) * 100)}%`}）
+                        ｜含稅 {fmtMoney(gross)}</div>
+                      <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 4 }}>
+                        一期一票 —— 要改號碼或金額請到報價單的「帳款紀錄」分頁操作發票本身。
+                      </div>
+                    </div>
+                  );
+                })()}
+              />
+            ) : (
               <>
-                <Divider plain style={{ marginTop: 8 }}>同時開立發票（可留白）</Divider>
                 <Form.Item name="sales_invoice_number" label="發票號碼"
                   normalize={(v?: string) => (v ?? '').toUpperCase().trim()}
-                  extra="留白＝先不開票，之後可在列表上補開"
+                  extra="留白＝先不開票，之後仍可補開"
                   rules={[{ pattern: /^[A-Z]{2}\d{8}$/, message: '統一發票為 2 個英文字母＋8 碼數字（例 EE15019500）' }]}>
                   <Input placeholder="AB12345678" maxLength={10} />
                 </Form.Item>
                 <Form.Item name="sales_invoice_date" label="開立日期" extra="留空則以請款日期為開立日">
                   <DatePicker style={{ width: '100%' }} inputReadOnly={isMobile} />
                 </Form.Item>
-                <Form.Item name="tax_mode" label="稅別" initialValue="taxable"
-                  extra="請款金額為含稅額；未稅與稅額由它推導">
+                {/* ⚠️ 2026-09-08 owner 提供實體發票（EE15019500，買受人桃園市政府工務局）：
+                    那是**二聯式**，而課稅別欄勾的是**應稅**。
+                    ⇒ 聯式（二聯／三聯）與課稅別（應稅／零稅率／免稅）是**兩個維度**，
+                    我先前把它們寫成同一個選項（「免稅／零稅率（二聯式）」）是錯的：
+                    照那個標籤選，機關的二聯式發票會被記成免稅而少掉 5% 的稅。
+                    聯式由買受人身分決定（機關＝二聯、營業人＝三聯），不影響稅額計算，
+                    故這裡只問課稅別。 */}
+                <Form.Item name="tax_mode" label="課稅別" initialValue="taxable"
+                  extra="與「幾聯式」無關 —— 二聯式（機關）一樣可以是應稅。請款金額為含稅額，未稅與稅額由它推導。">
                   <Select options={[
-                    { value: 'taxable', label: '應稅 5%（三聯式）' },
-                    { value: 'exempt', label: '免稅／零稅率（二聯式）' },
+                    { value: 'taxable', label: '應稅 5%' },
+                    { value: 'exempt', label: '零稅率／免稅' },
                   ]} />
                 </Form.Item>
               </>
