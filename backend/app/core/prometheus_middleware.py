@@ -38,6 +38,27 @@ logger = logging.getLogger(__name__)
 UNMATCHED_PATH_LABEL = "<unmatched>"
 
 
+
+def prewarm_lazy_imports() -> dict:
+    """在啟動階段（不在事件迴圈的請求路徑裡）先把 /metrics 用到的延遲 import 載進來（A127-②）。
+
+    09-08 事故：/metrics 第一次抓取在事件迴圈裡做 `import sqlite3`（經 shadow_baseline_metrics），
+    CPython C 層 import 機制空轉 44 分鐘。空轉的真因是記憶體，不是 import 本身；
+    但「第一個 scrape 才 import」讓第一次代價落在請求路徑上，且卡住時沒有任何請求進得來。
+    這裡在 lifespan 啟動時先載一次，handler 裡的 import 就都變成 sys.modules 命中。
+    回傳每個模組的載入結果，讓啟動日誌看得到哪一個失敗（失敗不阻斷啟動）。
+    """
+    import importlib
+    results = {}
+    for mod in ("psutil", "app.core.shadow_baseline_metrics", "app.services.tender.metrics"):
+        try:
+            importlib.import_module(mod)
+            results[mod] = "ok"
+        except Exception as e:  # noqa: BLE001
+            results[mod] = f"failed: {e.__class__.__name__}: {e}"
+            logger.warning("metrics prewarm: %s 載入失敗: %s", mod, e)
+    return results
+
 def _route_template(scope: Scope, raw_path: str) -> str:
     """把 `/api/documents-enhanced/2645/detail` 還原成 `/api/documents-enhanced/{doc_id}/detail`。
 

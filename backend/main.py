@@ -568,10 +568,28 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ Self-health watchdog failed: {e}")
 
+    # A127-②：/metrics 的延遲 import 在啟動期先載（不在請求路徑裡第一次 import）
+    try:
+        from app.core.prometheus_middleware import prewarm_lazy_imports
+        logger.info("metrics prewarm: %s", prewarm_lazy_imports())
+    except Exception as e:  # noqa: BLE001
+        logger.warning("metrics prewarm 失敗（不阻斷啟動）: %s", e)
+
+    # A127-④：獨立執行緒的活體哨兵 —— 上面的 coroutine watchdog 在迴圈被佔住時醒不來，
+    # 這條在作業系統執行緒上打自己的 /health，連續無回應即 exit 3 交給 restart policy
+    _liveness_sentinel = None
+    try:
+        from app.core.liveness_sentinel import start_from_env as _start_sentinel
+        _liveness_sentinel = _start_sentinel()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("liveness sentinel 啟動失敗（不阻斷啟動）: %s", e)
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
 
+    if _liveness_sentinel is not None:
+        _liveness_sentinel.stop()
     # 取消 watchdog
     if _watchdog_task:
         _watchdog_task.cancel()
