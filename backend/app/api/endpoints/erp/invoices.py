@@ -3,6 +3,7 @@ from app.schemas.erp.invoice import LinkInvoiceToBillingRequest
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_service
+from app.core.capabilities import require_page_permission
 from app.services.erp import ERPInvoiceService
 from app.schemas.erp import (
     ERPInvoiceCreate, ERPInvoiceUpdate,
@@ -27,6 +28,18 @@ async def list_invoices(
 @router.post("/summary")
 async def get_invoice_summary(
     params: InvoiceSummaryRequest,
+    # ⭐ 2026-09-08：本 router 在 `erp/__init__.py` 掛的是**聯集**
+    # （`/erp/invoices/summary-view` ∪ `/erp/quotations`），為的是讓報價單詳情的
+    # 「帳款紀錄」分頁能讀該張報價單的發票。但**這一支是跨案件、全公司的彙總**，
+    # 它就是 `/erp/invoices/summary-view` 那一頁本身 ⇒ 這裡再加一道嚴格的。
+    # 依賴會疊加（兩道都要過），所以在聯集之上補嚴格＝這一支維持原本的門檻。
+    #
+    # ⚠️ 其餘 `/list`／`/create`／`/update`／`/delete`／`/create-from-billing`／
+    # `/link-to-billing` 六支**刻意留在聯集**：實查前端，它們全部只被
+    # `hooks/business/useERPQuotations.ts` 使用（＝報價單域），
+    # 且同一個分頁上的請款（billings）與應付（vendor-payables）本來就掛在
+    # `/erp/quotations` ⇒ 同一張報價單的發票與它們是同一個敏感度層級。
+    _: object = Depends(require_page_permission("/erp/invoices/summary-view")),
     service: ERPInvoiceService = Depends(get_service(ERPInvoiceService)),
 ):
     """跨案件發票彙總"""

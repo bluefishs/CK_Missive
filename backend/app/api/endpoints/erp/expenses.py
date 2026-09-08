@@ -11,7 +11,6 @@ from app.core.dependencies import get_service, optional_auth, require_auth, requ
 from app.extended.models import User
 from app.services.erp.expense_invoice import ExpenseInvoiceService
 from app.schemas.erp.expense import (
-    CaseFinanceResponse,
     ExpenseInvoiceCreate,
     ExpenseInvoiceQuery,
     ExpenseInvoiceResponse,
@@ -87,28 +86,6 @@ async def financial_overview(
     2026-07-20 DDD 標準化：聚合邏輯委派 ExpenseInvoiceService（原端點內直 SQL）。
     """
     return SuccessResponse(data=await service.get_financial_overview())
-
-
-@router.post("/case-finance", response_model=SuccessResponse[CaseFinanceResponse])
-async def case_finance_summary(
-    request: Request,
-    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_auth()),
-):
-    """案件整合財務紀錄 — 整合 expense_invoices + erp_billings + erp_invoices
-
-    用於 PM Case 費用 Tab，一次取得該案件所有財務相關紀錄。
-    2026-07-20 DDD 標準化：聚合邏輯委派 ExpenseInvoiceService（原端點內直 SQL）。
-    """
-    body = await request.json()
-    case_code = body.get("case_code")
-    if not case_code:
-        raise HTTPException(status_code=400, detail="case_code 為必填")
-    # 2026-07-31：綁 response_model 讓契約有單一來源 —— 前端兩個 ExpensesTab
-    # 原本各自宣告一份同名 interface，後端改欄位不會有人發現。
-    return SuccessResponse[CaseFinanceResponse](
-        data=CaseFinanceResponse.model_validate(await service.get_case_finance(case_code))
-    )
 
 
 @router.post("/create")

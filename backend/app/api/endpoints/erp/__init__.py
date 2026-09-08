@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from app.core.dependencies import require_any_permission, require_auth, require_permission
 from app.core.capabilities import require_page_permission
-from . import quotations, invoices, billings, vendor_payables, vendor_accounts
+from . import case_finance, quotations, invoices, billings, vendor_payables, vendor_accounts
 from . import client_accounts
 from . import expenses, expenses_io, ledger, financial_summary, einvoice_sync, filing_gaps, quotation_items
 from . import assets
@@ -68,7 +68,21 @@ router.include_router(quotations.router, prefix="/quotations", dependencies=[Dep
 #   · 只給新碼的人 → 只進得去那一頁（真正的獨立，網址也擋得住）
 #   · 既有 erp:view 的人 → 全部照舊，零回歸
 #   · 日後要收緊：把 erp:view 從角色移除即可，不必再動程式碼
-router.include_router(invoices.router, prefix="/invoices", dependencies=[Depends(require_page_permission("/erp/invoices/summary-view"))], tags=["ERP 發票管理"])
+# ⭐ 2026-09-08 收斂 B 補完（owner 從 /erp/client-accounts 一路點進去回報 403）：
+#
+# 收斂 B 讓每支 router 宣告「我屬於哪個頁面」，**但它假設了一個頁面只呼叫自己的 API**。
+# 實際上分頁（Tab）會跨 router：報價單詳情的「帳款紀錄」分頁呼叫 `/erp/invoices/list`，
+# 而 staff 有 `reports:finance:view`（進得了報價單）、沒有 `reports:invoices:view`
+# ⇒ **頁面打得開、分頁一律 403，而畫面上看不出原因**。
+# 瀏覽器 console 實證：`/api/erp/invoices/list` 403、`/api/erp/expenses/case-finance` 403。
+#
+# 修法用 `require_page_permission` 本來就有的聯集能力（見其 docstring：
+# 「多個頁面時取聯集 —— 給『一支 API 被兩個頁面共用』的情況」）。
+# **刻意不改角色權限碼**：選單與 API 共用同一組碼，補碼會連帶把發票彙總頁、
+# 費用報銷頁整頁開給 staff —— 那是放寬選單，不是修好分頁。
+#
+# 判準：**誰看得到那個「宿主頁面」，誰就能用該頁面上的分頁。**
+router.include_router(invoices.router, prefix="/invoices", dependencies=[Depends(require_page_permission("/erp/invoices/summary-view", "/erp/quotations"))], tags=["ERP 發票管理"])
 router.include_router(billings.router, prefix="/billings", dependencies=[Depends(require_page_permission("/erp/quotations"))], tags=["ERP 請款管理"])
 router.include_router(vendor_payables.router, prefix="/vendor-payables", dependencies=[Depends(require_page_permission("/erp/quotations"))], tags=["ERP 廠商應付"])
 # ⭐ 2026-09-07 owner：「委託與協力帳款仍關聯 ERP，**無法正常獨立勾選**」。
@@ -99,12 +113,27 @@ router.include_router(vendor_payables.router, prefix="/vendor-payables", depende
 # 0 位 staff**，就是要的範圍，且它已經在用（filing-gaps 走同一個），
 # **不新增權限代碼**。superuser 由 require_permission 自身旁路。
 router.include_router(vendor_accounts.router, prefix="/vendor-accounts", dependencies=[Depends(require_page_permission("/erp/vendor-accounts"))], tags=["ERP 廠商帳款"])
+# 2026-09-08 收斂 B 補完：報價單詳情與 PM 案件詳情各有「費用」分頁，兩者呼叫
+# `/erp/expenses/case-finance`（console 實證 403）。**但只有那一支**——
+# 費用報銷的列表／建立／審核／退回／全公司總覽仍然只屬於 `/erp/expenses`。
+# ⇒ 把 `case-finance` 拆成獨立 router 掛聯集，其餘兩支維持原門檻。
+# **放寬的範圍要剛好等於問題的範圍**，不能因為修法方便就整個 router 放寬。
 router.include_router(expenses.router, prefix="/expenses", dependencies=[Depends(require_page_permission("/erp/expenses"))], tags=["費用報銷"])
 router.include_router(expenses_io.router, prefix="/expenses", dependencies=[Depends(require_page_permission("/erp/expenses"))], tags=["費用報銷 IO"])
+router.include_router(case_finance.router, prefix="/expenses", dependencies=[Depends(require_page_permission("/erp/expenses", "/erp/quotations", "/pm/cases"))], tags=["案件整合財務"])
 router.include_router(ledger.router, prefix="/ledger", dependencies=[Depends(require_page_permission("/erp/ledger"))], tags=["統一帳本"])
 router.include_router(financial_summary.router, prefix="/financial-summary", dependencies=[Depends(require_page_permission("/erp/financial-dashboard"))], tags=["財務彙總"])
 # 2026-08-16 owner：「承攬報價案件對應填報人員通報管控」
-router.include_router(filing_gaps.router, prefix="/filing-gaps", dependencies=[Depends(require_page_permission("/erp"))], tags=["填報缺口"])
+#
+# ⭐ 2026-09-08：**這裡不能掛 router 層的頁面權限**。這支底下有兩種端點：
+#   · `/list` 全公司填報缺口 → 屬於 `/erp`（reports:erp:view，5 admin／0 staff）
+#   · `/mine` **只查 current_user.id 自己的** → 每個承辦的個人儀表板都在打它
+# 掛在 router 層等於用 `/erp` 的門檻擋住 `/mine` ⇒ **每一位 staff 打開自己的
+# 儀表板，「我的填報缺口」卡都是 403**，而那張卡正是 owner 09-03 指定
+# 「承辦個人的稽催資訊落點＝個人儀表板」的那一張。
+# ⇒ 頁面權限下放到 `/list`（見 filing_gaps.py），`/mine` 只要求登入 ——
+#   與同檔下方 `my_summary` 的處理一致（那支 09-03 就已經是這個形狀）。
+router.include_router(filing_gaps.router, prefix="/filing-gaps", tags=["填報缺口"])
 # 2026-09-03：我的專案統整——承辦看自己的待收／逾期是稽催機制的一部分，只要登入（require_auth 在端點內），不掛 reports 權限
 router.include_router(my_summary.router, prefix="/my-summary", tags=["個人儀表板"])
 # 2026-08-16 owner：「線上報價單機制」

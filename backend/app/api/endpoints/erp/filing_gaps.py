@@ -11,6 +11,7 @@ import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.capabilities import require_page_permission
 from app.core.dependencies import require_auth
 from app.db.database import get_async_db
 from app.extended.models import User
@@ -26,7 +27,10 @@ router = APIRouter()
 @router.post("/list", response_model=SuccessResponse)
 async def list_filing_gaps(
     req: FilingGapRequest,
-    current_user: User = Depends(require_auth()),
+    # 2026-09-08：頁面權限從 router 層下放到這一支。
+    # 掛在 router 層會連 `/mine` 一起擋，而 `/mine` 是每個承辦的個人儀表板在打的
+    # （只查自己的資料）⇒ 每位 staff 的「我的填報缺口」卡都會 403。
+    current_user: User = Depends(require_page_permission("/erp")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """全公司填報缺口，依負責人分組。
@@ -42,6 +46,7 @@ async def list_filing_gaps(
 @router.post("/mine", response_model=SuccessResponse)
 async def my_filing_gaps(
     req: FilingGapRequest,
+    # 只查 current_user.id 自己的 ⇒ 只要求登入（同 my_summary 09-03 的處理）
     current_user: User = Depends(require_auth()),
     db: AsyncSession = Depends(get_async_db),
 ):
