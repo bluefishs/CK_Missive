@@ -48,6 +48,14 @@ _ASSIGNMENTS_BY_CASE = """
       LEFT JOIN users u  ON u.id = COALESCE(au.canonical_user_id, au.id)
      WHERE COALESCE(k.status, 'active') <> 'inactive'
        AND u.id IS NOT NULL
+       -- ⭐ 2026-09-08 owner：「承辦同仁案件對應問題，/erp/vendor-accounts、
+       -- /erp/client-accounts 前端仍未排除」。實查下拉與欄位裡出現兩個**系統帳號**：
+       --   · `SuperUser`（id 1, admin, **已停用**）—— 佔位帳號，卻掛著 1 筆指派
+       --   · `王駿穠(fly)`（superuser）—— 見下方 canonical 的說明
+       -- 停用帳號不該出現在「承辦同仁」：它既不能登入、也不會有人再指派給它，
+       -- 而列在下拉裡選下去只會得到一片空白（那正是 assignable_staff 檔頭
+       -- 已經寫過的理由，只是當時沒把停用這一種算進去）。
+       AND COALESCE(u.is_active, FALSE) IS TRUE
 """
 
 

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Card, Button, Space, Tag, Typography, Row, Col, Statistic, Empty } from 'antd';
+import { Card, Button, Space, Tag, Typography, Row, Col, Statistic, Empty, Tooltip } from 'antd';
 import { ShopOutlined, PlusOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../../router/types';
@@ -72,10 +72,24 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       ),
     },
     {
+      // ⭐ 2026-09-08 owner 從 /erp/vendor-accounts 回報「11 協力廠商與費用為何無對應」。
+      // 查證：11 筆指派裡 4 筆有金額（已依「指派即應付」自動建了應付），
+      // 另 7 家（估價師事務所）**指派時沒填金額** ⇒ 依設計不建應付
+      // ⇒ 它們在廠商帳款頁本來就看不到。
+      //
+      // 那是正確的行為（開口契約先納名單、派案才議價），但畫面上
+      // 「NT$ 0」與「真的是 0 元」長得一模一樣 —— 看起來像漏填。
+      // ⇒ 沒有金額就明說「未議價」，不要印一個會被誤讀成金額的 0。
       title: '合約金額',
       dataIndex: 'contract_amount',
       key: 'contract_amount',
-      render: (amount) => <Text>NT$ {formatAmount(amount)}</Text>,
+      render: (amount) => (
+        Number(amount) > 0
+          ? <Text>NT$ {formatAmount(amount)}</Text>
+          : <Tooltip title="尚未議定金額 —— 開口契約常先納入名單、派案時才議價。填了金額會自動建立對應的應付帳款。">
+              <Tag color="default">未議價</Tag>
+            </Tooltip>
+      ),
     },
     {
       title: '合作期間', hideOnMobile: true,
@@ -126,6 +140,13 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
                 title="合約總金額"
                 value={vendorList.reduce((sum, v) => sum + (v.contract_amount || 0), 0)}
                 formatter={value => `NT$ ${formatAmount(Number(value))}`}
+                suffix={
+                  // 分母要看得見：總金額只加總「已議價」那幾家，
+                  // 不寫出來會讓人以為它涵蓋了全部廠商（§2.6 ① 的同一個道理）
+                  <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                    （{vendorList.filter(v => Number(v.contract_amount) > 0).length}/{vendorList.length} 家已議價）
+                  </span>
+                }
               />
             </Card>
           </Col>
