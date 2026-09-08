@@ -16,15 +16,17 @@ docker 的 `restart: always` 只看行程有沒有退出，不看 health ⇒ unh
 * **只有「沒有回應」算失敗**（逾時、連線被拒）。HTTP 503／500 都算活著 ——
   那代表事件迴圈在跑、只是業務檢查不過（例如 DB 暫時掛了）；這種情況重啟行程沒有幫助，
   反而會在 DB 恢復前製造無限重啟。
-* 連續 `max_failures` 次才退出，避免單次慢回應（GC、重排程）誤殺。預設 3 × (30s 間隔 + 15s 逾時)
-  ≈ 2 分鐘內判定，比 docker healthcheck 的 57 連敗快得多。
+* 連續 `max_failures` 次才退出，避免單次慢回應（GC、重排程）誤殺。
+  ⚠️ 首版預設 3 × (30s + 15s) ≈ 2 分鐘：上線第一晚 02:00 備份＋每日檢核同時跑，/health 有 1.7 分鐘打不到，
+  哨兵數到 2/3 才恢復——差一次就把正在備份的行程殺掉。02:00 那種「迴圈被塞住幾分鐘」是可恢復的，
+  09-08 那種 44 分鐘的才是要殺的 ⇒ 改成 6 × (30s + 20s) ≈ 5 分鐘。仍比 docker healthcheck 的 57 連敗快十倍。
 * 退出碼固定 3，方便在 `docker inspect .State.ExitCode` 與日誌裡認出「是哨兵殺的」，
   不與 uvicorn 自己的退出碼混淆。
 
 ## 環境變數
 
 LIVENESS_SENTINEL_ENABLED（預設 true）／LIVENESS_SENTINEL_INTERVAL（秒，預設 30）／
-LIVENESS_SENTINEL_TIMEOUT（秒，預設 15）／LIVENESS_SENTINEL_MAX_FAILURES（預設 3）／
+LIVENESS_SENTINEL_TIMEOUT（秒，預設 20）／LIVENESS_SENTINEL_MAX_FAILURES（預設 6）／
 BACKEND_PORT（預設 8001；host PM2 模式會設成 8002）。
 """
 from __future__ import annotations
@@ -79,8 +81,8 @@ class LivenessSentinel(threading.Thread):
         self,
         url: str,
         interval: float = 30.0,
-        timeout: float = 15.0,
-        max_failures: int = 3,
+        timeout: float = 20.0,
+        max_failures: int = 6,
         exit_fn=os._exit,
         probe=probe_once,
         sleep=time.sleep,
@@ -134,8 +136,8 @@ def start_from_env() -> LivenessSentinel | None:
     sentinel = LivenessSentinel(
         url=f"http://127.0.0.1:{port}/health",
         interval=_env_int("LIVENESS_SENTINEL_INTERVAL", 30),
-        timeout=_env_int("LIVENESS_SENTINEL_TIMEOUT", 15),
-        max_failures=_env_int("LIVENESS_SENTINEL_MAX_FAILURES", 3),
+        timeout=_env_int("LIVENESS_SENTINEL_TIMEOUT", 20),
+        max_failures=_env_int("LIVENESS_SENTINEL_MAX_FAILURES", 6),
     )
     sentinel.start()
     logger.info(

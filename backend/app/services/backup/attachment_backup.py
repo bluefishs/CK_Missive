@@ -6,6 +6,7 @@
 @date 2026-02-21
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -50,6 +51,15 @@ class AttachmentBackupMixin:
     """附件備份 Mixin - 增量備份、清理相關方法"""
 
     async def _backup_attachments(self, timestamp: str) -> Dict[str, Any]:
+        """附件備份的事件迴圈入口 —— 實際的 stat／copy 全在執行緒裡做。
+
+        2026-09-09：上線第一晚 liveness 哨兵在 02:00 備份期間連續兩次打不到 /health（1.7 分鐘），
+        差一次就把正在備份的行程殺掉。追下去是這裡：1,649 個檔案的 stat＋copy2 在 async def 裡同步做，
+        每晚 02:00 全站請求跟著停兩分鐘。pg_dump 早就走 to_thread，附件這段沒有。
+        """
+        return await asyncio.to_thread(self._backup_attachments_sync, timestamp)
+
+    def _backup_attachments_sync(self, timestamp: str) -> Dict[str, Any]:
         """
         備份附件（差異/增量備份機制）
 
@@ -198,6 +208,10 @@ class AttachmentBackupMixin:
             return 0.0
 
     async def _cleanup_old_backups(self, retention_days: int) -> None:
+        """清理舊備份的事件迴圈入口 —— rmtree 也不該在迴圈裡做（同上）。"""
+        await asyncio.to_thread(self._cleanup_old_backups_sync, retention_days)
+
+    def _cleanup_old_backups_sync(self, retention_days: int) -> None:
         """
         清理過期備份
 
