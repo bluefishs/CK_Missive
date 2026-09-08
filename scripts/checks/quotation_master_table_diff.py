@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import json
 import os
+from decimal import Decimal
 import sys
 from pathlib import Path
 
@@ -60,7 +61,19 @@ def read_master(path: Path) -> tuple[dict[str, dict], list[dict]]:
     import openpyxl  # 延後匯入：沒有 openpyxl 時只影響這一支
 
     ws = openpyxl.load_workbook(path, data_only=True)[SHEET]
-    hdr = [str(c.value).strip() if c.value else "" for c in ws[1]]
+
+    # ⚠️ 2026-09-08：表頭**不在第 1 列**。「系統報價單」第 1 列是給人看的欄位註記
+    # （`total_price` / `tax_amount` / `grand_total`），真正的表頭在第 2 列。
+    # 首版讀 `ws[1]` ⇒ `col()` 一律找不到名字、全部退回位置 fallback ——
+    # 目前碰巧對，但**欄位一移動就會安靜地讀錯欄**（而它不會報錯）。
+    # ⇒ 改成找「哪一列有『報價單編號』」，不假設列號。
+    hdr_row = 1
+    for rn in range(1, 6):
+        vals = [str(c.value).strip() if c.value else "" for c in ws[rn]]
+        if "報價單編號" in vals:
+            hdr_row = rn
+            break
+    hdr = [str(c.value).strip() if c.value else "" for c in ws[hdr_row]]
 
     def col(name: str, fallback: int) -> int:
         return hdr.index(name) if name in hdr else fallback
@@ -70,10 +83,19 @@ def read_master(path: Path) -> tuple[dict[str, dict], list[dict]]:
     ci["報價金額"] = col("報價金額", 9)
     # ⚠️ 同一個表頭在「系統報價單」出現兩次（右側第 38–43 欄是各承辦年度小計），
     #    `col()` 用 `.index()` 取的是**最左邊**那一個 —— 與匯入器 2026-09-07 的修法同一個判準。
+    #
+    # ⭐ 2026-09-08 owner「經費仍對應不一致」＋「拿總表原檔做一次全欄對帳」：
+    # 此前這一支只比對**存在性**（哪些列漏匯入），不比對金額 ——
+    # 而當天的每一個問題都在金額欄：總價欄存的是未稅（12 筆）、稅額未填（11 筆）、
+    # 佔位發票號未換成真號（32 張）、系統補建的發票金額用了請款額（14 張）。
+    # 「有匯入」與「匯對了」是兩個問題，而只驗前者會給出一片綠。
+    for k, fb in (("稅內含", 10), ("稅額", 11), ("總價", 12),
+                  ("發票號碼", 30), ("銷售額", 31), ("稅額(發票)", 32), ("發票金額", 33)):
+        ci[k] = col(k, fb)
 
     keyed: dict[str, dict] = {}
     unkeyed: list[dict] = []
-    for rn, r in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    for rn, r in enumerate(ws.iter_rows(min_row=hdr_row + 1, values_only=True), start=hdr_row + 1):
         if not any(c for c in r[:10]):
             continue
         row = {k: (str(r[i]).strip() if i < len(r) and r[i] is not None else "")
@@ -98,7 +120,11 @@ def db_records():
         "SELECT q.legacy_quotation_no, q.case_code, q.total_price, "
         "EXISTS(SELECT 1 FROM contract_projects c WHERE c.case_code = q.case_code), "
         "(SELECT count(*) FROM erp_billings b WHERE b.erp_quotation_id = q.id), "
-        "(SELECT count(*) FROM erp_invoices i WHERE i.erp_quotation_id = q.id) "
+        "(SELECT count(*) FROM erp_invoices i WHERE i.erp_quotation_id = q.id), "
+        "q.tax_amount, "
+        "(SELECT string_agg(i2.invoice_number, ',') FROM erp_invoices i2 WHERE i2.erp_quotation_id = q.id), "
+        "(SELECT COALESCE(sum(i3.amount),0) FROM erp_invoices i3 WHERE i3.erp_quotation_id = q.id), "
+        "(SELECT COALESCE(sum(i4.tax_amount),0) FROM erp_invoices i4 WHERE i4.erp_quotation_id = q.id) "
         "FROM erp_quotations q "
         "WHERE q.legacy_quotation_no IS NOT NULL AND q.deleted_at IS NULL"
     )
@@ -110,14 +136,15 @@ def db_records():
         "async def m():\n"
         "    async with AsyncSessionLocal() as db:\n"
         "        rows = (await db.execute(text(SQL))).all()\n"
-        "    print('@@' + json.dumps([[r[0], r[1], str(r[2] or ''), bool(r[3]), int(r[4]), int(r[5])] for r in rows]))\n"
+        "    print('@@' + json.dumps([[r[0], r[1], str(r[2] or ''), bool(r[3]), int(r[4]), int(r[5]), str(r[6] or ''), r[7] or '', str(r[8] or ''), str(r[9] or '')] for r in rows]))\n"
         "asyncio.run(m())\n"
     )
     line = [l for l in (out or "").splitlines() if l.startswith("@@")]
     if not line:
         return None
     return {str(r[0]).strip(): {"case_code": r[1], "total": r[2], "promoted": r[3],
-                                "bills": r[4], "invoices": r[5]}
+                                "bills": r[4], "invoices": r[5], "tax": r[6],
+                                "inv_nos": r[7], "inv_amt": r[8], "inv_tax": r[9]}
             for r in json.loads(line[-1][2:])}
 
 
@@ -208,6 +235,88 @@ def main() -> int:
             print(f"    {no} | {r['case_code']} | 總價 {r['total'] or '-'} | "
                   f"請款 {r['bills']} 張／發票 {r['invoices']} 張 | {row['案名'][:24]}")
         rc = 2
+
+    # ⭐ 2026-09-08：金額欄逐欄對帳（owner「經費仍對應不一致」→「拿總表原檔做一次全欄對帳」）。
+    #
+    # 此前只比對存在性 ——「有匯入」與「匯對了」是兩個問題，而只驗前者會給出一片綠。
+    # 當天在金額欄找到四類，每一類都不會報錯：
+    #   · 總價欄存的是未稅（匯入器把總表的「報價金額」＝未稅寫進含稅欄位）12 筆
+    #   · 稅額未填（總表有、DB 是 0）11 筆
+    #   · 佔位發票號未換成真號 32 張
+    #   · 系統補建的發票金額用了**請款額**而不是真實發票金額 14 張
+    #
+    # ⚠️ 判準要問到每一個欄位：我第一版抽總表時漏了「銷售額」與「稅額(發票)」，
+    #    於是對帳報「發票稅額不符 0 筆」——**那不是相符，是根本沒有比對**。
+    def _num(v):
+        try:
+            return Decimal(str(v).replace(",", "").strip())
+        except Exception:
+            return None
+
+    # 一票多案：同一個發票號出現在總表多列時，總表每列記的是**整張發票**的金額，
+    # 而 DB 記的是**該案分攤到的金額** ⇒ 逐列比對必然不符，而兩邊都是對的。
+    # （實測 ZX19612010 173,250 分給兩案：137,403 ＋ 35,847 ＝ 173,250）
+    # ⇒ 發票欄改成「同號的 DB 金額合計 vs 總表金額」。
+    from collections import defaultdict
+    inv_rows = defaultdict(list)
+    for _no, _row in keyed.items():
+        _n = str(_row.get("發票號碼", "")).strip().upper()
+        if _n:
+            inv_rows[_n].append(_no)
+
+    amt_diff = []
+    master_todo = []
+    for no, row in keyed.items():
+        r = recs.get(no)
+        if not r:
+            continue
+        for label, mkey, dkey in (("總價", "總價", "total"), ("稅額", "稅額", "tax"),
+                                  ("發票金額", "發票金額", "inv_amt"), ("發票稅額", "稅額(發票)", "inv_tax")):
+            mv, dv = _num(row.get(mkey)), _num(r.get(dkey))
+            if mv is None or dv is None:
+                continue
+            if label.startswith("發票"):
+                _n = str(row.get("發票號碼", "")).strip().upper()
+                if not _n:
+                    continue      # 總表沒開票就不比對發票欄
+                peers = inv_rows.get(_n, [no])
+                if len(peers) > 1:
+                    # 一票多案 ⇒ 合計比對，且只在第一列報一次
+                    if no != peers[0]:
+                        continue
+                    tot = sum((_num(recs[p].get(dkey)) or Decimal(0)) for p in peers if recs.get(p))
+                    if abs(mv - tot) > 1:
+                        amt_diff.append((no, f"{r['case_code']}（一票多案 {len(peers)} 案）",
+                                         label, mv, tot))
+                    continue
+            if abs(mv - dv) > 1:
+                # ⚠️ 方向要分得開：總表那格是空的／0、而 DB 有值且自洽
+                # （稅額 ≈ 含稅/21）⇒ 那是**總表待補**，不是系統錯。
+                # 判成 RED 會讓人去把對的資料改成錯的。
+                _tp = _num(r.get("total"))
+                if mv == 0 and dv > 0 and label in ("稅額", "發票稅額") and _tp and _tp > 0                         and abs(dv - (_tp / 21).quantize(Decimal("1"))) <= 2:
+                    master_todo.append((no, r["case_code"], label, dv))
+                    continue
+                amt_diff.append((no, r["case_code"], label, mv, dv))
+        mno = str(row.get("發票號碼", "")).strip().upper()
+        # 一票多案的 DB 端用 `XLS-<案號>` 佔位＋分攤列表達，不逐案存同一個真號 ⇒ 不判它號碼不符
+        if mno and len(inv_rows.get(mno, [])) > 1:
+            mno = ""
+        if mno and mno not in (r.get("inv_nos") or "").upper():
+            amt_diff.append((no, r["case_code"], "發票號碼", mno, (r.get("inv_nos") or "(無)")))
+    if amt_diff:
+        print(f"[RED] {len(amt_diff)} 處金額／發票欄與總表不符 —— 總表是原件，系統該跟它：")
+        for no, cc, label, mv, dv in amt_diff[:20]:
+            print(f"    {no} | {cc} | {label}：總表={mv} DB={dv}")
+        if len(amt_diff) > 20:
+            print(f"    …另 {len(amt_diff) - 20} 處")
+        rc = 2
+    if master_todo:
+        print(f"[YELLOW] {len(master_todo)} 處**總表那一格是空的、而系統有自洽的值** —— 總表待補，"
+              f"系統不用改：")
+        for no, cc, label, dv in master_todo[:10]:
+            print(f"    {no} | {cc} | {label} 總表未填，系統值 {dv}（與總價自洽）")
+        rc = max(rc, 1)
 
     if extra:
         print(f"[YELLOW] {len(extra)} 筆資料庫有、總表沒有 —— 附下游影響，"
