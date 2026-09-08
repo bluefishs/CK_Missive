@@ -118,7 +118,11 @@ export const getDesktopColumns = (options: GetColumnsOptions): ColumnsType<Docum
         { text: '紙本郵寄', value: '紙本郵寄' },
         { text: '紙本傳遞', value: '紙本傳遞' },
       ],
-      onFilter: (value, record) => record.delivery_method === value,
+      filterMultiple: false,
+      // 2026-09-09：這一頁是**後端分頁**，帶 onFilter 會被 stripClientOnlyColumnFeatures
+      // 連 filters 一起剝掉 ⇒ 原始碼看得到漏斗、線上看不到。後端本來就套用 delivery_method
+      // （services/document/filter.py:197），缺的只有把值送過去這一段。
+      // 值由 DocumentPage 的 handleTableChange 收進查詢參數。
       render: (method: string) => {
         const colorMap: Record<string, string> = {
           '電子交換': 'green',

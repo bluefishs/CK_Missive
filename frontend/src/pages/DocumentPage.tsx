@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
+import { pickFilter } from '../utils/tableFilters';
 import { Typography, Button, Space, Modal, App } from 'antd';
 import type { TablePaginationConfig, FilterValue, SorterResult, TableCurrentDataSource } from 'antd/es/table/interface';
 import { PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
@@ -120,7 +121,7 @@ export const DocumentPage: React.FC = () => {
 
   const handleTableChange = (
     paginationInfo: TablePaginationConfig,
-    _filters: Record<string, FilterValue | null>,
+    tableFilters: Record<string, FilterValue | null>,
     sorter: SorterResult<Document> | SorterResult<Document>[],
     _extra: TableCurrentDataSource<Document>
   ) => {
@@ -129,6 +130,13 @@ export const DocumentPage: React.FC = () => {
         page: paginationInfo.current || 1,
         limit: paginationInfo.pageSize || 10,
       });
+    }
+    // 2026-09-09：表頭漏斗的值此前叫 `_filters` 且從未被使用 —— 有接口沒接線。
+    // 這一頁是後端分頁，欄位不得帶 onFilter（會被剝除器連 filters 一起刪掉），
+    // 所以值只能從這裡進查詢參數。後端本來就套用 delivery_method。
+    const dm = pickFilter(tableFilters, 'delivery_method');
+    if (dm !== filters.delivery_method) {
+      setFilters({ ...filters, delivery_method: dm });
     }
 
     // 處理單一或多重排序
