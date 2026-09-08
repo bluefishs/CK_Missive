@@ -179,7 +179,15 @@ class ERPQuotationService(AuditableServiceMixin):
         quotation = await self.repo.get_by_id(quotation_id)
         if not quotation:
             return None
-        return await self._to_response(quotation)
+        resp = await self._to_response(quotation)
+        # 2026-09-09 owner：「問題錯誤如何標注與顯示」——列表有異常標註而詳情沒有，
+        # 使用者點進去反而看不到哪裡不對。與列表同一份判準（finance_anomaly），失敗不阻擋詳情。
+        try:
+            from app.services.erp import finance_anomaly
+            resp.anomalies = (await finance_anomaly.annotate(self.db, [quotation_id])).get(quotation_id, [])
+        except Exception as e:  # noqa: BLE001
+            logger.error("報價詳情異常標註失敗（不阻擋詳情）：%s", e, exc_info=True)
+        return resp
 
     async def update(self, quotation_id: int, data: ERPQuotationUpdate) -> Optional[ERPQuotationResponse]:
         """更新報價"""

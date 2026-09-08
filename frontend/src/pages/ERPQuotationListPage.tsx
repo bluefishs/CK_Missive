@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { FilterBar } from '../components/common/FilterBar';
 import { AnomalyTags } from '../components/erp/AnomalyTags';
+import { anomalyTagText, anomalyTagColor } from '../components/erp/anomalyTag';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
@@ -233,7 +234,7 @@ export const ERPQuotationListPage: React.FC = () => {
       // 因為「沒有異常」與「這個機制沒在跑」必須分得出來。
       title: '金流異常', key: 'anomalies', width: 170,
       render: (_: unknown, r: ERPQuotation) => (
-        <AnomalyTags quotationId={r.id} anomalies={r.anomalies} />
+        <AnomalyTags quotationId={r.id} anomalies={r.anomalies} showDetail />
       ),
     },
     // 2026-08-15 移除「操作」欄（詳情／編輯／刪除）。
@@ -569,8 +570,11 @@ export const ERPQuotationListPage: React.FC = () => {
               <MobileCard
                 title={<>{r.project_code || r.case_code}{caseYear(r) ? <Text type="secondary" style={{ marginInlineStart: 6 }}>{caseYear(r)}</Text> : null}</>}
                 subtitle={r.case_name ?? '-'}
-                tags={[...(winning != null ? [{ text: '議價', color: 'purple' }] : []), ...(r.project_code ? [] : [{ text: '未成案', color: 'default' }])]}
-                rows={[{ label: '委託單位', value: r.client_name }, { label: '承辦同仁', value: r.staff_name }, { label: '協力廠商', value: r.vendor_names }]}
+                // 2026-09-09 owner：手機卡片此前完全沒帶異常——列表欄有、卡片沒有，同一頁兩種形狀
+                tags={[...(winning != null ? [{ text: '議價', color: 'purple' }] : []), ...(r.project_code ? [] : [{ text: '未成案', color: 'default' }]),
+                  ...(r.anomalies ?? []).map((a) => ({ text: anomalyTagText(a), color: anomalyTagColor(a) }))]}
+                rows={[{ label: '委託單位', value: r.client_name }, { label: '承辦同仁', value: r.staff_name }, { label: '協力廠商', value: r.vendor_names },
+                  ...((r.anomalies?.length) ? [{ label: '金流異常', value: r.anomalies.map((a) => a.detail).join('；') }] : [])]}
                 amounts={[
                   { label: '承攬（含稅）', value: fmtMoney(awarded) },
                   { label: '應收帳款', value: billed ? fmtMoney(billed) : '—',

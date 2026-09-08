@@ -30,6 +30,7 @@ import { ERP_ENDPOINTS } from '../api/endpoints';
 
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
+import { AnomalyPanel } from '../components/erp/AnomalyTags';
 import { ExpenseQRButton } from '../components/common/ExpenseQRCode';
 import { getErrorMessage } from '../utils/apiErrorParser';
 
@@ -420,6 +421,8 @@ export const ERPQuotationDetailPage: React.FC = () => {
     <>
       <DetailPageLayout
         header={headerConfig}
+        // 2026-09-09 owner：異常要在詳情頁攤開（原因／差額／判讀），不能只在列表的滑鼠提示裡
+        beforeTabs={quotation ? <AnomalyPanel quotationId={quotation.id} anomalies={quotation.anomalies} /> : undefined}
         tabs={tabs}
         loading={isLoading}
         hasData={!!quotation}
