@@ -83,7 +83,7 @@
 
 | 項 | 何時 |
 |---|---|
-| `CaseFilterBar` 宣告式元件＋三個財務分頁遷移（現況：五頁用共用 `FilterBar` 版面，維度仍各頁自畫） | 下一輪 |
+| ~~`CaseFilterBar` 宣告式元件＋三個財務分頁遷移~~ ✅ 09-09 晚：`components/erp/CaseFilterBar`（dims 宣告、選項單一定義在 `caseFilterOptions.ts`），報價單／委託單位／協力廠商三頁改用；守門 weekly 135（存量：承攬案／發票彙總／營運帳目／財務儀表板等仍自畫，逐頁清） | 已做 |
 | 前端 27 處 `search`→`keyword` 逐頁改名（schema 已合一，改到哪都不壞） | 隨頁改 |
 | weekly 133 剩 7 組：機關／廠商／專案全域 statistics 是否算列表卡片＝owner 判；發票彙總／費用分組／搜尋歷史／審核佇列工程小 | 下一輪 |
 | `CaseFilterBar` 元件＋三個財務分頁遷移 | 下一輪（本輪先讓三頁條件一致，元件化是第二步） |

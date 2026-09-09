@@ -1,0 +1,10 @@
+{
+  "_doc": "weekly 135 存量基線——還在自畫案件維度下拉的列表頁。新增即紅、存量逐頁改用 CaseFilterBar 後從這裡刪。",
+  "_created": "2026-09-09",
+  "allow": {
+    "frontend/src/pages/ContractCasePage.tsx": "存量（09-09 首跑）：類別下拉",
+    "frontend/src/pages/ERPFinancialDashboardPage.tsx": "存量（09-09 首跑）：自養年度選項",
+    "frontend/src/pages/ERPOperationalFormPage.tsx": "存量（09-09 首跑）：自養年度選項",
+    "frontend/src/pages/ERPOperationalListPage.tsx": "存量（09-09 首跑）：自養年度選項"
+  }
+}
