@@ -285,7 +285,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
                 // 金額欄一律給 8 位數＋千分位（約 108px）＋內距，並讓委託單位欄可縮。
                 { title: '委託單位', dataIndex: 'client_name', ellipsis: true, width: 130 },
                 { title: '案數', dataIndex: 'case_count', width: 56, align: 'right' },
-                { title: termTitle('awarded_amount'), dataIndex: 'awarded', width: 118, align: 'right', render: (v) => fmtMoney(v) },
+                { title: termTitle('awarded_amount'), dataIndex: 'awarded', width: 160, align: 'right', render: (v) => fmtMoney(v) },
                 { title: termTitle('billed'), dataIndex: 'billed', width: 118, align: 'right', render: (v) => fmtMoney(v) },
                 { title: termTitle('received'), dataIndex: 'received', width: 118, align: 'right', render: (v) => fmtMoney(v) },
                 { title: termTitle('outstanding'), dataIndex: 'outstanding', width: 124, align: 'right', render: (v) => <span style={{ color: Number(v) > 0 ? '#fa8c16' : undefined }}>{fmtMoney(v)}</span> },

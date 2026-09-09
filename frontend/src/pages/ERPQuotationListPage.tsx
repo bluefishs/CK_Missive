@@ -196,7 +196,7 @@ export const ERPQuotationListPage: React.FC = () => {
       ) : <Text type="secondary">—</Text>,
     },
     {
-      title: termTitle('awarded_amount'), dataIndex: 'contract_amount', key: 'contract_amount', width: 130, align: 'right', sorter: true,
+      title: termTitle('awarded_amount'), dataIndex: 'contract_amount', key: 'contract_amount', width: 160, align: 'right', sorter: true,
       // 2026-09-04 晚：顯示承攬金額＝議價金額（有）否則契約金額；有議價時把原契約金額印在下面，兩個數都看得到
       render: (v: string | number | null, r: ERPQuotation) => {
         const contract = v != null ? Number(v) : null;
