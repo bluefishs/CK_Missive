@@ -275,5 +275,7 @@ docker run --rm --privileged alpine sh -c 'dmesg | grep -cE "segfault|general pr
   - VM uptime 14046s ≈ 15:58:50 本地：uvicorn segfault libpython3.11
 - 症狀：視覺走查在 15:58:58 UTC+8 拍到 Cloudflare **502**（origin 正在重啟），前後各約 10–30 秒公網不可用；探針／流程走查其餘時段 200。
 - 這一波與程式無關（同一個映像 `8887ad23` 在其他時段全部正常；壓力假說今天中午已由 CK_Website 關閉）。
-- ⇒ A127 的優先級要提高：**這是第一次段錯誤集中打在 Missive 的 uvicorn 上而不是別的容器**；owner 兩個選項（補 mdsched Extended／08-12 更新回退對照）建議今晚就排一個。
+- ⚠️ **歸屬更正（CK_Website 16:01 全量 dmesg 實測）**：本波從 **14:47** 開始、共 **12 筆**，命中五個容器四個 repo（lvrland 重啟 5、tunnel celery-exporter 5、missive 4、hermes gateway／web 各 2；pilemgmt 與 sw-worker 本波未命中）。我先前寫「第一次集中打在 Missive」是**只查自己容器的自造分母**——`uvicorn` 行程名三個後端都用，歸屬只能看各容器的 `RestartCount`／`StartedAt`。
+- ⚠️ **探針靜默不可判定**：同一小時 12 次段錯誤、5 個容器重啟，AaaP／Website 三支 15–30 分鐘的探針全部回報正常（故障秒級、policy=always 約 1 秒拉回）；看到 502 的是視覺走查那一張截圖。⇒ 本 runbook 任何靠「探針沒告警」支持的結論一律標不可判定；能看到這種故障的只有容器生死事件（`RestartCount` 差分）。
+- ⇒ 今晚排實驗（補 mdsched Extended／08-12 更新回退對照）；**驗收窗口要長於已知最長安靜期（3.51 h）**，少於 4 小時的安靜不構成「修好了」。
 
