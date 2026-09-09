@@ -1024,9 +1024,18 @@ class QuotationLegacyImportService:
                 yr += 1911
             code_of[r["legacy_no"]] = await code_svc.generate_case_code("pm", yr, "02")
 
+        from app.services.erp.quote_kind import infer_quote_kind
+
         for r in to_create:
+            _code = code_of[r["legacy_no"]]
             q = ERPQuotation(
-                case_code=code_of[r["legacy_no"]],
+                case_code=_code,
+                # 2026-09-09：這條路徑此前**沒有帶 quote_kind** —— 它直接 new ERPQuotation，
+                # 繞過了 `quotation_service.create`（那裡才有「沒帶就推導」那一段）。
+                # 結果是 09-07 匯入的 8 張全部 NULL，而 weekly 102 每週都在報
+                # 「有第四條建立路徑沒帶值」。
+                # 推導用既有的單一來源，**不在這裡另寫一份判準** —— 案號的類別碼是唯一依據。
+                quote_kind=infer_quote_kind(_code),
                 case_name=r["case_name"],
                 year=r["year"] or date.today().year,
                 total_price=r["total_price"],

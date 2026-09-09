@@ -45,6 +45,24 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# ------------------------------------------------------------------
+# 2026-09-09：host 的主控台是 cp950，而 13 支檢核的訊息裡有 🔴 ⚠️ ⇒ 這類字元。
+# 沒設編碼時症狀不是亂碼，是 **UnicodeEncodeError 讓腳本在印訊息時當場崩潰**，
+# 退出碼變成 1（python 例外）而不是它本來要回的 2。
+#
+# ⚠️ 下面 run_step 的 `*)` 分支**早就帶了** `PYTHONIOENCODING=utf-8`，
+#    所以排程跑的 .py 一直是好的。這裡補 export 是為了另外兩條路徑：
+#      ① `*.sh` 分支 —— `bash $script` 沒帶這個變數，而那些 shell 腳本內部會呼叫 python
+#      ② 有人手動單獨跑某一支時（我 2026-09-09 就這樣踩到，見下）
+#
+# ⚠️ **一個我自己的誤判，留在這裡當對照**：我手動跑 weekly 102 得到 rc=1、
+#    看到 UnicodeEncodeError，就推論「它在排程裡也一直崩潰、真問題被藏住了」。
+#    **錯的。** 排程那條路徑有設編碼，102 在 weekly 歷史裡一直是 rc=2，
+#    「新建報價單 quote_kind 為 NULL：8 件」也一直有報出來。
+#    崩潰是我的執行方式造成的，不是系統的狀態
+#    （memory/my_tool_behaviour_is_not_the_finding.md，同一天第二次）。
+export PYTHONIOENCODING=utf-8
+
 TOTAL_STEPS=$(grep -cE '^[[:space:]]*run_step "' "$0")
 echo -e "${CYAN}===========================================${NC}"
 echo -e "${CYAN} Fitness Tier 2 Weekly — ${TOTAL_STEPS} trend step  ${NC}"

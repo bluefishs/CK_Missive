@@ -75,6 +75,13 @@ export interface FinanceAnomaly {
 export interface ERPQuotation {
   /** 金流異常（空陣列＝這張沒有異常） */
   anomalies?: FinanceAnomaly[];
+  /**
+   * 總價是否已含稅（後端 `erp_quotations.tax_included`）。
+   *
+   * 2026-09-09 weekly 63 抓到：後端一直有回這個欄位而前端型別沒宣告
+   * ⇒ 使用端用 `as` 取值時，名字打錯或漏掉都不會被 tsc 擋下。
+   */
+  tax_included?: boolean;
   id: number;
   case_code: string;
   project_code?: string;
