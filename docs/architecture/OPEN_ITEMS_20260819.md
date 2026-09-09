@@ -68,7 +68,7 @@
 | 項 | 是什麼 | 何時 |
 |---|---|---|
 | ~~經費指標存量 7 處收斂~~ → **剩 3 處**（09-09 下午）| 分組版片段已做、4 處已清；剩 `billing_service` 承攬金額（請款上限檢查）與 `quotation_service` 應付／承攬金額兩處（Python 端組值） | 下一輪 |
-| **weekly 133 存量 12 組 58 欄位逐一清**（`.list_stats_filter_baseline.json`） | 最痛的三組：`/erp/assets`／`/erp/operational`／`/erp/expenses` 的統計端點連一個篩選都不收（FLOW_REVIEW §二 說的「卡片不跟 category」就是這裡）；`/pm/cases` 缺 keyword／client_name；文件、機關、廠商、專案四頁的 statistics 沒有 body | 下一輪，每接一個欄位刪一行基線 |
+| **weekly 133 存量 12→7 組**（`.list_stats_filter_baseline.json`） | ✅ 09-09 晚清掉五組：資產／營運帳目（各一支篩選建構器，統計端點吃列表 schema）、報價單損益摘要（`_filter_kwargs` 十個條件一份解析）、PM 案件摘要（`case_filters`，承辦解析同走 `CaseStatsScope`）、文件（配對規則改認 `filtered-statistics`，本來就是同一份 `DocumentListQuery`）。**剩 7 組**：機關／廠商／專案的 statistics 是全域無 body（主檔頁卡片要不要隨列表篩＝產品判斷）、費用核銷 grouped-summary（按案件分組的另一種檢視）、發票彙總 summary（按報價單 id 的列表 vs 年度彙總）、搜尋歷史、標案審核佇列 | 前四組要你判是否算「列表卡片」；後兩組工程小、下一輪 |
 | weekly 132 Core 存量 8 處（應付／已付的 `func.sum`） | 應付無條件各處同值、已付要逐處核對狀態條件（L149 形狀） | 下一輪 |
 | `/contract-cases` 篩選收斂到 `buildServerFilters` | 那頁篩選狀態是三個獨立 useState，收斂要動排序與搜尋（`TABLE_FILTER_CONVERGENCE_20260909.md` §三） | 與上面分開做，風險不疊 |
 | 手機隱形篩選的風險點 | `/contract-cases` 四個篩選欄是唯一入口（工具列已撤），任一欄若加 `hideOnMobile` 當場變隱形篩選 | 加一條 weekly 128 判準：唯一入口的欄位不得 hideOnMobile |

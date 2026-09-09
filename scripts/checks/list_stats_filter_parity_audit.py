@@ -63,7 +63,7 @@ if app is None:
 
 PAGING = {"page", "limit", "skip", "offset", "page_size", "size", "cursor",
           "sort_by", "sort_order", "order_by", "order", "sort", "sort_field", "sort_direction"}
-STAT_LEAVES = {"statistics", "stats", "summary", "totals", "overview", "profit-summary", "grouped-summary"}
+STAT_LEAVES = {"statistics", "stats", "summary", "totals", "overview", "profit-summary", "grouped-summary", "filtered-statistics"}
 
 def body_model(route):
     # FastAPI 0.135／pydantic v2：ModelField 沒有 type_，型別在 field_info.annotation。
@@ -91,6 +91,10 @@ for pre, leaves in sorted(groups.items()):
     stats = [l for l in leaves if l in STAT_LEAVES]
     if not stats:
         continue
+    # 同前綴同時有 statistics（全域、無 body、儀表板用）與 filtered-statistics（列表卡片的分母）時，
+    # 分母是後者；把全域那支拿掉，否則 documents 永遠報「statistics 缺 12 欄」而那不是卡片在用的端點。
+    if "filtered-statistics" in stats and "statistics" in stats:
+        stats.remove("statistics")
     lm = body_model(leaves["list"])
     exempt = dict(getattr(lm, "STATS_EXEMPT", {}) or {}) if lm is not None else {}
     lfields = fields(lm) - PAGING
