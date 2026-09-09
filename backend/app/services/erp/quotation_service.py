@@ -288,6 +288,38 @@ class ERPQuotationService(AuditableServiceMixin):
         await self.audit_delete(quotation_id)
         return True
 
+    async def _filter_kwargs(self, params: ERPQuotationListRequest, accessible_case_codes=None,
+                             *, for_stats: bool = False) -> dict:
+        """**列表與統計卡共用的篩選解析**（2026-09-09，weekly 133）——回 `repo.filter_quotations` 的關鍵字引數。
+
+        此前列表在這裡解析十個條件、損益摘要只收四個 ⇒ 選了承辦／狀態／案號，卡片不跟。
+        現在兩邊吃同一份 `ERPQuotationListRequest`，差別只有：
+        * `for_stats=True` ⇒ `card` 不套（卡片是分母，點卡片篩列表時卡片不隨之歸零；`STATS_EXEMPT`）。
+        * 關鍵字：`search`（本頁舊名）與 `keyword`（`CaseListFilters` 的統一名）**都認**，欄名統一是下一步。
+        """
+        accessible_case_codes = await narrow_scope_to_staff(
+            self.db, accessible_case_codes, params.staff_user_id)
+
+        anomaly_ids = None
+        if params.anomaly:
+            from app.services.erp import finance_anomaly
+            anomaly_ids = await finance_anomaly.anomaly_ids(
+                self.db, only_open=(params.anomaly == "open"))
+
+        return dict(
+            year=params.year,
+            status=params.status,
+            case_code=params.case_code,
+            search=params.search or getattr(params, "keyword", None) or None,
+            include_unawarded=params.include_unawarded,
+            accessible_case_codes=accessible_case_codes,
+            category=params.category,
+            case_status=params.case_status,
+            client_name=params.client_name,
+            card=None if for_stats else params.card,
+            anomaly_quotation_ids=anomaly_ids,
+        )
+
     async def list_quotations(
         self,
         params: ERPQuotationListRequest,
@@ -323,33 +355,12 @@ class ERPQuotationService(AuditableServiceMixin):
                 logger.error("可見範圍解析失敗，限縮為空：%s", e, exc_info=True)
                 accessible_case_codes = set()
 
-        accessible_case_codes = await narrow_scope_to_staff(
-            self.db, accessible_case_codes, params.staff_user_id)
-
-        # ⭐ 2026-09-08：金流異常篩選。判準只有一份（finance_anomaly），
-        # 這裡只是把它算出來的 id 清單交給查詢。
-        anomaly_ids = None
-        if params.anomaly:
-            from app.services.erp import finance_anomaly
-            anomaly_ids = await finance_anomaly.anomaly_ids(
-                self.db, only_open=(params.anomaly == "open"))
-
         items, total = await self.repo.filter_quotations(
-            year=params.year,
-            status=params.status,
-            case_code=params.case_code,
-            search=params.search,
+            **(await self._filter_kwargs(params, accessible_case_codes)),
             skip=params.skip,
             limit=params.limit,
             sort_by=params.sort_by or "id",
             sort_order=params.sort_order.value if params.sort_order else "desc",
-            include_unawarded=params.include_unawarded,
-            accessible_case_codes=accessible_case_codes,
-            category=params.category,
-            case_status=params.case_status,
-            client_name=params.client_name,
-            card=params.card,
-            anomaly_quotation_ids=anomaly_ids,
         )
 
         if not items:
@@ -773,7 +784,8 @@ class ERPQuotationService(AuditableServiceMixin):
         return [{"name": r.name, "count": r.n} for r in rows]
 
     async def get_profit_summary(
-        self, year: Optional[int] = None, search: Optional[str] = None,
+        self, params: Optional[ERPQuotationListRequest] = None, *,
+        year: Optional[int] = None, search: Optional[str] = None,
         category: Optional[str] = None, client_name: Optional[str] = None,
         accessible_case_codes=None, staff_user_id: Optional[int] = None,
     ) -> ERPProfitSummary:
@@ -791,10 +803,12 @@ class ERPQuotationService(AuditableServiceMixin):
         """
         # 2026-09-09 owner：選了承辦「邱元宏」，列表 85 張而卡片 2,149 萬（全公司 112 張）——
         # 列表用 `narrow_scope_to_staff` 交集承辦案號，這裡此前沒有。同一份 helper，不再各寫一份。
-        accessible_case_codes = await narrow_scope_to_staff(self.db, accessible_case_codes, staff_user_id)
+        if params is None:  # 舊呼叫形狀（關鍵字引數）——組成同一份 schema，走同一條解析
+            params = ERPQuotationListRequest(
+                year=year, search=search or None, category=category or None,
+                client_name=client_name or None, staff_user_id=staff_user_id)
         items, _ = await self.repo.filter_quotations(
-            year=year, search=search or None, category=category or None, client_name=client_name or None,
-            accessible_case_codes=accessible_case_codes,
+            **(await self._filter_kwargs(params, accessible_case_codes, for_stats=True)),
             skip=0, limit=9999,
         )
 

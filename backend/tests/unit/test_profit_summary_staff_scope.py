@@ -43,8 +43,10 @@ async def test_narrow_empty_intersection_is_sentinel_not_all():
 def test_list_and_summary_share_one_helper():
     src_list = inspect.getsource(qs.ERPQuotationService.list_quotations)
     src_sum = inspect.getsource(qs.ERPQuotationService.get_profit_summary)
-    assert "narrow_scope_to_staff(" in src_list
-    assert "narrow_scope_to_staff(" in src_sum
+    # 09-09 晚：兩邊都走同一支 _filter_kwargs（十個條件一份解析），承辦交集在它裡面
+    assert "_filter_kwargs(" in src_list
+    assert "_filter_kwargs(" in src_sum
+    assert "narrow_scope_to_staff(" in inspect.getsource(qs.ERPQuotationService._filter_kwargs)
     # 檔案裡不得再有第二份「承辦交集」寫法
     whole = inspect.getsource(qs)
     assert whole.count("case_codes_of_user(") == 1, "承辦案號交集只能寫在 narrow_scope_to_staff 裡"
@@ -53,4 +55,6 @@ def test_list_and_summary_share_one_helper():
 def test_endpoint_forwards_staff_user_id():
     from app.api.endpoints.erp import quotations as ep
     src = inspect.getsource(ep.get_profit_summary)
-    assert "staff_user_id=req.staff_user_id" in src
+    # 統計端點吃列表同一份 schema ⇒ 每個列表篩選欄位（含 staff_user_id）都到得了
+    assert "req: ERPQuotationListRequest" in src
+    assert "get_profit_summary(req" in src

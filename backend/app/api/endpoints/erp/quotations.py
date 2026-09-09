@@ -218,17 +218,14 @@ async def delete_quotation(
 
 @router.post("/profit-summary")
 async def get_profit_summary(
-    req: ERPSummaryRequest,
+    req: ERPQuotationListRequest,
     service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
     current_user: User = Depends(require_auth()),
 ):
-    """損益摘要（統計卡）——與列表**同一個身分範圍**，見 service 的說明"""
+    """損益摘要（統計卡）——與列表**同一份 schema、同一個身分範圍**（weekly 133）；
+    `card` 不套（卡片是分母，`ERPQuotationListRequest.STATS_EXEMPT`），分頁與排序欄位忽略。"""
     scope = await _quotation_scope(service.db, current_user)
-    result = await service.get_profit_summary(
-        year=req.year, search=req.search,
-        category=req.category, client_name=req.client_name,
-        accessible_case_codes=scope, staff_user_id=req.staff_user_id,
-    )
+    result = await service.get_profit_summary(req, accessible_case_codes=scope)
     return SuccessResponse(data=result)
 
 
