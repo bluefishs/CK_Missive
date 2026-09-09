@@ -638,6 +638,7 @@ run_step "128" "表頭篩選鍵接線（宣告了漏斗而 onChange 讀不到那
 run_step "129" "承辦身分合併展開（alias 帳號上的指派；只認 canonical id 會讓案憑空消失）" "scripts/checks/staff_alias_scope_parity_audit.py"
 run_step "130" "請求物件的「猜」欄位（schema 已宣告卻用 getattr ⇒ 改名時靜默變 None）" "scripts/checks/request_field_guess_audit.py"
 run_step "131" "列表與統計卡的身分口徑（同一身分下兩邊數字必須相同；須容器內跑）" "scripts/checks/list_stat_scope_parity_audit.py"
+run_step "132" "經費指標唯一實作（金額算式不得在 finance_metrics 之外出現；存量走基線）" "scripts/checks/finance_metrics_ssot_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

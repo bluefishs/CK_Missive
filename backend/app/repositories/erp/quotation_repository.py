@@ -97,18 +97,19 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         # ⚠️ 請款與應付**掛在報價單**（只有 `erp_quotation_id`），
         # 不是掛在專案 ⇒ 這裡以 `row.id`（報價單 id）聚合是正確的路徑；
         # 若改用 project_code 會查不到而**回 0 不是報錯**。
-        cash = (await self.db.execute(text("""
+        # ⭐ owner 2026-09-09：「統計應建構統一服務端，不應依各別頁面各自建構」。
+        # 這四個金額此前是本檔自己寫的第三份實作 —— 而它的「已收款」是
+        # `payment_status = 'paid'`（**不含 partial**），與財務彙總的
+        # `IN ('paid','partial')` 不同。當時三份寫法三種狀態條件，
+        # 而資料剛好全是 paid ⇒ 數字一致、看不出來。
+        from app.services.erp import finance_metrics as _fm
+
+        cash = (await self.db.execute(text(f"""
             SELECT
-              COALESCE((SELECT SUM(billing_amount) FROM erp_billings
-                         WHERE erp_quotation_id = :qid), 0)                 AS billed,
-              COALESCE((SELECT SUM(payment_amount) FROM erp_billings
-                         WHERE erp_quotation_id = :qid
-                           AND payment_status = 'paid'), 0)                 AS received,
-              COALESCE((SELECT SUM(payable_amount) FROM erp_vendor_payables
-                         WHERE erp_quotation_id = :qid), 0)                 AS payable,
-              COALESCE((SELECT SUM(paid_amount) FROM erp_vendor_payables
-                         WHERE erp_quotation_id = :qid
-                           AND payment_status = 'paid'), 0)                 AS paid
+              {_fm.billed_amount(ref=':qid')}   AS billed,
+              {_fm.received_amount(ref=':qid')} AS received,
+              {_fm.payable_amount(ref=':qid')}  AS payable,
+              {_fm.paid_amount(ref=':qid')}     AS paid
         """), {"qid": row.id})).one()
 
         return {

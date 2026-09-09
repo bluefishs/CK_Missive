@@ -488,6 +488,11 @@ class FinancialSummaryRepository:
         應付掛在報價單的 erp_vendor_payables（含「指派即應付」自動建的）。
         """
         from sqlalchemy import text as _t
+
+        # ⭐ owner 2026-09-09：「統計應建構統一服務端，不應依各別頁面各自建構」。
+        # 承攬金額／已請款／已收款／年度口徑一律從這裡拿 —— 盤點時這四個指標
+        # 各有 3–4 份實作，而「已收款」三份的狀態條件已經不一樣了。
+        from app.services.erp import finance_metrics as _fm
         scope = "q.deleted_at IS NULL"
         params: dict = {}
         if year:
@@ -500,9 +505,9 @@ class FinancialSummaryRepository:
             # 2026 年度執行。案號年看不到它，而它是真的 2026 年度的案。
             # 這個口徑 09-08 就已經裁定「year 欄優先、案號年只是後備」
             # （見 `app/repositories/erp/case_year.py` 的說明），這一支沒有跟上。
-            scope += " AND (c.year = :yr_i OR (c.year IS NULL AND q.case_code LIKE :yr))"
-            params["yr_i"] = int(year)
-            params["yr"] = f"CK{int(year)}_%"
+            # 口徑從 `services/erp/finance_metrics` 拿，不在這裡自己寫（owner 09-09 收斂）
+            scope += f" AND {_fm.case_year_condition(year)}"
+            params.update(_fm.case_year_params(year))
         # ⚠️ `(?:` 的冒號會被 SQLAlchemy text() 當成 bind 參數 `:PM_`（L-family：冒號參數陷阱）⇒ 用 `\:` 跳脫
         cat_expr = "substring(q.case_code from '^CK\\d{4}_(?\\:PM_|GN_|FN_)?(\\d{2})_')"
         cat_filter = ""
@@ -512,7 +517,7 @@ class FinancialSummaryRepository:
         base = f"""
             SELECT q.id, {cat_expr} AS cat, c.client_vendor_id,
                    COALESCE(v.vendor_name, btrim(c.client_agency), '（未填委託單位）') AS client_name,
-                   COALESCE(NULLIF(c.winning_amount, 0), c.contract_amount, q.total_price, 0) AS awarded
+                   {_fm.awarded_amount()} AS awarded
             FROM erp_quotations q
             JOIN contract_projects c ON c.case_code = q.case_code
             LEFT JOIN partner_vendors v ON v.id = c.client_vendor_id
@@ -521,8 +526,8 @@ class FinancialSummaryRepository:
         rec_rows = (await self.db.execute(_t(f"""
             WITH q AS ({base})
             SELECT cat, client_name, MIN(client_vendor_id) AS client_vendor_id, COUNT(*) AS n, SUM(awarded) AS awarded,
-                   SUM((SELECT COALESCE(SUM(b.billing_amount), 0) FROM erp_billings b WHERE b.erp_quotation_id = q.id)) AS billed,
-                   SUM((SELECT COALESCE(SUM(b.payment_amount), 0) FROM erp_billings b WHERE b.erp_quotation_id = q.id AND b.payment_status IN ('paid','partial'))) AS received
+                   SUM({_fm.billed_amount()}) AS billed,
+                   SUM({_fm.received_amount()}) AS received
             FROM q WHERE cat IS NOT NULL GROUP BY cat, client_name ORDER BY cat, awarded DESC
         """), params)).all()
         pay_rows = (await self.db.execute(_t(f"""
