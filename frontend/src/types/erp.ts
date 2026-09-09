@@ -1348,6 +1348,8 @@ export interface ClientAccountDetail {
 }
 
 export interface AccountListRequest {
+  /** 計畫類別 01／02（2026-09-09 篩選模組化：三個財務分頁條件一致，對應後端 CaseListFilters） */
+  category?: string;
   vendor_type?: string;
   year?: number;
   keyword?: string;

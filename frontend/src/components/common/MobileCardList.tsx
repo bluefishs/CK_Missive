@@ -21,6 +21,12 @@ const { Text } = Typography;
 export interface MobileCardRow {
   label: string;
   value: React.ReactNode;
+  /**
+   * 警示語意（2026-09-09 owner：「異常狀態應更明顯呈現」）。
+   * `danger`＝數字互相矛盾（紅字＋左側紅條、整列跨欄）；`warn`＝需要人判斷（橘）。
+   * 不給就是一般資訊列。
+   */
+  tone?: 'danger' | 'warn';
 }
 
 export interface MobileCardProps {
@@ -61,7 +67,7 @@ export const MobileCard: React.FC<MobileCardProps> = ({ title, subtitle, tags, r
     {rows && rows.length > 0 && (
       <div className="ck-mcard-rows">
         {rows.map((r, i) => (
-          <div key={i} className="ck-mcard-row">
+          <div key={i} className={`ck-mcard-row${r.tone ? ` ck-mcard-row-${r.tone}` : ''}`}>
             <Text type="secondary" className="ck-mcard-label">{r.label}</Text>
             <div className="ck-mcard-value">{r.value ?? '—'}</div>
           </div>

@@ -22,6 +22,7 @@ from sqlalchemy import select, func, or_, case as sa_case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPQuotation, ERPBilling
+from app.services.stats.finance import case_category_expr  # 類別碼表達式＝中心服務唯一實作
 from app.extended.models.pm import PMCase
 from app.extended.models.core import PartnerVendor, ContractProject
 from app.repositories.erp.pm_coverage import contract_covered_by_pm
@@ -39,6 +40,7 @@ class ClientReceivableRepository:
         self,
         year: Optional[int] = None,
         keyword: Optional[str] = None,
+        category: Optional[str] = None,
         staff_user_id: Optional[int] = None,
         accessible_case_codes=None,
         skip: int = 0,
@@ -155,9 +157,18 @@ class ClientReceivableRepository:
 
         if year:
             leg1 = leg1.where(PMCase.year == year)
+        if category:
+            # 2026-09-09 owner「A 頁有 B 頁無」：補計畫類別（兩條腿都要套，見下方 leg2）
+            leg1 = leg1.where(case_category_expr(PMCase.case_code) == category)
         if keyword:
             # 2026-09-05 owner「搜尋提示寫代碼＝統一編號」：提示改寫成統一編號，後端也真的用統編找
-            leg1 = leg1.where(or_(PartnerVendor.vendor_name.ilike(f"%{keyword}%"), PartnerVendor.tax_id.ilike(f"%{keyword}%")))
+            # 2026-09-09 owner：「關鍵字搜尋多以案號，但使用端常用案名」——帳款頁此前只找單位名與統編，
+            # 打案名一個都找不到、也不報錯。加案名（PM 案名／承攬案名）。
+            leg1 = leg1.where(or_(
+                PartnerVendor.vendor_name.ilike(f"%{keyword}%"),
+                PartnerVendor.tax_id.ilike(f"%{keyword}%"),
+                PMCase.case_name.ilike(f"%{keyword}%"),
+            ))
         leg1 = leg1.group_by(
             PMCase.client_vendor_id, PartnerVendor.vendor_name, PartnerVendor.vendor_code, PartnerVendor.tax_id
         )
@@ -185,6 +196,7 @@ class ClientReceivableRepository:
                 ContractProject.client_agency != "",
                 ContractProject.case_code.isnot(None),
                 ~covered,
+                *([case_category_expr(ContractProject.case_code) == category] if category else []),
             )
             .group_by(ContractProject.client_vendor_id, ContractProject.client_agency)
         )
@@ -198,7 +210,12 @@ class ClientReceivableRepository:
         if year:
             leg2 = leg2.where(ContractProject.year == year)
         if keyword:
-            leg2 = leg2.where(ContractProject.client_agency.ilike(f"%{keyword}%"))
+            # 2026-09-09 owner：使用端常用案名 —— 此前只搜單位名，打案名一個都找不到。
+            # ⚠️ 我第一版把案名條件加在上面 select().where() 裡，與這一行用 AND 疊加 ⇒ 案名命中仍被單位名擋掉、回 0。
+            leg2 = leg2.where(or_(
+                ContractProject.client_agency.ilike(f"%{keyword}%"),
+                ContractProject.project_name.ilike(f"%{keyword}%"),
+            ))
 
         leg1_rows = (await self.db.execute(leg1)).all()
         leg2_rows = (await self.db.execute(leg2)).all()

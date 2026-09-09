@@ -88,6 +88,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         year: Optional[int] = None,
         keyword: Optional[str] = None,
         staff_user_id: Optional[int] = None,
+        category: Optional[str] = None,
         accessible_case_codes=None,
         skip: int = 0,
         limit: int = 50,
@@ -151,12 +152,21 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
             query = query.where(ERPQuotation.case_code.in_(mine or {"__none__"}))
 
         if year:
-            # 2026-09-05：年度＝案號年（與委託單位帳款、專案帳款頁同口徑），不是報價單建立年
+            # 年度口徑＝`case_year.quotation_case_year_condition`（year 欄優先、案號年後備）
             query = query.where(quotation_case_year_condition(year))
+        if category:
+            # 2026-09-09 owner「A 頁有 B 頁無」：報價單頁有計畫類別，本頁此前沒有。表達式來自中心服務。
+            from app.services.stats.finance import case_category_expr
+            query = query.where(case_category_expr(ERPQuotation.case_code) == category)
         if keyword:
             # 2026-09-05 owner「搜尋提示寫代碼＝統一編號」：名稱或統一編號都找得到
             tax_match = select(PartnerVendor.id).where(PartnerVendor.tax_id.ilike(f"%{keyword}%")).scalar_subquery()
-            query = query.where(or_(ERPVendorPayable.vendor_name.ilike(f"%{keyword}%"), ERPVendorPayable.vendor_id.in_(tax_match)))
+            # 2026-09-09 owner：使用端常用案名搜尋 —— 加報價單案名（這支已 join ERPQuotation）。
+            query = query.where(or_(
+                ERPVendorPayable.vendor_name.ilike(f"%{keyword}%"),
+                ERPVendorPayable.vendor_id.in_(tax_match),
+                ERPQuotation.case_name.ilike(f"%{keyword}%"),
+            ))
 
         # Filter by vendor_type via LEFT JOIN to PartnerVendor
         # Records without vendor_id are included (assumed to be subcontractors)

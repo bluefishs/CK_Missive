@@ -478,6 +478,12 @@
 .ck-mcard-row { min-width: 0; }
 .ck-mcard-label { font-size: 11.5px !important; display: block; }
 .ck-mcard-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #1f2937; }
+/* 2026-09-09 owner：異常要一眼看到。卡片的「金流異常」列此前是與其他欄位同色的灰字，
+   在手機上等於沒有告知。tone=danger ⇒ 紅字＋左側色條；tone=warn ⇒ 橘字。 */
+.ck-mcard-row-danger .ck-mcard-value { color: #b91c1c; font-weight: 600; white-space: normal; }
+.ck-mcard-row-danger { border-left: 3px solid #dc2626; padding-left: 6px; grid-column: 1 / -1; }
+.ck-mcard-row-warn .ck-mcard-value { color: #c2410c; font-weight: 600; white-space: normal; }
+.ck-mcard-row-warn { border-left: 3px solid #ea580c; padding-left: 6px; grid-column: 1 / -1; }
 /* 2026-09-09 owner 截圖：三欄底列在 390px 把「承攬金額（含稅）」與「22,675,000（已收 35%）」各擠成三行。
    改法：金額與標籤不折行，放不下就整欄換到下一列（flex-wrap），附註走 .ck-mcard-amount-sub 小字。 */
 .ck-mcard-amounts { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb; font-variant-numeric: tabular-nums; }

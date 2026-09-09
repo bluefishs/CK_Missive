@@ -20,6 +20,7 @@ import { ClickableStatCard } from '../components/common';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
+import { CASE_CATEGORY_OPTIONS } from '../constants/projectOptions';
 import { useVendorAccountSummary } from '../hooks';
 import type { VendorAccountSummaryItem } from '../types/erp';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
@@ -56,6 +57,8 @@ const ERPVendorAccountsPage: React.FC = () => {
   // 2026-09-07 owner：「對應承攬同仁呈現對應資訊，避免資訊爆炸」。
   // 與委託單位帳款同一套：選了承辦就在**案號層**限縮，應付金額與統計卡跟著走。
   const [staffUserId, setStaffUserId] = useState<number | undefined>();
+  // 2026-09-09 owner「A 頁有 B 頁無」：報價單頁有計畫類別、本頁此前沒有。三個財務分頁條件一致。
+  const [category, setCategory] = useState<string | undefined>();
   const { staffOptions } = useStaffAssigneeOptions();
 
   const { data, isLoading, isError } = useVendorAccountSummary({
@@ -63,6 +66,7 @@ const ERPVendorAccountsPage: React.FC = () => {
     year,
     keyword: keyword || undefined,
     staff_user_id: staffUserId,
+    category,
     // 2026-09-04：後端預設 50 而委託單位 186 家 ⇒ 此前頁面只列 50 家、其餘查不到（表格分頁與排序都在這 50 筆上做）
     limit: 1000,
   });
@@ -205,7 +209,7 @@ const ERPVendorAccountsPage: React.FC = () => {
         extra={
           <Space wrap>  {/* 2026-09-05 RWD：390px 探針量到 7–17px 溢出，來源是這排不換行 */}
             <Input.Search
-              placeholder="搜尋廠商名稱／統一編號"
+              placeholder="搜尋廠商名稱／統一編號／案名"
               allowClear
               style={{ width: 220 }}
               onSearch={(v) => setKeyword(v.trim())}
@@ -226,6 +230,14 @@ const ERPVendorAccountsPage: React.FC = () => {
               value={staffUserId}
               onChange={(v) => setStaffUserId(v)}
               options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
+            />
+            <Select
+              placeholder="計畫類別"
+              allowClear
+              style={{ width: 130 }}
+              value={category}
+              options={[...CASE_CATEGORY_OPTIONS]}
+              onChange={(v) => setCategory(v)}
             />
           </Space>
         }

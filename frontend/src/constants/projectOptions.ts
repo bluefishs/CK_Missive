@@ -85,3 +85,16 @@ export const PROJECT_STATUS_COLORS: Record<string, string> = {
   '已結案': 'success',
   '未得標': 'default',
 };
+
+/**
+ * 計畫類別的**篩選選項**（value 是後端認的類別碼 `01`／`02`）。
+ *
+ * 2026-09-09 owner「篩選機制模組化」：報價單頁此前把這組選項寫在頁面裡，
+ * 帳款兩頁根本沒有這個條件，而上面的 `PROJECT_CATEGORY_OPTIONS` 的 value 是帶中文的
+ * `'01委辦招標'`（那是**建案表單**存進 DB 的字串，不是篩選碼）——同一個概念三種寫法。
+ * 篩選一律用這一份；後端對應 `schemas/erp/vendor_financial.CaseListFilters.category`。
+ */
+export const CASE_CATEGORY_OPTIONS = [
+  { value: '01', label: '01 委辦招標' },
+  { value: '02', label: '02 承攬報價' },
+] as const;

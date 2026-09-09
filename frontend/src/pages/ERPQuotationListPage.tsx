@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { FilterBar } from '../components/common/FilterBar';
 import { AnomalyTags } from '../components/erp/AnomalyTags';
-import { anomalyTagText, anomalyTagColor } from '../components/erp/anomalyTag';
+import { anomalyTagText, anomalyTagColor, anomalyTagIcon } from '../components/erp/anomalyTag';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
@@ -588,7 +588,14 @@ export const ERPQuotationListPage: React.FC = () => {
                 tags={[...(winning != null ? [{ text: '議價', color: 'purple' }] : []), ...(r.project_code ? [] : [{ text: '未成案', color: 'default' }]),
                   ...(r.anomalies ?? []).map((a) => ({ text: anomalyTagText(a), color: anomalyTagColor(a) }))]}
                 rows={[{ label: '委託單位', value: r.client_name }, { label: '承辦同仁', value: r.staff_name }, { label: '協力廠商', value: r.vendor_names },
-                  ...((r.anomalies?.length) ? [{ label: '金流異常', value: r.anomalies.map((a) => a.detail).join('；') }] : [])]}
+                  // 2026-09-09 owner：異常要一眼看到。這一列此前是灰字，與委託單位同色。
+                  // 有任一 red 級（數字互相矛盾）⇒ danger；只有 yellow 級（要人判斷）⇒ warn；已判讀的不算。
+                  ...((r.anomalies?.length) ? [{
+                    label: '金流異常',
+                    value: r.anomalies.map((a) => `${anomalyTagIcon(a)} ${a.detail}`).join('；'),
+                    tone: r.anomalies.some((a) => !a.acknowledged && a.severity === 'red') ? 'danger' as const
+                      : r.anomalies.some((a) => !a.acknowledged) ? 'warn' as const : undefined,
+                  }] : [])]}
                 amounts={[
                   { label: '承攬（含稅）', value: fmtMoney(awarded) },
                   { label: '應收帳款', value: billed ? fmtMoney(billed) : '—',

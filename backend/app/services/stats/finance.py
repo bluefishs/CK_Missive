@@ -113,3 +113,21 @@ def case_year_condition(year: int, c: str = "c", q: str = "q", param: str = "yr"
 def case_year_params(year: int, param: str = "yr") -> dict:
     """`case_year_condition` 需要的 bind 參數。兩者必須一起用。"""
     return {f"{param}_i": int(year), param: f"CK{int(year)}_%"}
+
+#: 案號的類別碼（`01` 委辦招標／`02` 承攬報價）。新制 `CK2026_PM_02_001` 在模組段之後，
+#: 舊制 `CK2025_01_01_001` 在年度之後。與 `services/erp/quote_kind.category_of` 同一條規則。
+_CAT_RE = "^CK" + chr(92) + "d{4}_(?:PM_|GN_|FN_|DP_)?(" + chr(92) + "d{2})_"
+
+
+def case_category_expr(case_code_col):
+    """回 SQLAlchemy 表達式：從案號欄取出類別碼。
+
+    2026-09-09 owner「篩選機制模組化」：帳款兩頁此前**沒有**計畫類別條件，
+    而財務摘要 repository 自己寫了一份 `substring(... from '^CK...')`（text 版）。
+    ORM 版放這裡，讓帳款頁與其他 ORM 查詢共用；text 版那一份是存量（基線內）。
+
+    用法：`query.where(case_category_expr(ERPQuotation.case_code) == "02")`
+    """
+    from sqlalchemy import func
+
+    return func.substring(case_code_col, _CAT_RE)

@@ -41,6 +41,7 @@ async def get_client_account_summary(
         year=params.year,
         keyword=params.keyword,
         staff_user_id=params.staff_user_id,
+        category=params.category,
         skip=params.skip,
         limit=params.limit,
     )

@@ -21,6 +21,7 @@
 | 經費指標存量 7 處收斂 | `.finance_metrics_baseline.json`；4 處是 GROUP BY 形式要先設計**分組版片段**，2 處 Python 端組值，1 處請款上限檢查 | 下一輪，先做分組版片段 |
 | `/contract-cases` 篩選收斂到 `buildServerFilters` | 那頁篩選狀態是三個獨立 useState，收斂要動排序與搜尋（`TABLE_FILTER_CONVERGENCE_20260909.md` §三） | 與上面分開做，風險不疊 |
 | 手機隱形篩選的風險點 | `/contract-cases` 四個篩選欄是唯一入口（工具列已撤），任一欄若加 `hideOnMobile` 當場變隱形篩選 | 加一條 weekly 128 判準：唯一入口的欄位不得 hideOnMobile |
+| 篩選模組化第二步：`CaseFilterBar` 共用元件 | 後端 `CaseListFilters` 已是單一定義、三個財務分頁條件已一致；前端各頁仍各自畫 Select（`FILTER_MODULARIZATION_20260909.md` §四） | 下一輪 |
 | weekly 統整的分類表維護 | 新增 run_step 要同步登記 `weekly_step_taxonomy.json`，彙總器未分類即紅 | 持續 |
 
 ### C. 09-09 已結案（供對照）
