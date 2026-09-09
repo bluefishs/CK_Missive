@@ -262,3 +262,18 @@ docker run --rm --privileged alpine sh -c 'dmesg | grep -cE "segfault|general pr
   另兩行 VM 核心警告 `BUG: using __this_cpu_add() in preemptible code: containerd`／`smp_processor_id() … notify-rs`，指向這顆 kernel 對 Hyper-V per-CPU 假設不成立。
 - CK_Website 登記為 P2-4，並明寫「**memtest 乾淨之後才做更新回退對照，不要兩個實驗同時做**」。
 - ⇒ A127 給 owner 的選項收斂為：**先排 memtest86+／mdsched Extended（一整夜）**；乾淨才做 08-12 更新回退對照。swap=0 從清單移除。
+
+### 2026-09-09 15:50–15:59 第五波：Missive backend 被 segfault 打到重啟迴圈（本 repo 實測）
+
+- `docker inspect ck_missive_backend`：RestartCount=4（policy=always 自動拉回）、OOMKilled=false；backend 日誌 15:50／15:52（部署）／15:55:33／15:55:58／15:59:00 五次「Application starting」。
+- VM dmesg（由 `docker run --privileged alpine dmesg` 讀，uptime 換算本地時間）：
+  - VM uptime 12345s ≈ 15:30:29 本地：python GPF libc
+  - VM uptime 12732s ≈ 15:36:56 本地：python GPF libc
+  - VM uptime 13839s ≈ 15:55:23 本地：uvicorn segfault libpython3.11
+  - VM uptime 13863s ≈ 15:55:47 本地：uvicorn segfault libpython3.11
+  - VM uptime 14008s ≈ 15:58:12 本地：python3.13 segfault (hermes)
+  - VM uptime 14046s ≈ 15:58:50 本地：uvicorn segfault libpython3.11
+- 症狀：視覺走查在 15:58:58 UTC+8 拍到 Cloudflare **502**（origin 正在重啟），前後各約 10–30 秒公網不可用；探針／流程走查其餘時段 200。
+- 這一波與程式無關（同一個映像 `8887ad23` 在其他時段全部正常；壓力假說今天中午已由 CK_Website 關閉）。
+- ⇒ A127 的優先級要提高：**這是第一次段錯誤集中打在 Missive 的 uvicorn 上而不是別的容器**；owner 兩個選項（補 mdsched Extended／08-12 更新回退對照）建議今晚就排一個。
+
