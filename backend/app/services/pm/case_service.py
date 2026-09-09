@@ -258,6 +258,7 @@ class PMCaseService:
         self, year: Optional[int] = None, include_converted: bool = True,
         status: Optional[str] = None, category: Optional[str] = None,
         staff_user_id: Optional[int] = None,
+        client_name: Optional[str] = None, search: Optional[str] = None,
     ) -> PMCaseSummary:
         """案件統計摘要（範圍須與列表一致，見 repo 的說明；status／category 只影響金額）
 
@@ -266,7 +267,8 @@ class PMCaseService:
         """
         data = await self.repo.get_summary(year=year, include_converted=include_converted,
                                            status=status, category=category,
-                                           staff_user_id=staff_user_id)
+                                           staff_user_id=staff_user_id,
+                                           client_name=client_name, search=search)
         return PMCaseSummary(**data)
 
     async def get_yearly_trend(self) -> List[PMYearlyTrendItem]:

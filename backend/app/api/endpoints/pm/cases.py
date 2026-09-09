@@ -228,14 +228,16 @@ async def delete_case(
 
 @router.post("/summary")
 async def get_summary(
-    req: PMSummaryRequest,
+    req: PMCaseListRequest,
     service: PMCaseService = Depends(get_service(PMCaseService)),
 ):
-    """案件統計摘要"""
+    """案件統計摘要 —— 與列表**同一份 schema**（weekly 133）：關鍵字／委託單位也跟；分頁排序欄位忽略。
+    status／category 只影響金額卡（各狀態計數卡不隨自己的篩選歸零，09-04）。"""
     result = await service.get_summary(
         year=req.year, include_converted=req.include_converted,
         status=req.status, category=req.category,
         staff_user_id=req.staff_user_id,
+        client_name=req.client_name, search=req.search or req.keyword or None,
     )
     return SuccessResponse(data=result)
 

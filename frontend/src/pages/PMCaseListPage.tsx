@@ -153,6 +153,7 @@ export const PMCaseListPage: React.FC = () => {
     year: yearFilter, include_converted: includeConverted,
     status: statusFilter, category: categoryFilter,
     ...(staffFromUrl ? { staff_user_id: staffFromUrl } : {}),
+    ...(searchText ? { search: searchText } : {}),  // 2026-09-09 晚：關鍵字也是分母的一部分（weekly 133）
   });
 
   // PaginatedResponse<PMCase> has .items and .pagination directly

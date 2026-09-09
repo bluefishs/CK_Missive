@@ -70,6 +70,44 @@ class PMCaseRepository(BaseRepository[PMCase]):
             "progress": row.progress,
         }
 
+    @staticmethod
+    def case_filters(
+        year: Optional[int] = None, status: Optional[str] = None, category: Optional[str] = None,
+        client_name: Optional[str] = None, search: Optional[str] = None,
+        include_converted: bool = True, case_codes: Optional[set] = None,
+    ) -> list:
+        """**篩選條件的家**（2026-09-09，weekly 133）：列表與統計摘要都從這裡拿條件。
+
+        此前列表七個條件、摘要只有年度／身分／已成案 ⇒ 打了關鍵字或選了委託單位，卡片不跟。
+        `case_codes`＝身分範圍展開後的案號集合（None 不限縮、空集合限縮成無），由呼叫端用
+        `CaseStatsScope.resolve_case_codes` 算，這裡不打 DB。
+        """
+        conds = []
+        if not include_converted:
+            # 已承攬**且**有成案編號的移交 /contract-cases（owner 2026-08-31）；只看狀態會讓 91 件從兩邊消失
+            conds.append(or_(
+                PMCase.status != "contracted",
+                PMCase.project_code.is_(None),
+                PMCase.project_code == "",
+            ))
+        if year is not None:
+            conds.append(PMCase.year == year)
+        if status:
+            conds.append(PMCase.status == status)
+        if category:
+            conds.append(PMCase.category == category)
+        if client_name:
+            conds.append(PMCase.client_name.ilike(f"%{client_name}%"))
+        if case_codes is not None:
+            conds.append(PMCase.case_code.in_(case_codes or {"__none__"}))
+        if search:
+            conds.append(or_(
+                PMCase.case_code.ilike(f"%{search}%"),
+                PMCase.case_name.ilike(f"%{search}%"),
+                PMCase.client_name.ilike(f"%{search}%"),
+            ))
+        return conds
+
     async def filter_cases(
         self,
         year: Optional[int] = None,
@@ -97,36 +135,14 @@ class PMCaseRepository(BaseRepository[PMCase]):
         query = select(PMCase)
         count_query = select(func.count(PMCase.id))
 
-        conditions = []
-        if not include_converted:
-            conditions.append(
-                or_(
-                    PMCase.status != "contracted",
-                    PMCase.project_code.is_(None),
-                    PMCase.project_code == "",
-                )
-            )
-        if year is not None:
-            conditions.append(PMCase.year == year)
-        if status:
-            conditions.append(PMCase.status == status)
-        if category:
-            conditions.append(PMCase.category == category)
-        if client_name:
-            conditions.append(PMCase.client_name.ilike(f"%{client_name}%"))
-        if staff_user_id is not None:
-            # 2026-09-07：個人儀表板的數字要點得進來且已篩好（承辦身分）。
-            # 指派有兩條互斥綁法，走 `case_staff` 那一家 —— 只認 case_code 會漏掉
-            # 成案後才指派的那些（同族第 N 處，本 repo 已為此付過多次代價）。
-            from app.repositories.erp.case_staff import case_codes_of_user
-            mine = await case_codes_of_user(self.db, staff_user_id)
-            conditions.append(PMCase.case_code.in_(mine or {"__none__"}))
-        if search:
-            conditions.append(or_(
-                PMCase.case_code.ilike(f"%{search}%"),
-                PMCase.case_name.ilike(f"%{search}%"),
-                PMCase.client_name.ilike(f"%{search}%"),
-            ))
+        # 2026-09-09 晚：條件由 `case_filters()` 產生（**篩選條件的家**，摘要也從這裡拿）；
+        # 承辦身分改走 `CaseStatsScope.resolve_case_codes`（與摘要同一條解析路徑，不再各寫一份）。
+        from app.services.stats.case_scope import CaseStatsScope
+        mine = await CaseStatsScope(year=year, staff_user_id=staff_user_id).resolve_case_codes(self.db)
+        conditions = self.case_filters(
+            year=year, status=status, category=category, client_name=client_name,
+            search=search, include_converted=include_converted, case_codes=mine,
+        )
 
         if conditions:
             from sqlalchemy import and_
@@ -154,6 +170,7 @@ class PMCaseRepository(BaseRepository[PMCase]):
         self, year: Optional[int] = None, include_converted: bool = True,
         status: Optional[str] = None, category: Optional[str] = None,
         staff_user_id: Optional[int] = None,
+        client_name: Optional[str] = None, search: Optional[str] = None,
     ) -> Dict[str, Any]:
         """取得案件統計摘要
 
@@ -182,17 +199,13 @@ class PMCaseRepository(BaseRepository[PMCase]):
         _cols = pm_case_columns()
         _mine = await _scope.resolve_case_codes(self.db)
 
+        # 2026-09-09 晚：年度／身分之外的條件（委託單位、關鍵字、已成案）從 `case_filters()` 拿，
+        # 與列表同一份；status／category 刻意不在這裡套——卡片是各狀態的計數，它們只影響金額（09-04）。
+        _extra = self.case_filters(client_name=client_name, search=search, include_converted=include_converted)
+
         def _scoped(q):
             q = _scope.apply_sync(q, _cols, case_codes=_mine)
-            if not include_converted:
-                q = q.where(
-                    or_(
-                        PMCase.status != "contracted",
-                        PMCase.project_code.is_(None),
-                        PMCase.project_code == "",
-                    )
-                )
-            return q
+            return q.where(*_extra) if _extra else q
 
         # 總數
         total = (await self.db.execute(_scoped(select(func.count(PMCase.id))))).scalar() or 0
