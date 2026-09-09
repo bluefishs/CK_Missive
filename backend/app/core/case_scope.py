@@ -45,7 +45,7 @@ from typing import Iterable, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import is_superuser_user
+from app.core.dependencies import is_admin_user, is_superuser_user
 
 #: 全公司視角的角色 —— 不受承辦案件範圍限制。
 #
@@ -63,12 +63,46 @@ from app.core.dependencies import is_superuser_user
 _COMPANY_WIDE_ROLES = {"admin", "exec", "finance", "superuser"}
 
 
+#: 「跨案查詢」的可授權擴充點。持有它的人即使角色不在 `_COMPANY_WIDE_ROLES` 裡，
+#: 也是全公司視角 —— 這是刻意做成可授權而不是寫死角色的（2026-08-31 owner 裁示）。
+#:
+#: ⚠️ 值就是既有的 `reports:erp:view`（原本寫在
+#: `api/endpoints/erp/quotations.QUOTATION_CROSS_CASE_PERMISSION`）。
+#: **不要在這裡發明一個新的權限碼** —— 我 2026-09-09 收斂時第一版寫成
+#: `erp:quotations:cross_case`，那個碼在 DB 裡不存在，等於把這條路徑靜靜關掉
+#: （當時沒有人會發現，因為那幾位還有角色那條路徑撐著）。
+CROSS_CASE_PERMISSION = "reports:erp:view"
+
+
 def has_company_wide_scope(user) -> bool:
-    """這個人是不是全公司視角（不受案件範圍限制）。"""
+    """這個人是不是全公司視角（不受案件範圍限制）。**判準只有這一份。**
+
+    三條進入路徑，缺一不可：
+
+      ① 超級使用者／管理員 —— 走既有的 SSOT（併看 flag 與 role）。
+         本 repo 有兩位 `role=admin` 而 `is_admin` 旗標是 false，只看旗標會把他們當成一般同仁。
+      ② 持有 `CROSS_CASE_PERMISSION` —— 可授權的擴充點，不必改角色就能開。
+      ③ 角色在 `_COMPANY_WIDE_ROLES`（admin／exec／finance／superuser）。
+
+    ⭐ owner 2026-09-09：「同步考量整合配合角色與帳號（承辦同仁）等機制」。
+    在此之前這個判準有**兩份**：本函式只有 ①③，而
+    `api/endpoints/erp/quotations._quotation_scope` 自己寫了 ①②。
+    ⇒ 同一個人在帳款頁與報價單頁**理論上可能拿到不同範圍**，
+    而實測當下三位主管／財務兩邊都是「不限縮」——**因為他們剛好同時符合 ② 與 ③**。
+    那與「已收款三份實作算出同一個數字」是同一個形狀：**分歧存在，只是還沒發作。**
+    ⇒ 三條路徑併進這一份，兩邊必然一致。
+    """
     if user is None:
         return False
-    if is_superuser_user(user):
+    if is_superuser_user(user) or is_admin_user(user):
         return True
+    try:
+        from app.core.auth_service import AuthService
+
+        if AuthService.check_permission(user, CROSS_CASE_PERMISSION):
+            return True
+    except Exception:  # pragma: no cover - 權限服務不可用時退回角色判定
+        pass
     return str(getattr(user, "role", "") or "").lower() in _COMPANY_WIDE_ROLES
 
 

@@ -53,8 +53,9 @@ NL = chr(10)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 APP = os.path.join(ROOT, "backend", "app")
-#: 唯一實作的家。2026-09-09 owner 定調「建構中心服務」後搬到 `services/stats/`。
-HOME = "services/stats/finance.py"
+#: 唯一實作的家 —— **兩個**：金額指標在中心服務，身分範圍判定在 `core/case_scope`。
+#: （身分判定不搬進 stats：它同時服務「看得到」與「動得了」，不只統計。）
+HOMES = ("services/stats/finance.py", "core/case_scope.py")
 BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".finance_metrics_baseline.json")
 
 _NOTNL = "[^" + BS + "n]"
@@ -68,6 +69,13 @@ PATTERNS = {
     "應付合計": "SUM[(]" + _NOTPAREN + "{0,24}payable_amount",
     "已付合計": "SUM[(]" + _NOTPAREN + "{0,24}paid_amount",
     "年度＝案號年（應為後備）": "case_code" + _NOTNL + "{0,40}LIKE" + _NOTNL + "{0,24}CK",
+    # ⭐ owner 2026-09-09：「同步考量整合配合角色與帳號（承辦同仁）等機制」。
+    # 「誰是全公司視角」原本有兩份：`core/case_scope.has_company_wide_scope`（超管＋角色集合）
+    # 與 `erp/quotations._quotation_scope`（超管＋跨案查詢權限）。
+    # 兩份判準指向同一件事，而實測當下結果相同 —— **因為那三位主管／財務剛好同時符合兩邊**。
+    # 分歧存在，只是還沒發作（同「已收款三份實作算出同一個數字」）。
+    "全公司視角判定（應只在 case_scope）": "is_superuser_user" + _NOTNL + "{0,20}(or|and)" + _NOTNL + "{0,24}is_admin_user",
+    "全公司視角角色集合（應只有一份）": "COMPANY_WIDE_ROLES" + _WS + "*=",
 }
 
 
@@ -79,7 +87,7 @@ def scan():
                 continue
             p = os.path.join(root, f)
             rel = os.path.relpath(p, APP).replace(os.sep, "/")
-            if rel == HOME:
+            if rel in HOMES:
                 continue
             raw = io.open(p, encoding="utf-8").read()
             s = _strip_comments(raw)
@@ -139,7 +147,8 @@ def main() -> int:
     print("=" * 70)
     print("經費指標的唯一實作守門（weekly）")
     print("=" * 70)
-    print("唯一實作＝backend/app/%s（中心服務 app/services/stats/）" % HOME)
+    for h in HOMES:
+        print("唯一實作＝backend/app/%s" % h)
     print("在它以外出現的金額算式：%d 處" % len(hits))
     print("  基線允許（存量待清）：%d" % len(base))
     print("  ⛔ 新增的第二份：%d" % len(new))

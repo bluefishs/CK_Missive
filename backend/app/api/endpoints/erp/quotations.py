@@ -34,7 +34,9 @@ router = APIRouter()
 # 做成一個**權限**而不是寫死的角色判斷：日後真的有人要跨案比對單價、
 # 找歷史案例時，**授予這個權限即可，不必改程式碼**。
 # 目前無人持有 ⇒ 行為等同「只有管理者看得到全部」。
-QUOTATION_CROSS_CASE_PERMISSION = "reports:erp:view"
+# 2026-09-09 收斂：跨案查詢的權限碼統一在 `core/case_scope`，這裡只是別名。
+# 留著是因為其他地方可能還引用它；**值不得在這裡另行定義**，否則又是兩份。
+from app.core.case_scope import CROSS_CASE_PERMISSION as QUOTATION_CROSS_CASE_PERMISSION  # noqa: E402
 
 
 async def _quotation_scope(db, user):
@@ -60,17 +62,19 @@ async def _quotation_scope(db, user):
     範圍來源走 `case_scope.accessible_case_codes`（與費用核銷、帳款頁同一份），
     不在這裡重造第二份 assignment 查詢。
     """
-    from app.core.auth_service import AuthService
-    from app.core.dependencies import is_admin_user, is_superuser_user
-    from app.core.case_scope import accessible_case_codes
+    # ⭐ owner 2026-09-09：「同步考量整合配合角色與帳號（承辦同仁）等機制」。
+    #
+    # 這裡原本自己寫了一份「誰是全公司視角」的判定（超管／管理員 ＋ 跨案查詢權限），
+    # 而 `core/case_scope.has_company_wide_scope` 另有一份（超管 ＋ 角色集合）。
+    # 兩份判準指向同一件事 ⇒ 同一個人在報價單頁與帳款頁**理論上可能拿到不同範圍**。
+    # 實測當下三位主管／財務兩邊都是「不限縮」——**因為他們剛好同時符合兩份判準**，
+    # 那與「已收款三份實作算出同一個數字」是同一個形狀：分歧存在，只是還沒發作。
+    #
+    # ⇒ 三條路徑（超管／管理員、跨案查詢權限、角色集合）已併進
+    #   `has_company_wide_scope`，這裡直接用共用的 `scope_filter`，不留第二份。
+    from app.core.case_scope import scope_filter
 
-    # 管理員判定走既有 SSOT（併看 flag 與 role）—— 本 repo 有兩位 role=admin
-    # 而 is_admin 旗標為 false，只看旗標會把他們當成一般同仁。
-    if is_superuser_user(user) or is_admin_user(user):
-        return None
-    if AuthService.check_permission(user, QUOTATION_CROSS_CASE_PERMISSION):
-        return None
-    return await accessible_case_codes(db, user.id)
+    return await scope_filter(db, user)
 
 
 @router.post("/staff-options")
