@@ -34,6 +34,7 @@ import {
 import { useNavigate , useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
+import { CASE_CATEGORY_OPTIONS } from '../constants/projectOptions';
 import { ResponsiveTable, ClickableStatCard } from '../components/common';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
@@ -278,7 +279,7 @@ export const ContractCasePage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6} md={5} lg={4}>
               <Select placeholder="計畫類別" value={categoryFilter || undefined} onChange={(v) => { setCategoryFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
-                options={[{ value: '01', label: '01委辦招標' }, { value: '02', label: '02承攬報價' }]} />
+                options={[...CASE_CATEGORY_OPTIONS]} />
             </Col>
             <Col xs={12} sm={6} md={4} lg={4}>
               <Select placeholder="案件狀態" value={statusFilter || undefined} onChange={(v) => { setStatusFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}

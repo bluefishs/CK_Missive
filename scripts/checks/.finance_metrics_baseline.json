@@ -11,6 +11,9 @@
     "services/erp/finance_anomaly.py::已請款合計": "異常判準的逐案聚合，GROUP BY 形式；與上面同一個原因，待分組版片段",
     "services/erp/finance_anomaly.py::已收款合計": "同上，且它目前不看狀態 —— 收斂時要確認會不會改變異常筆數",
     "services/erp/quotation_service.py::應付合計": "報價單詳情的單案合計，可收斂，排在下一輪",
-    "services/erp/quotation_service.py::承攬金額（議價→契約→報價）": "兩處（423／685）在 Python 端組值而不是 SQL 取值，形狀不同；要先確認優先序與 SQL 版一致"
+    "services/erp/quotation_service.py::承攬金額（議價→契約→報價）": "兩處（423／685）在 Python 端組值而不是 SQL 取值，形狀不同；要先確認優先序與 SQL 版一致",
+    "schemas/erp/quotation.py::案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "存量：FILTER_MODULARIZATION §7.4 步驟②——改繼承 CaseListFilters 並把 search 改名 keyword（保留 alias 一版），前端三頁呼叫端要跟；不做別名直接改＝漏一頁就靜默不篩",
+    "schemas/pm/case.py::案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "存量：FILTER_MODULARIZATION §7.4 步驟②——改繼承 CaseListFilters 並把 search 改名 keyword（保留 alias 一版），前端三頁呼叫端要跟；不做別名直接改＝漏一頁就靜默不篩",
+    "schemas/project.py::案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "存量：FILTER_MODULARIZATION §7.4 步驟②——改繼承 CaseListFilters 並把 search 改名 keyword（保留 alias 一版），前端三頁呼叫端要跟；不做別名直接改＝漏一頁就靜默不篩"
   }
 }

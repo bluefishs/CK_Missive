@@ -55,7 +55,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 APP = os.path.join(ROOT, "backend", "app")
 #: 唯一實作的家 —— **兩個**：金額指標在中心服務，身分範圍判定在 `core/case_scope`。
 #: （身分判定不搬進 stats：它同時服務「看得到」與「動得了」，不只統計。）
-HOMES = ("services/stats/finance.py", "core/case_scope.py")
+HOMES = ("services/stats/finance.py", "core/case_scope.py", "schemas/erp/case_filters.py")
 BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".finance_metrics_baseline.json")
 
 _NOTNL = "[^" + BS + "n]"
@@ -76,7 +76,13 @@ PATTERNS = {
     # 分歧存在，只是還沒發作（同「已收款三份實作算出同一個數字」）。
     "全公司視角判定（應只在 case_scope）": "is_superuser_user" + _NOTNL + "{0,20}(or|and)" + _NOTNL + "{0,24}is_admin_user",
     "全公司視角角色集合（應只有一份）": "COMPANY_WIDE_ROLES" + _WS + "*=",
+    # ⭐ owner 2026-09-09「整合篩選條件，請擴大各頁面整合評估」：案件類列表的篩選 schema 有四份
+    # 各自宣告 year／category／staff_user_id。家＝`schemas/erp/case_filters.CaseListFilters`，
+    # 其他 *ListRequest／*ListQuery 要繼承它，不得自己再宣告這三個欄位。
+    # 判準：class 名以 ListRequest／ListQuery 結尾、body 內宣告 `staff_user_id:` 且未繼承 CaseListFilters。
+    "案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "class" + _WS + "+" + "[A-Za-z]+(ListRequest|ListQuery)" + BS + "((?!CaseListFilters)[A-Za-z]+" + BS + "):(?:(?!" + BS + "nclass ).)*?" + BS + "n" + _WS + "+staff_user_id:",
 }
+_MULTILINE_KEYS = {"案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）"}
 
 
 def scan():
@@ -92,7 +98,8 @@ def scan():
             raw = io.open(p, encoding="utf-8").read()
             s = _strip_comments(raw)
             for name, pat in PATTERNS.items():
-                for m in re.finditer(pat, s):
+                flags = re.S if name in _MULTILINE_KEYS else 0
+                for m in re.finditer(pat, s, flags):
                     line = s[: m.start()].count(NL) + 1
                     if name.startswith("年度") and _has_year_fallback(s, m.start()):
                         continue

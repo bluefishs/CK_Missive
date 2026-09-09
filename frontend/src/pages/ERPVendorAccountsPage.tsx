@@ -10,10 +10,11 @@
  */
 import React, { useState, useMemo } from 'react';
 import { MobileCard } from '../components/common/MobileCardList';
+import { FilterBar } from '../components/common/FilterBar';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import {
-  Alert, Card, Typography, Row, Col, Tag, Select, Space, Input,
+  Alert, Card, Typography, Row, Col, Tag, Select, Input,
 } from 'antd';
 import { DollarOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ClickableStatCard } from '../components/common';
@@ -206,22 +207,36 @@ const ERPVendorAccountsPage: React.FC = () => {
     <ResponsiveContent maxWidth="full" padding="medium">
       <Card
         title={<Title level={3} style={{ margin: 0 }}>協力廠商帳款總覽</Title>}
-        extra={
-          <Space wrap>  {/* 2026-09-05 RWD：390px 探針量到 7–17px 溢出，來源是這排不換行 */}
+
+        style={{ marginBottom: 16 }}
+      >
+        {/* 2026-09-09 owner「篩選機制模組化」：此前這頁把搜尋與三個下拉塞在 Card extra 的 Space 裡、
+            另三頁（承攬案／PM／報價單）用共用的 FilterBar——同一件事兩種畫法。改用 FilterBar：
+            手機折疊、活動條件計數、RWD 都由元件負責，本頁不再各自處理。 */}
+        <FilterBar
+          style={{ marginBottom: 16 }}
+          summary={(
             <Input.Search
               placeholder="搜尋廠商名稱／統一編號／案名"
               allowClear
               style={{ width: 220 }}
               onSearch={(v) => setKeyword(v.trim())}
             />
-            <Select
+          )}
+          activeCount={[year, staffUserId, category].filter((v) => v !== undefined && v !== null && v !== '').length}
+        >
+          <Row gutter={[16, 8]} style={{ width: '100%' }}>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Select
               placeholder="年度"
               value={year}
               style={{ width: 130 }}
               options={yearOptions}
               onChange={(v) => setYear(v)}
             />
-            <Select
+            </Col>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Select
               placeholder="承辦同仁"
               style={{ width: 150 }}
               allowClear
@@ -231,7 +246,9 @@ const ERPVendorAccountsPage: React.FC = () => {
               onChange={(v) => setStaffUserId(v)}
               options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
             />
-            <Select
+            </Col>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Select
               placeholder="計畫類別"
               allowClear
               style={{ width: 130 }}
@@ -239,10 +256,9 @@ const ERPVendorAccountsPage: React.FC = () => {
               options={[...CASE_CATEGORY_OPTIONS]}
               onChange={(v) => setCategory(v)}
             />
-          </Space>
-        }
-        style={{ marginBottom: 16 }}
-      >
+            </Col>
+          </Row>
+        </FilterBar>
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={12} sm={8}>
             <ClickableStatCard

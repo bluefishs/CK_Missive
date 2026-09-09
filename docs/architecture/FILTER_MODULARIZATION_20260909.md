@@ -81,3 +81,45 @@
 ## 六、一句話
 
 **A 頁有 B 頁沒有，不是漏了一個下拉，是條件沒有一個家。** 現在後端有了；前端的家是下一步。
+
+---
+
+## 七、擴大評估：全部列表頁（owner 追加「請擴大各頁面整合評估」）
+
+### 7.1 盤點方法
+
+不掃頁面上的下拉（那會把詳情頁分頁與表單頁抓進來，首版抓到 63 頁而其中一半不是列表），
+改從三個權威來源交叉：**路由表的列表路由**、**後端列表類 schema 的維度**、**repository 關鍵字涵蓋的欄位**。
+
+### 7.2 三類頁面，三種結論
+
+| 類 | 頁面 | 後端篩選 schema | 結論 |
+|---|---|---|---|
+| **案件類** | `/contract-cases`、`/pm/cases`、`/erp/quotations`、`/erp/client-accounts`、`/erp/vendor-accounts` | **四份**各自定義（見 `schemas/erp/case_filters.py` 檔頭矩陣） | **要收成一份** —— 這是異值同工的主戰場 |
+| **文件類** | `/documents`、`/document-numbers` | `DocumentListQuery`（列表）＋`DocumentSearchRequest`（進階搜尋，多值） | 兩份但語意不同（單值 vs 多值），**不合併**；列表那份與案件類共用「年度／類別／狀態／關鍵字」的形狀，可抽更上層基底 |
+| **主檔類** | `/agencies`、`/vendors`、`/clients`、`/staff` | 各自 `關鍵字＋狀態` | 維度天然少，**不需要案件維度**；只要關鍵字欄名統一 |
+
+### 7.3 案件類四份的差異（這才是要修的）
+
+| 差異 | 實況 | 後果 |
+|---|---|---|
+| 關鍵字欄名 | 三份叫 `search`、一份叫 `keyword` | 前端呼叫端寫錯名字不報錯，靜靜變成不篩 |
+| 維度集合 | 承攬案沒有委託單位／異常；帳款沒有狀態／委託單位／異常 | A 頁能篩的 B 頁不能 |
+| 基底 | 兩份繼承 `BaseQueryParams`（有 page/limit/sort），兩份繼承 `BaseModel`（skip/limit） | 分頁參數也有兩種形狀 |
+| 關鍵字涵蓋 | 6 個 repository 有案名（含本輪補的兩個）；主檔類不需要 | 案件類已一致 |
+
+### 7.4 方案（分三步，每步可獨立驗證）
+
+| 步 | 做什麼 | 風險 |
+|---|---|---|
+| **① 家先立起來**（本輪） | `schemas/erp/case_filters.CaseListFilters` 搬到中立模組，帳款兩頁繼承它（契約不變） | 零 |
+| **② 三份遷移** | `ProjectListQuery`／`PMCaseListRequest`／`ERPQuotationListRequest` 改繼承 `CaseListFilters`；`search` 改名 `keyword` **並保留 `search` 別名一個版本**（Pydantic `alias`），前端逐頁改用 `keyword` 後再拿掉別名 | 中——三頁前端呼叫端要跟；別名讓舊呼叫不斷 |
+| **③ 前端家** | 帳款兩頁改用既有 `FilterBar`（另三頁已在用），`CaseFilterBar` 在其上宣告式渲染維度 | 低——`FilterBar` 已存在，只是帳款兩頁沒用 |
+
+⚠️ 步驟②的 `search`→`keyword` 改名是本方案唯一會動到契約的地方。**不做別名直接改，前端漏一頁就是靜默不篩**——那正是 weekly 130 抓的「猜欄位」形狀。
+
+### 7.5 守門
+
+- 後端：weekly 132 擴一條「案件類 `*ListRequest` 不得自行宣告 `year／category／staff_user_id`」（必須繼承 `CaseListFilters`）。
+- 前端：weekly 108 家族加一條「案件類列表頁不得自行渲染年度／類別／承辦 Select」（必須經 `FilterBar`）。
+- 兩條都是「新增即紅、存量走基線」。
