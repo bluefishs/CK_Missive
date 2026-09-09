@@ -71,8 +71,21 @@
 
 ## 五、存量與下一步
 
+### 09-09 晚已做（統計與篩選中心服務化，owner「請盡快完善」）
+
+| 層 | 做了什麼 | 守門 |
+|---|---|---|
+| repository 篩選條件的家 | `AssetRepository.filters`／`OperationalAccountRepository.account_filters`／`PMCaseRepository.case_filters`／`ERPQuotationService._filter_kwargs`：**列表與統計端點吃同一份 `*ListRequest`**，卡片自己的維度用 `STATS_EXEMPT` 宣告 | weekly 133（runtime 讀 `app.routes` 比對兩邊 schema；存量 12→7） |
+| 承辦身分解析 | PM 列表與摘要同走 `CaseStatsScope.resolve_case_codes`；報價單走 `narrow_scope_to_staff` 一份 | 回歸鎖 `test_filters_home_*`、`test_profit_summary_staff_scope` |
+| search／keyword 合一 | `CaseListFilters` 的 `model_validator`：同時繼承兩邊的 Request 送任一個等於兩個都有；服務層只認一個 | `test_case_filters_keyword_search_unified` |
+| 經費指標 Core 寫法 | 13 處 `func.sum(...)` 收進 `*_amount_col`；repository 用 `_fm.py` 延遲代理避免循環匯入 | weekly 132 判準補 Core 寫法；只剩上限／超支兩處永久豁免 |
+| 已請款口徑 | 已請款＝有請款日期；發票已開 ⇒ 佔位補日期（`settle_placeholder_for_invoice`） | weekly 134（發票／收款／帳本對到佔位即紅） |
+
 | 項 | 何時 |
 |---|---|
+| `CaseFilterBar` 宣告式元件＋三個財務分頁遷移（現況：五頁用共用 `FilterBar` 版面，維度仍各頁自畫） | 下一輪 |
+| 前端 27 處 `search`→`keyword` 逐頁改名（schema 已合一，改到哪都不壞） | 隨頁改 |
+| weekly 133 剩 7 組：機關／廠商／專案全域 statistics 是否算列表卡片＝owner 判；發票彙總／費用分組／搜尋歷史／審核佇列工程小 | 下一輪 |
 | `CaseFilterBar` 元件＋三個財務分頁遷移 | 下一輪（本輪先讓三頁條件一致，元件化是第二步） |
 | 帳款兩頁加「金流異常」條件 | 需要帳款彙總端點回 anomaly 資訊，與異常機制對接後做 |
 | 財務摘要 repository 的 text 版類別表達式改用 `case_category_expr` | 基線存量，隨 GROUP BY 版片段一起清 |
