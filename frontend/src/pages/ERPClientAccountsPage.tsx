@@ -10,11 +10,11 @@
  */
 import React, { useState, useMemo } from 'react';
 import { MobileCard } from '../components/common/MobileCardList';
-import { FilterBar } from '../components/common/FilterBar';
+import { CaseFilterBar } from '../components/erp/CaseFilterBar';
 import { fmtMoney, fmtMoneyOr } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import {
-  Alert, Card, Typography, Row, Col, Tag, Select, Input,
+  Alert, Card, Typography, Row, Col, Tag, 
 } from 'antd';
 import {
   DollarOutlined, CheckCircleOutlined, ExclamationCircleOutlined, FileTextOutlined,
@@ -23,13 +23,11 @@ import { ClickableStatCard } from '../components/common';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
-import { CASE_CATEGORY_OPTIONS } from '../constants/projectOptions';
 import { useClientAccountSummary } from '../hooks';
 import type { ClientAccountSummaryItem } from '../types/erp';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import type { ResponsiveColumn } from '../components/common/EnhancedTable';
 import { caseProfileColumns, caseProfileTags } from '../components/erp/caseProfileColumns';
-import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
 
 const { Title } = Typography;
 
@@ -40,10 +38,6 @@ const { Title } = Typography;
 // ⇒ **選了年度永遠是空的，這個篩選從來沒有作用過**。
 // 兩邊各自用自己的紀年，而沒有任何一方會報錯 —— 同一個缺陷在兩頁各有一份。
 const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: 5 }, (_, i) => ({
-  value: currentYear - i,
-  label: `${currentYear - i} 年`,
-}));
 
 const ERPClientAccountsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -57,7 +51,6 @@ const ERPClientAccountsPage: React.FC = () => {
   const [staffUserId, setStaffUserId] = useState<number | undefined>();
   // 2026-09-09 owner「A 頁有 B 頁無」：報價單頁有計畫類別、本頁此前沒有。三個財務分頁條件一致。
   const [category, setCategory] = useState<string | undefined>();
-  const { staffOptions } = useStaffAssigneeOptions();
 
   const { data, isLoading, isError } = useClientAccountSummary({
     vendor_type: 'client',
@@ -212,52 +205,19 @@ const ERPClientAccountsPage: React.FC = () => {
         {/* 2026-09-09 owner「篩選機制模組化」：此前這頁把搜尋與三個下拉塞在 Card extra 的 Space 裡、
             另三頁（承攬案／PM／報價單）用共用的 FilterBar——同一件事兩種畫法。改用 FilterBar：
             手機折疊、活動條件計數、RWD 都由元件負責，本頁不再各自處理。 */}
-        <FilterBar
+        {/* 2026-09-09 晚：改為宣告式 CaseFilterBar（維度對應後端 CaseListFilters）；年度選項、承辦下拉、類別下拉不再本頁自畫 */}
+        <CaseFilterBar
           style={{ marginBottom: 16 }}
-          summary={(
-            <Input.Search
-              placeholder="搜尋單位名稱／統一編號／案名"
-              allowClear
-              style={{ width: 220 }}
-              onSearch={(v) => setKeyword(v.trim())}
-            />
-          )}
-          activeCount={[year, staffUserId, category].filter((v) => v !== undefined && v !== null && v !== '').length}
-        >
-          <Row gutter={[16, 8]} style={{ width: '100%' }}>
-            <Col xs={12} sm={8} md={6} lg={4}>
-              <Select
-              placeholder="年度"
-              style={{ width: 120 }}
-              value={year}
-              options={[{ value: 0, label: '全部年度' }, ...yearOptions]}
-              onChange={(v) => setYear(v)}
-            />
-            </Col>
-            <Col xs={12} sm={8} md={6} lg={4}>
-              <Select
-              placeholder="承辦同仁"
-              style={{ width: 150 }}
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              value={staffUserId}
-              onChange={(v) => setStaffUserId(v)}
-              options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
-            />
-            </Col>
-            <Col xs={12} sm={8} md={6} lg={4}>
-              <Select
-              placeholder="計畫類別"
-              allowClear
-              style={{ width: 130 }}
-              value={category}
-              options={[...CASE_CATEGORY_OPTIONS]}
-              onChange={(v) => setCategory(v)}
-            />
-            </Col>
-          </Row>
-        </FilterBar>
+          dims={['keyword', 'year', 'staff', 'category']}
+          value={{ keyword: keyword || undefined, year: year ?? 0, staff_user_id: staffUserId, category }}
+          onChange={(patch) => {
+            if ('keyword' in patch) setKeyword(patch.keyword ?? '');
+            if ('year' in patch) setYear(patch.year);
+            if ('staff_user_id' in patch) setStaffUserId(patch.staff_user_id);
+            if ('category' in patch) setCategory(patch.category);
+          }}
+          keywordPlaceholder="搜尋單位名稱／統一編號／案名"
+        />
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={12} sm={6}>
             <ClickableStatCard

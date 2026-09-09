@@ -2,13 +2,14 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { FilterBar } from '../components/common/FilterBar';
+import { CaseFilterBar } from '../components/erp/CaseFilterBar';
+import { caseYearOptions } from '../components/erp/caseFilterOptions';
 import { AnomalyTags } from '../components/erp/AnomalyTags';
 import { anomalyTagText, anomalyTagColor, anomalyTagIcon } from '../components/erp/anomalyTag';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney, fmtMoneyOr } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
-import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
+import { Card, Button, Space, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
 import { PlusOutlined, ReloadOutlined, UploadOutlined, FileExcelOutlined, DollarOutlined, FundOutlined, BankOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -22,7 +23,6 @@ import { ROUTES } from '../router/types';
 import { ClickableStatCard } from '../components/common';
 import { getErrorMessage } from '../utils/apiErrorParser';
 import { buildServerFilters } from '../utils/tableFilters';
-import { useStaffAssigneeOptions } from '../hooks/business/useDropdownData';
 
 const { Title, Text } = Typography;
 
@@ -30,13 +30,8 @@ const { Title, Text } = Typography;
 // 2026-08-29 複查發現本頁**完全沒有年度篩選 UI** —— `params.year` 只在匯出時
 // 用得到，於是列表把所有年度混在一起，統計卡也是歷年總和。
 const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = [
-  { value: 0, label: '全部年度' },
-  ...Array.from({ length: 5 }, (_, i) => {
-    const y = CURRENT_YEAR - i;
-    return { value: y, label: `${y} 年` };
-  }),
-];
+// 年度選項的單一定義在 CaseFilterBar（caseYearOptions）；此前本頁自己養一份
+const YEAR_OPTIONS = caseYearOptions();
 
 /** 案件年度：由建案案號 CK{年}_… 取；取不到才用報價單 year */
 /**
@@ -115,7 +110,6 @@ export const ERPQuotationListPage: React.FC = () => {
   // 2026-09-07 owner：「對應承攬同仁呈現對應資訊，避免資訊爆炸」。
   // 這一頁本來就有承辦欄，缺的是「只看某一位」。⚠️ 它在**可見範圍之內**再縮小，
   // 不是 RLS —— 誰看得到哪些案仍由後端 `_quotation_scope` 依身分決定。
-  const { staffOptions } = useStaffAssigneeOptions();
   // ⚠️ 統計卡必須跟著年度篩選走，否則會出現「列表 92 筆／卡片 257 筆」的
   // 不一致 —— 那比沒有年度篩選更糟：兩個數字都在畫面上，而使用者無從
   // 判斷哪一個才是他要的。後端 get_profit_summary 本來就收 year，
@@ -359,61 +353,25 @@ export const ERPQuotationListPage: React.FC = () => {
 
       <Card>
         {/* 2026-09-05 owner：手機上這一列佔了 1/3 螢幕 ⇒ 改 FilterBar：只常駐搜尋框，篩選與操作收進「篩選」鈕 */}
-        <FilterBar
-          summary={(
-            <Input.Search
-                        placeholder="搜尋成案編號／建案案號／專案名稱"
-                        allowClear
-                        onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
-                        style={{ width: 240 }}
-                      />
-          )}
-          activeCount={[params.category, params.client_name, params.card, params.staff_user_id, params.anomaly].filter(Boolean).length + (params.year ? 0 : 1)}
+        {/* 2026-09-09 晚：篩選列改為宣告式 CaseFilterBar（維度集合對應後端 CaseListFilters）——
+            年度／類別／承辦／委託單位／異常六個下拉此前本頁自畫一份、帳款兩頁各一份。狀態仍是本頁的 params，與表頭漏斗共用。 */}
+        <CaseFilterBar
+          dims={['keyword', 'year', 'category', 'staff', 'client', 'anomaly']}
+          value={{ keyword: params.search, year: params.year ?? 0, category: params.category, staff_user_id: params.staff_user_id, client_name: params.client_name, anomaly: params.anomaly }}
+          onChange={(patch) => setParams((p) => ({
+            ...p,
+            ...('keyword' in patch ? { search: patch.keyword } : {}),
+            ...('year' in patch ? { year: patch.year || undefined } : {}),   // 本頁用 undefined 表示全部年度
+            ...('category' in patch ? { category: patch.category } : {}),
+            ...('staff_user_id' in patch ? { staff_user_id: patch.staff_user_id } : {}),
+            ...('client_name' in patch ? { client_name: patch.client_name } : {}),
+            ...('anomaly' in patch ? { anomaly: patch.anomaly } : {}),
+            page: 1,
+          }))}
+          clientOptions={clientOptions}
+          keywordPlaceholder="搜尋成案編號／建案案號／專案名稱"
+          extraActiveCount={params.card ? 1 : 0}
         >
-          <Select
-            value={params.year ?? 0}
-            onChange={(v) => setParams((p) => ({ ...p, year: v || undefined, page: 1 }))}
-            options={YEAR_OPTIONS}
-            style={{ width: 130 }}
-            aria-label="年度"
-          />
-          {/* 2026-09-02：後端 08-31 加了 include_unawarded（預設只給已成案），前端從沒接
-              ⇒ 剛新建、尚未成案的報價單在這頁永遠看不到。owner 實測「CCC」找不到即此。
-              端點實測：預設 0 筆、帶 true 1 筆、export-document 回 200 —— 輸出本身是好的，
-              是「列表看不到 ⇒ 進不了詳情 ⇒ 按不到輸出」。半接通：後端有、前端沒傳、沒人報錯。 */}
-          <Select
-
-            placeholder="計畫類別" allowClear style={{ width: 130 }} value={params.category}
-
-            onChange={(v) => setParams((p) => ({ ...p, category: v || undefined, page: 1 }))}
-
-            options={[{ value: '01', label: '01 委辦招標' }, { value: '02', label: '02 承攬報價' }]}
-
-          />
-
-          <Select
-            placeholder="承辦同仁" allowClear showSearch style={{ width: 170 }} value={params.staff_user_id}
-            optionFilterProp="label"
-            onChange={(v) => setParams((p) => ({ ...p, staff_user_id: v ?? undefined, page: 1 }))}
-            options={staffOptions.map((o) => ({ value: o.user_id, label: `${o.name}（${o.case_count}）` }))}
-          />
-          <Select
-            placeholder="委託單位" allowClear showSearch style={{ width: 220 }} value={params.client_name}
-            optionFilterProp="label"
-            onChange={(v) => setParams((p) => ({ ...p, client_name: v || undefined, page: 1 }))}
-            options={clientOptions.map((c) => ({ value: c.name, label: `${c.name}（${c.count}）` }))}
-          />
-          {/* ⭐ 2026-09-08 owner：「異常案件標註機制並增列篩選查詢，
-              以利解除或處理異常費用之案件機制」。
-              判準與清單都由後端算（`/erp/anomalies`）—— 前端只負責問哪一種。 */}
-          <Select
-            placeholder="金流異常" allowClear style={{ width: 150 }} value={params.anomaly}
-            onChange={(v) => setParams((p) => ({ ...p, anomaly: v || undefined, page: 1 }))}
-            options={[
-              { value: 'open', label: '異常｜待判讀' },
-              { value: 'all', label: '異常｜全部' },
-            ]}
-          />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button
             icon={<FileExcelOutlined />}
@@ -577,7 +535,7 @@ export const ERPQuotationListPage: React.FC = () => {
               </Upload>
             </>
           )}
-        </FilterBar>
+        </CaseFilterBar>
 
         <EnhancedTable<ERPQuotation>
           columns={columns}
