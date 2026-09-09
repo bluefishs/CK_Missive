@@ -44,7 +44,7 @@
 > 修成帶認證路由＋`Cache-Control: private, no-store`（第二層：CF 依副檔名快取 PDF，登入者抓一次之後未登入也拿得到）。**已在 CF 邊緣快取的檔只有 purge 能清＝owner。**
 > 另兩個真缺口：D7 還原演練日期此前無守門（offsite 稽核加 `check_restore_drill`）、B6 民國年解析 8 份實作（A119）。
 
-> ⭐**09-09 晚（重啟後覆盤）**：12:04 重啟五步全綠（build `768c8165`＝HEAD、公網 3/3、附件 401、四層 GREEN）；每日 02:00 三紅為舊映像所致，容器內複跑 0／10 GREEN、14 YELLOW。**swap=0 實驗未執行**（`.wslconfig` 仍 8GB）。09-08 21:26 硬當成因已定＝本 repo session 的 MagicMock 負向測試 OOM（**L150**，`docs/incidents/`），與 A127 分家；測試規範補「負向測試的記憶體邊界」。TESTING_MAP 產生器寫死「17／114 步」改讀 runner（實際 17／132）。整體覆盤與三個月規劃＝[`docs/architecture/ARCHITECTURE_REVIEW_20260909.md`](docs/architecture/ARCHITECTURE_REVIEW_20260909.md)；owner 決策總表＝`OPEN_ITEMS_20260819.md` 檔頭。
+> ⭐**09-09 晚（重啟後覆盤）**：12:04 重啟五步全綠（build `768c8165`＝HEAD、公網 3/3、附件 401、四層 GREEN）；每日 02:00 三紅為舊映像所致，容器內複跑 0／10 GREEN、14 YELLOW。**swap=0 實驗未執行**（`.wslconfig` 仍 8GB）。09-08 21:26 硬當成因已定＝本 repo session 的 MagicMock 負向測試 OOM（**L150**，`docs/incidents/`），與 A127 分家；測試規範補「負向測試的記憶體邊界」。TESTING_MAP 產生器寫死「17／114 步」改讀 runner（實際 17／132）。整體覆盤與三個月規劃＝[`docs/architecture/ARCHITECTURE_REVIEW_20260909.md`](docs/architecture/ARCHITECTURE_REVIEW_20260909.md)；owner 決策總表＝`OPEN_ITEMS_20260819.md` 檔頭。⭐⭐⭐**同晚 owner 三回報（L151）**：費用分頁拿請款 id 開費用單（404）／統計卡沒接承辦篩選（列表 85 張、卡片全公司 2,149 萬）／**「案件皆請款？」是定義錯不是程式錯**——成案自動建的應收佔位被 09-04 的定義算進已請款，每個案成案即已請款 100%，而一個月的檢核全在驗一致、沒有一支驗意義。修法：已請款＝有請款日期（`BILLED_CONDITION`）、應收未收＝承攬－已收、weekly 133 列表↔統計參數同構（首版假綠已修）、weekly 132 補 Core 寫法（七處躲了一天）。
 >
 > **最後更新**: 2026-09-09
 >

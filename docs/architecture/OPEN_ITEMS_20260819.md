@@ -10,8 +10,9 @@
 |---|---|---|---|
 | **A127＋A132 主機層記憶體** | swap=0 實驗**未執行**（12:04 重啟時 `.wslconfig` 仍 `swap=8GB`）；mdsched 從未做；09-08 21:26 硬當成因已定＝mock OOM（L150），**不屬此家族** | 先查 08-11 三筆 Windows 更新（AaaP 建議）；要停機的實驗（swap=0＋memtest Extended）合併排一次夜間停機 | `runbooks/swap-zero-experiment-20260909.md` §執行紀錄 |
 | **A129 長期紅燈 9 支** | 從來沒綠過、已登記名冊（34／35／50／54／55／56／61／69／71） | 逐支決定「撤掉檢核」或「留下並寫到期日」；撤掉的從 runner 移除 | `WEEKLY_ROLLUP_20260909.md` §三 |
-| **A130 誤植成案下架** | 註銷狀態會擴散到 92 處口徑 | 先做 D1 唯讀預覽（零風險），看過再決定 D2 轉掛 | `VOID_VS_REASSIGN_20260909.md` |
-| **A131 promote 缺範圍檢查** | 任何登入者可把任何案成案 | 補 `assert_case_scope`，超管／管理員不受限；若「替別人的案成案」是現行作法請說 | `FLOW_REVIEW_20260909.md` §一 |
+| **A130 誤植成案下架** | 註銷狀態會擴散到 92 處口徑；**D1 唯讀預覽已做**（`scripts/tools/reassign_case_preview.py --from 案號 [--to 案號]`，容器內跑，六張表可動筆數＋三張連帶） | 看過預覽再決定要不要做 D2 轉掛 | `VOID_VS_REASSIGN_20260909.md` |
+| ~~**A131 promote 缺範圍檢查**~~ | ✅ 09-09 晚已補 `assert_case_scope`（全公司視角不受限）；若「替別人的案成案」是現行作法請說 | 已上線 `f42fbf6e` | `FLOW_REVIEW_20260909.md` §一 |
+| **A134 資料更正待授權：CK2021_PM_02_003 兩張案件表殘留 351,200** | 報價單 09-08 已改成 40,950，但 `contract_projects`（id 629）與 `pm_cases`（id 823）的 `contract_amount` 仍是 L146 匯錯的 351,200 ⇒ 承攬金額統計多算 310,250 | 兩行 UPDATE（`… SET contract_amount=40950 WHERE id=629 AND contract_amount=351200`；pm_cases id=823 同）；被分類器擋下，**不轉包** | 本檔 §B |
 | **A105 委託單位雙主檔** | 15 家同名兩張主檔 | 方案 A（補一條鍵、不合併） | `runbooks/dual_master_client_vendors_20260906.md` |
 | **A113 12 張遷移備份表** | DROP 不可逆 | 2026-10-04 滿月後，我先出清單 | — |
 | **A103 RWD 整體** | 11 條路由手機仍橫向捲動、768–991px 無人看、統計卡網格 6 處違規 | 給我 3–5 個最常用手機看的頁；順序照 `FLOW_REVIEW` §四 1→5 | `FLOW_REVIEW_20260909.md` §四 |
@@ -22,6 +23,13 @@
 | **平臺 colo（跨 repo）** | 每支 API 多 0.4–0.55 秒 | 由 AaaP session 提案 | — |
 
 ### B. 09-09 晚已辦（不需你決定）
+
+**owner 三個回報的處置（全部已上線）**
+- `/erp/expenses/23 找不到資料`：報價單費用分頁切到請款／開票後點列拿別張表的 id 開費用單 ⇒ 依型別導向（`d4f1a3a0`）。
+- `/erp/quotations` 選承辦「邱元宏」列表 85 張、卡片 21,493,663（全公司 112 張）：損益摘要沒有 `staff_user_id` ⇒ 交集抽成 `narrow_scope_to_staff` 一份，列表與卡片同用（`a9d26c45`）。
+- 「案件皆請款？」：**定義錯，不是程式錯**（L151）——已請款改為「有請款日期的請款單」，成案佔位是應收；應收未收＝承攬－已收（`74a959f5`）。同條件數字：承攬 5,057,835／已請款 1,546,613／已收 184,000／應收未收 4,873,835。
+- 自我檢核精進：weekly 133「列表↔統計卡篩選參數同構」（首跑 12 組 58 欄位存量入基線、新增即紅）；weekly 132 補 Core 寫法判準（七處躲了一天）。
+- weekly 132 經費指標存量 3→0（請款上限／報價單批次與詳情／未付應付）；`billing_service`／`proactive` 的上限與超支判斷永久豁免（要含佔位）。
 
 - 重啟後五步檢查全綠（`reboot-pre-flight-20260908.md` §5）；每日 02:00 三紅燈為部署前舊映像所致，容器內複跑 0／10 GREEN、14 YELLOW。
 - AaaP 交辦 `B-MISSIVE-MOCK-OOM` 三項全辦：L150 入冊、`.claude/rules/testing.md` 負向測試規範、事件單納入版控並附處理狀態。**刻意不做成檢核**（違規在對話裡不在檔案裡；護欄是 host 層 pyguard）。
@@ -56,6 +64,8 @@
 | 項 | 是什麼 | 何時 |
 |---|---|---|
 | ~~經費指標存量 7 處收斂~~ → **剩 3 處**（09-09 下午）| 分組版片段已做、4 處已清；剩 `billing_service` 承攬金額（請款上限檢查）與 `quotation_service` 應付／承攬金額兩處（Python 端組值） | 下一輪 |
+| **weekly 133 存量 12 組 58 欄位逐一清**（`.list_stats_filter_baseline.json`） | 最痛的三組：`/erp/assets`／`/erp/operational`／`/erp/expenses` 的統計端點連一個篩選都不收（FLOW_REVIEW §二 說的「卡片不跟 category」就是這裡）；`/pm/cases` 缺 keyword／client_name；文件、機關、廠商、專案四頁的 statistics 沒有 body | 下一輪，每接一個欄位刪一行基線 |
+| weekly 132 Core 存量 8 處（應付／已付的 `func.sum`） | 應付無條件各處同值、已付要逐處核對狀態條件（L149 形狀） | 下一輪 |
 | `/contract-cases` 篩選收斂到 `buildServerFilters` | 那頁篩選狀態是三個獨立 useState，收斂要動排序與搜尋（`TABLE_FILTER_CONVERGENCE_20260909.md` §三） | 與上面分開做，風險不疊 |
 | 手機隱形篩選的風險點 | `/contract-cases` 四個篩選欄是唯一入口（工具列已撤），任一欄若加 `hideOnMobile` 當場變隱形篩選 | 加一條 weekly 128 判準：唯一入口的欄位不得 hideOnMobile |
 | 篩選模組化：後端四份 schema **已全部繼承 `CaseListFilters`**（09-09 下午）；剩 `search`→`keyword` 欄名統一（要留 alias 一版、前端三頁跟改）與前端 `CaseFilterBar` 宣告式元件 | 下一輪 |
