@@ -37,6 +37,20 @@ COMPOSE="docker compose -f docker-compose.production.yml"
 FRONTEND_ONLY=0
 [ "${1:-}" = "--frontend-only" ] && FRONTEND_ONLY=1
 
+# 2026-09-09：部署建的是**工作樹**不是 HEAD —— 建置期間在 backend/frontend 改檔會被烘進映像
+# （當天兩次映像標成 -dirty，一次差點烘進被截斷的 scheduler.py）。工作樹髒就拒絕；
+# 只有明確 DEPLOY_ALLOW_DIRTY=1 才放行（映像照樣標 -dirty，後面的身分閘門不變）。
+# 排除自動更新的留痕檔（remote_backup.json 由備份排程改寫），否則永遠是髒的。
+if [ "${DEPLOY_ALLOW_DIRTY:-0}" != "1" ]; then
+  _DIRTY=$(git status --porcelain -- backend frontend scripts docker-compose.production.yml              ':(exclude)backend/config/remote_backup.json' 2>/dev/null | head -8)
+  if [ -n "$_DIRTY" ]; then
+    echo "  ✗ 工作樹有未提交的程式變更 —— 部署會把它烘進映像，build 身分對不到任何 commit："
+    echo "$_DIRTY"
+    echo "    先 commit；確定要帶著未提交變更部署請設 DEPLOY_ALLOW_DIRTY=1"
+    exit 3
+  fi
+fi
+
 echo "╔══════════════════════════════════════╗"
 echo "║   CK_Missive 公網部署 v2.0.0        ║"
 echo "╚══════════════════════════════════════╝"

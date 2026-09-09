@@ -33,6 +33,7 @@
 - **呈現一致性**（owner「未開請款／—／0 並存」）：`fmtMoneyOr` 一條規則——沒有那類紀錄就說沒有（未開請款／未收款／已收齊／無承攬／無應付／未付款／已付清），有才印數字；套到報價單、委託單位、協力廠商三頁欄位與手機卡片（`1db88a88`／`33a22c63`）。
 - **委託單位帳款總覽列出「鎮泓 0 案 0 金額」**：該單位 2026 只有一件評估中的案，金額已排除但列還在 ⇒ 只列有成案或有金流的單位（100→99 列、合計不變）；承攬金額欄 130→160 免折行（`73281cd0`）。
 - ⚠️ **我自己的錯，已修**：收斂已請款口徑時 `financial_summary_repository` 只加了 `_fm.` 用法沒加模組層 import（檔內函式已有同名區域 import，判斷式被騙）⇒ 財務摘要端點自 `74a959f5` 起 500 約 40 分鐘；**部署探針當時就回 13/14，我 grep 結果行沒抓到就往前走**（`7ec9cde6` 修；重申：部署結束要讀探針那一行，不是看 exit）。
+- ⚠️ **我自己的錯二（已修）**：取代腳本少接 `s[m.end():]` 把 `scheduler.py` 截成 1,569 行；同時部署 1j 正在建映像——**部署建的是工作樹不是 HEAD**，建置期間在 `backend/` 改檔會被烘進去（1j 標成 `b164f043-dirty`；容器那份剛好完整）。⇒ 部署腳本加「工作樹髒就拒絕」守門（`DEPLOY_ALLOW_DIRTY=1` 才放行）。
 - **六個列表頁翻頁失效**（owner「下方書籤頁無法切換下一頁」）：表頭篩選第二批把「回第 1 頁」放進 Table.onChange，而翻頁也走它 ⇒ 頁碼被蓋回 1。改 `extra.action === 'paginate'` 分流（`b4ca9ee9`）；流程走查新增 `quotation-pagination`，對修前線上版本實跑 FAIL（負向對照）。
 
 - 重啟後五步檢查全綠（`reboot-pre-flight-20260908.md` §5）；每日 02:00 三紅燈為部署前舊映像所致，容器內複跑 0／10 GREEN、14 YELLOW。
@@ -69,7 +70,7 @@
 |---|---|---|
 | ~~經費指標存量 7 處收斂~~ → **剩 3 處**（09-09 下午）| 分組版片段已做、4 處已清；剩 `billing_service` 承攬金額（請款上限檢查）與 `quotation_service` 應付／承攬金額兩處（Python 端組值） | 下一輪 |
 | **weekly 133 存量 12→7 組**（`.list_stats_filter_baseline.json`） | ✅ 09-09 晚清掉五組：資產／營運帳目（各一支篩選建構器，統計端點吃列表 schema）、報價單損益摘要（`_filter_kwargs` 十個條件一份解析）、PM 案件摘要（`case_filters`，承辦解析同走 `CaseStatsScope`）、文件（配對規則改認 `filtered-statistics`，本來就是同一份 `DocumentListQuery`）。**剩 7 組**：機關／廠商／專案的 statistics 是全域無 body（主檔頁卡片要不要隨列表篩＝產品判斷）、費用核銷 grouped-summary（按案件分組的另一種檢視）、發票彙總 summary（按報價單 id 的列表 vs 年度彙總）、搜尋歷史、標案審核佇列 | 前四組要你判是否算「列表卡片」；後兩組工程小、下一輪 |
-| weekly 132 Core 存量 8 處（應付／已付的 `func.sum`） | 應付無條件各處同值、已付要逐處核對狀態條件（L149 形狀） | 下一輪 |
+| ~~weekly 132 Core 存量 8 處~~ | ✅ 09-09 晚二：13 處（含 scheduler 對帳 AR／AP、billing 單案已收）全收到 `*_amount_col`，只剩上限／超支兩處永久豁免；repository 改用 `_fm.py` 延遲代理避免以 repository 為入口的循環匯入（回歸鎖 5 條） | `7ef71bde` |
 | `/contract-cases` 篩選收斂到 `buildServerFilters` | 那頁篩選狀態是三個獨立 useState，收斂要動排序與搜尋（`TABLE_FILTER_CONVERGENCE_20260909.md` §三） | 與上面分開做，風險不疊 |
 | 手機隱形篩選的風險點 | `/contract-cases` 四個篩選欄是唯一入口（工具列已撤），任一欄若加 `hideOnMobile` 當場變隱形篩選 | 加一條 weekly 128 判準：唯一入口的欄位不得 hideOnMobile |
 | 篩選模組化：後端四份 schema **已全部繼承 `CaseListFilters`**（09-09 下午）；剩 `search`→`keyword` 欄名統一（要留 alias 一版、前端三頁跟改）與前端 `CaseFilterBar` 宣告式元件 | 下一輪 |
