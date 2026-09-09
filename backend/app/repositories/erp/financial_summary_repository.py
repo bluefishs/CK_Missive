@@ -10,6 +10,7 @@ from app.extended.models.erp import ERPQuotation
 from app.extended.models.invoice import ExpenseInvoice
 from app.extended.models.finance import FinanceLedger
 from app.schemas.erp.financial_summary import ProjectFinancialSummary, CompanyFinancialOverview
+from app.services.stats import finance as _fm  # 2026-09-09：模組層匯入——此前只有函式內區域匯入，別的方法用 _fm 就 NameError（探針 13/14 抓到）
 
 class FinancialSummaryRepository:
     """跨模組財務彙總與統計，透過 JOIN 各資料表"""

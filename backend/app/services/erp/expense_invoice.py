@@ -19,6 +19,7 @@ from .finance_ledger import FinanceLedgerService
 from .expense_approval import ExpenseApprovalService
 from .expense_import import ExpenseImportService
 from app.services.audit.mixin import AuditableServiceMixin
+from app.services.stats import finance as _fm  # 2026-09-09：模組層匯入——此前只有函式內區域匯入，別的方法用 _fm 就 NameError（探針 13/14 抓到）
 
 import logging
 
