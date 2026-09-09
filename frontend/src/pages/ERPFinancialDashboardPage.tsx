@@ -73,10 +73,13 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const { data: clientAcc } = useClientAccountSummary({ vendor_type: 'client', year: 0, limit: 1000 });
   // 依計畫類別 × 委託單位／協力廠商（owner 09-05）：01 委辦招標／02 承攬報價各自看誰欠我們、我們欠誰
   const [catYear, setCatYear] = useState<number>(kpiYear);
-  const [catSel, setCatSel] = useState<'01' | '02'>('01');
+  // 2026-09-09 owner：「依計畫類別應有全部選項」。
+  // 年度下拉有「全部年度」而類別沒有 ⇒ 使用者無法把 01／02 加總回上方 KPI 對照。
+  // 預設改成「全部類別」：一進來就與上方 KPI 同一個範圍，要下鑽再選。
+  const [catSel, setCatSel] = useState<'01' | '02' | 'all'>('all');
   const { data: catData, isLoading: catLoading } = useCategoryBreakdown({ year: catYear || undefined });
-  const catRec = useMemo(() => (catData?.data?.receivable ?? []).filter((r) => r.category === catSel), [catData, catSel]);
-  const catPay = useMemo(() => (catData?.data?.payable ?? []).filter((r) => r.category === catSel), [catData, catSel]);
+  const catRec = useMemo(() => (catData?.data?.receivable ?? []).filter((r) => catSel === 'all' || r.category === catSel), [catData, catSel]);
+  const catPay = useMemo(() => (catData?.data?.payable ?? []).filter((r) => catSel === 'all' || r.category === catSel), [catData, catSel]);
   const catTot = catData?.data?.totals?.[catSel];
   const overdueAr = useMemo(() => {
     const b = arAgingData?.data?.buckets ?? [];
@@ -254,7 +257,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
           <Select size="small" value={catYear} style={{ width: 110 }} onChange={(v) => setCatYear(v)}
             options={[{ value: 0, label: '全部年度' }, ...Array.from({ length: 5 }, (_, i) => ({ value: kpiYear - i, label: `${kpiYear - i} 年` }))]} />
           <Select size="small" value={catSel} style={{ width: 130 }} onChange={(v) => setCatSel(v)}
-            options={[{ value: '01', label: '01 委辦招標' }, { value: '02', label: '02 承攬報價' }]} />
+            options={[{ value: 'all', label: '全部類別' }, { value: '01', label: '01 委辦招標' }, { value: '02', label: '02 承攬報價' }]} />
         </Space>}
         loading={catLoading}
       >
@@ -270,11 +273,11 @@ const ERPFinancialDashboardPage: React.FC = () => {
             <EnhancedTable<CategoryReceivableRow>
               size="small" rowKey={(r) => `${r.category}-${r.client_name}`} dataSource={catRec} pagination={false}
               scroll={{ x: 'max-content' }}
-              onRow={(r) => ({ onClick: () => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}&category=${catSel}&client_name=${encodeURIComponent(r.client_name)}`), style: { cursor: 'pointer' } })}
+              onRow={(r) => ({ onClick: () => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}${catSel === 'all' ? '' : `&category=${catSel}`}&client_name=${encodeURIComponent(r.client_name)}`), style: { cursor: 'pointer' } })}
               mobileCard={(r) => (
                 <MobileCard title={`${r.case_count} 案`} subtitle={r.client_name}
                   amounts={[{ label: '承攬金額', value: fmtMoney(r.awarded) }, { label: '已收', value: fmtMoney(r.received), tone: 'good' }, { label: '未收', value: fmtMoney(r.outstanding), tone: r.outstanding > 0 ? 'warn' : 'default' }]}
-                  onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}&category=${catSel}&client_name=${encodeURIComponent(r.client_name)}`)} />
+                  onClick={() => navigate(`${ROUTES.ERP_QUOTATIONS}?year=${catYear || ''}${catSel === 'all' ? '' : `&category=${catSel}`}&client_name=${encodeURIComponent(r.client_name)}`)} />
               )}
               columns={[
                 // 2026-09-06 owner 走查：最右的「應收未收」被切成「15,794.7…」——

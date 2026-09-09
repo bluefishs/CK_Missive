@@ -491,7 +491,17 @@ class FinancialSummaryRepository:
         scope = "q.deleted_at IS NULL"
         params: dict = {}
         if year:
-            scope += " AND q.case_code LIKE :yr"
+            # ⭐ 2026-09-09 owner 從 /erp/financial-dashboard 回報「各數據不一致」：
+            # 上方 KPI 的承攬金額 108,108,873（用 `contract_projects.year`），
+            # 而這裡的 01+02 加總只有 91,173,873（用**案號年** `case_code LIKE 'CK2026_%'`）
+            # ⇒ **同一個畫面上兩個年度口徑**，差 16,935,000。
+            #
+            # 差額正是 `CK2025_01_03_001`（115 年度桃園開口契約）——2025 年給的號、
+            # 2026 年度執行。案號年看不到它，而它是真的 2026 年度的案。
+            # 這個口徑 09-08 就已經裁定「year 欄優先、案號年只是後備」
+            # （見 `app/repositories/erp/case_year.py` 的說明），這一支沒有跟上。
+            scope += " AND (c.year = :yr_i OR (c.year IS NULL AND q.case_code LIKE :yr))"
+            params["yr_i"] = int(year)
             params["yr"] = f"CK{int(year)}_%"
         # ⚠️ `(?:` 的冒號會被 SQLAlchemy text() 當成 bind 參數 `:PM_`（L-family：冒號參數陷阱）⇒ 用 `\:` 跳脫
         cat_expr = "substring(q.case_code from '^CK\\d{4}_(?\\:PM_|GN_|FN_)?(\\d{2})_')"
@@ -533,9 +543,13 @@ class FinancialSummaryRepository:
             "payable": r.payable or 0, "paid": r.paid or 0, "outstanding": (r.payable or 0) - (r.paid or 0),
         } for r in pay_rows]
         totals = {}
-        for cat in ("01", "02"):
-            rs = [x for x in receivable if x["category"] == cat]
-            ps = [x for x in payable if x["category"] == cat]
+        # 2026-09-09 owner：「依計畫類別應有全部選項」。
+        # 年度下拉有「全部年度」而類別下拉沒有 ⇒ 使用者無法把子集加總回總覽對照，
+        # 而那正是他發現 108,108,873 vs 69,584,210 對不起來的場景。
+        # 「全部」由後端算（前端加總會在未來多出第三個類別時安靜地漏掉它）。
+        for cat in ("01", "02", "all"):
+            rs = receivable if cat == "all" else [x for x in receivable if x["category"] == cat]
+            ps = payable if cat == "all" else [x for x in payable if x["category"] == cat]
             totals[cat] = {
                 "clients": len(rs), "awarded": sum(x["awarded"] for x in rs), "billed": sum(x["billed"] for x in rs),
                 "received": sum(x["received"] for x in rs), "receivable_outstanding": sum(x["outstanding"] for x in rs),

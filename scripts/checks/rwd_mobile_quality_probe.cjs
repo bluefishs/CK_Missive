@@ -83,11 +83,28 @@ function measure(vw) {
   const ctrlSel = 'a[href], button, [role="button"], input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea, .ant-select, .ant-switch, .ant-tabs-tab, .ant-pagination-item';
   const ctrls = [...document.querySelectorAll(ctrlSel)].filter(vis);
   const small = [];
+  // 2026-09-09：量的必須是**使用者實際點得到的那個框**，不是它內部的 input。
+  //
+  // AntD 把 <input> 包在容器裡（`.ant-select` / `.ant-input-affix-wrapper` /
+  // `.ant-input-number` / `.ant-picker`），容器高 32px 而內部 input 高 22px。
+  // 原本直接量 input ⇒ 每個搜尋框與下拉都被記成「點擊目標過小」，
+  // 而使用者從來不是點那個 input，是點整個框。
+  // 實測 09-09：65 個裡多數是 `input.ant-select-input`(22px) 與 `input.ant-input`(22px)。
+  //
+  // ⚠️ 檔頭第 82 行的註解一直寫著「排除隱形 input」，而程式只排除了 checkbox／radio ——
+  // **宣告寫對了、實作沒做到**，那正是這個 repo 反覆記載的形狀。
+  const seenTap = new Set();
   for (const el of ctrls) {
     if (el.closest('.ant-table-thead')) continue;                  // 表頭漏斗／排序圖示本來就小
     if (el.matches('.ant-checkbox-input, .ant-radio-input')) continue;
-    const r = el.getBoundingClientRect();
-    if (r.width < 28 || r.height < 28) small.push({ sel: sel(el), text: txt(el), w: Math.round(r.width), h: Math.round(r.height) });
+    const wrap = el.matches('input')
+      ? el.closest('.ant-select, .ant-input-affix-wrapper, .ant-input-number, .ant-picker')
+      : null;
+    const target = wrap || el;
+    if (seenTap.has(target)) continue;   // 容器與內部 input 只算一次
+    seenTap.add(target);
+    const r = target.getBoundingClientRect();
+    if (r.width < 28 || r.height < 28) small.push({ sel: sel(target), text: txt(target), w: Math.round(r.width), h: Math.round(r.height) });
   }
 
   // covered：fixed 元件壓住可點元素
