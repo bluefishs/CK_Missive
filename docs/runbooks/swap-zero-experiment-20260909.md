@@ -252,3 +252,13 @@ docker run --rm --privileged alpine sh -c 'dmesg | grep -cE "segfault|general pr
 - **09-08 21:26 那次硬當的成因已定＝host 層 OOM**（本 repo session 的 MagicMock 負向測試，L150／`docs/incidents/2026-09-08-host-oom-mock-negative-test.md`），
   **不屬本家族**。§0 表裡「21:27 開機時自動跑過 Standard 並 PASS」那次重開機的原因就是它；十筆故障若含 21:2x 的任何一筆，先剔除。
 - 三個選項 (a)/(b)/(c) 仍待 owner；AaaP 建議先查 08-11 三筆 Windows 更新。
+
+### 2026-09-09 12:04–12:25 重啟後八分鐘內 6 次段錯誤（**CK_Website session 實測**，本 repo 轉錄）
+
+- 開機後 168 秒起八分鐘內 6 次 segfault（hermes python3.13／uvicorn ×4／celery `error 14`），對應容器重啟 hermes-gateway 1／pilemgmt 3／lvrland 1；五站全程 200。
+- 同一時刻 VM `SwapFree` 8 GB 全空未用、`MemAvailable` 15.9 GB、主機可用 28 GB；失控的 MagicMock 行程已不存在。
+- ⇒ **「記憶體壓力」與「失控行程」兩條解釋都關閉**：swap=0 實驗已無必要（swap 根本沒被用到就發作）。
+- 新候選（**推論非實測**，CK_Website 列的主機層變更表）：**08-12 02:56 Windows 累積更新 KB5121003／KB5120708／KB5123304** 安裝並重啟，起點 08-15 前 3 天；Docker Desktop 4.89（08-28）、`.wslconfig`（08-19）晚於起點排除；WSL kernel 6.6.87.2（03-19）、NVIDIA（07-02）早太多。
+  另兩行 VM 核心警告 `BUG: using __this_cpu_add() in preemptible code: containerd`／`smp_processor_id() … notify-rs`，指向這顆 kernel 對 Hyper-V per-CPU 假設不成立。
+- CK_Website 登記為 P2-4，並明寫「**memtest 乾淨之後才做更新回退對照，不要兩個實驗同時做**」。
+- ⇒ A127 給 owner 的選項收斂為：**先排 memtest86+／mdsched Extended（一整夜）**；乾淨才做 08-12 更新回退對照。swap=0 從清單移除。

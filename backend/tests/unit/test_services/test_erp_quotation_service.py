@@ -479,8 +479,11 @@ class TestERPQuotationServiceList:
             # 所以上面那幾個 MockRepo 蓋不到它。conftest 的 `session.execute` 是 AsyncMock
             # ⇒ `.all()` 回的是 coroutine ⇒ `TypeError: 'coroutine' object is not iterable`。
             # 這裡把它補齊，並**真的驗到姓名有出來**（否則只是讓它不爆）。
+            # 2026-09-09：同一個通用 mock 也餵給 `_get_case_amounts_batch`（case_code／契約／議價／承攬四欄，
+            # 算式改走 stats/finance 中心服務後讀 r[3]）⇒ 補第四欄，否則 3-tuple 讀 r[3] 會 IndexError。
+            # 這是「一支 AsyncMock 餵所有 db.execute」的既有陷阱（上面那段註解已記過一次）。
             _rows = MagicMock()
-            _rows.all.return_value = [(7, "王駿穠", "aaronfly1978")]
+            _rows.all.return_value = [(7, "王駿穠", "aaronfly1978", None)]
             mock_db_session.execute = AsyncMock(return_value=_rows)
 
             service = ERPQuotationService(mock_db_session)

@@ -208,7 +208,7 @@ function Get-BackupStats {
 }
 
 function Sync-ToRemote {
-    # 2026-06-01 P0 增強：本地備份鏡像同步到異地（robocopy /MIR）。
+    # 2026-06-01 P0 增強：本地備份同步到異地（robocopy；2026-09-09 起 /E /XO，不再 /MIR）。
     # 解原 in-app remote_syncer 走 Z:\ 在 Linux container 內不可達的問題。
     # robocopy /MIR 使異地與本地保留策略一致（Clean-OldBackups 後執行）。
     if (-not $NasPath) {
@@ -228,7 +228,10 @@ function Sync-ToRemote {
         if (-not (Test-Path $p.Src)) { continue }
         $dst = Join-Path $NasPath $p.Sub
         if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Force -Path $dst | Out-Null }
-        & robocopy $p.Src $dst /MIR /R:2 /W:5 /NP /NDL "/LOG+:$LogFile" | Out-Null
+        # 2026-09-09：/MIR 改 /E /XO —— 本機輪替刪除不該傳播到異地（同 offsite-sync-nas.ps1 的理由；
+        # CK_Website 同日在 backup_CKProject.bat 修了同型）。⚠️ /E /XO 只買到「刪除不再傳播」，
+        # 來源較新但內容已損壞的檔照樣覆蓋，那一層要靠 NAS 快照。異地保留由 NAS 端自行輪替。
+        & robocopy $p.Src $dst /E /XO /R:2 /W:5 /NP /NDL "/LOG+:$LogFile" | Out-Null
         if ($LASTEXITCODE -ge 8) {
             Log "Remote sync '$($p.Sub)' partial failure (robocopy exit $LASTEXITCODE)" "WARN"
         } else {

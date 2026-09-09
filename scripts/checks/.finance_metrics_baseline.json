@@ -3,11 +3,8 @@
   "_cleared_20260909": [
     "repositories/erp/financial_summary_repository.py 的承攬金額／已請款／已收款／年度",
     "repositories/erp/quotation_repository.py 的四個金額（原本是第三份，已收款還少了 partial）",
-    "下午：財務摘要 pay_rows 應付／已付（分組版片段）、承攬案／PM／報價單三份 schema 改繼承 CaseListFilters、finance_anomaly 已請款／已收款"
+    "下午：財務摘要 pay_rows 應付／已付（分組版片段）、承攬案／PM／報價單三份 schema 改繼承 CaseListFilters、finance_anomaly 已請款／已收款",
+    "晚：請款上限的承攬金額（議價→契約→報價，pick_awarded）、報價單列表批次與詳情的議價／承攬欄位（winning_amount_expr／awarded_amount_case_only）、未付應付（payable_amount_agg）—— 存量歸零；量過全庫只有 CK2021_PM_02_003 一案兩層不同（L146 殘留值，資料更正待 owner 授權）"
   ],
-  "allow": {
-    "services/erp/billing_service.py::承攬金額（議價→契約→報價）": "取單一案的議價金額當請款上限檢查，不是統計；要先確認它該不該退回契約額再收斂",
-    "services/erp/quotation_service.py::應付合計": "報價單詳情的單案合計，可收斂，排在下一輪",
-    "services/erp/quotation_service.py::承攬金額（議價→契約→報價）": "兩處（423／685）在 Python 端組值而不是 SQL 取值，形狀不同；要先確認優先序與 SQL 版一致"
-  }
+  "allow": {}
 }

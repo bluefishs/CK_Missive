@@ -245,14 +245,16 @@ class ERPBillingService(AuditableServiceMixin):
             if not q or q.deleted_at is not None:
                 return None
             total = getattr(q, "total_price", None)
-            # 2026-09-04 晚：有議價金額的案，第一期＝承攬金額（議價後的實際金額），不是投標報價
+            # 2026-09-04 晚：有議價金額的案，第一期＝承攬金額（議價後的實際金額），不是投標報價。
+            # 2026-09-09：算式走中心服務（議價→契約→報價總價，L149）；此前只看議價、漏了契約那一層，
+            # 實測全庫只有 1 案兩者不同（L146 匯錯值殘留）⇒ 收斂不改變現有數字。
             if getattr(q, "case_code", None):
                 from sqlalchemy import text as _t
-                won = (await self.db.execute(_t(
-                    "SELECT NULLIF(winning_amount, 0) FROM contract_projects WHERE case_code = :c LIMIT 1"
+                from app.services.stats.finance import awarded_amount_case_only, pick_awarded
+                awarded = (await self.db.execute(_t(
+                    f"SELECT {awarded_amount_case_only('c')} FROM contract_projects c WHERE c.case_code = :c LIMIT 1"
                 ), {"c": q.case_code})).scalar()
-                if won is not None:
-                    total = won
+                total = pick_awarded(awarded, None, total)
             if not total or Decimal(str(total)) <= 0:
                 return None
             if not getattr(q, "project_code", None) and getattr(q, "status", "") != "confirmed":

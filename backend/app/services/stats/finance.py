@@ -54,6 +54,40 @@ def awarded_amount(c: str = "c", q: str = "q") -> str:
     return f"COALESCE(NULLIF({c}.winning_amount, 0), {c}.contract_amount, {q}.total_price, 0)"
 
 
+def winning_amount_expr(c: str = "c") -> str:
+    """議價金額；未填時是 0 而不是 NULL，所以一律 `NULLIF(..., 0)`。只在這裡寫這個式子。"""
+    return f"NULLIF({c}.winning_amount, 0)"
+
+
+def awarded_amount_case_only(c: str = "c") -> str:
+    """同 `awarded_amount`，但查詢裡**只有** `contract_projects {c}`（沒 join 報價單）——
+    退回報價總價那一層由呼叫端用 `pick_awarded(..., quote_total)` 補上，順序不變。
+
+    2026-09-09 收斂存量三處（請款上限、報價單列表批次、報價單詳情）時量過：
+    全庫 281 案裡契約額≠報價總價的只有 1 案（`CK2021_PM_02_003`，L146 匯錯的 351,200 殘留在案件兩張表）
+    ⇒ 把「只看議價」改成「議價→契約→報價」不改變任何現有數字。
+    """
+    return f"COALESCE({winning_amount_expr(c)}, {c}.contract_amount)"
+
+
+def pick_awarded(winning, contract, quote_total=None):
+    """Python 端的同一條規則：議價 → 契約 → 報價總價，取第一個非零；全空回 None。
+
+    給「SQL 只取到 contract_projects 的欄位、報價總價在 ORM 物件上」的呼叫端用；
+    不要在呼叫端自己寫 `winning if winning is not None else contract`——那就是第二份實作。
+    """
+    from decimal import Decimal, InvalidOperation
+    for v in (winning, contract, quote_total):
+        if v is None:
+            continue
+        try:
+            if Decimal(str(v)) != 0:
+                return v
+        except (InvalidOperation, ValueError):
+            continue
+    return None
+
+
 #: 消費端有兩種形狀：查詢裡 join 了報價單（用 `q.id`），或只有一個 bind 參數（`:qid`）。
 #: 每個片段都吃 `ref` —— 那是「這一列的報價單 id 怎麼取」的表達式。
 def billed_amount(ref: str = "q.id") -> str:

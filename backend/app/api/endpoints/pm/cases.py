@@ -533,11 +533,17 @@ async def get_linked_documents(
 async def promote_to_project(
     req: PMPromoteRequest,
     service: PMCaseService = Depends(get_service(PMCaseService)),
+    current_user: User = Depends(require_auth()),
 ):
     """成案：從邀標/報價轉為正式承攬案件
 
     自動產生 project_code，建立 ContractProject，連結 ERP Quotation。
+
+    2026-09-09（A131）：此前只驗登入不驗「這個案在不在你的範圍」——任何登入者都能把任何案成案。
+    範圍判準只有一份（`core/case_scope.assert_case_scope`）：全公司視角不受限，其餘只能成案自己承辦的案。
     """
+    from app.core.case_scope import assert_case_scope
+    await assert_case_scope(service.db, current_user, [req.case_code], "成案")
     try:
         result = await service.code_service.promote_to_project(req.case_code)
         return SuccessResponse(data=result, message=f"成案成功，專案編號: {result['project_code']}")

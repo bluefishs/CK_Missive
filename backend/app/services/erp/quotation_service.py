@@ -419,14 +419,16 @@ class ERPQuotationService(AuditableServiceMixin):
         if not codes:
             return {}
         from sqlalchemy import text as _t
+        from app.services.stats.finance import awarded_amount_case_only, winning_amount_expr
+        # 2026-09-09：三個欄位的算式都從中心服務拿（L149）；此前 awarded 在 Python 端自己組第二份
         rows = await self.db.execute(_t(
-            "SELECT case_code, contract_amount, NULLIF(winning_amount, 0) AS winning FROM contract_projects WHERE case_code = ANY(CAST(:codes AS text[]))"
+            f"SELECT c.case_code, c.contract_amount, {winning_amount_expr('c')} AS winning, "
+            f"{awarded_amount_case_only('c')} AS awarded "
+            "FROM contract_projects c WHERE c.case_code = ANY(CAST(:codes AS text[]))"
         ), {"codes": codes})
         out = {}
         for r in rows.all():
-            contract = r[1]
-            winning = r[2]
-            out[r[0]] = {"contract": contract, "winning": winning, "awarded": winning if winning is not None else contract}
+            out[r[0]] = {"contract": r[1], "winning": r[2], "awarded": r[3]}
         return out
 
 
@@ -681,8 +683,9 @@ class ERPQuotationService(AuditableServiceMixin):
                 out["client_name"] = client_name
             # 2026-09-05：詳情頁也要「承攬金額（含稅）」——把承攬案的契約金額／議價金額帶回（列表路徑另有批次版）
             from sqlalchemy import text as _txt
+            from app.services.stats.finance import winning_amount_expr
             amt_row = (await self.db.execute(_txt(
-                "SELECT contract_amount, NULLIF(winning_amount, 0) FROM contract_projects WHERE case_code = :c LIMIT 1"
+                f"SELECT c.contract_amount, {winning_amount_expr('c')} FROM contract_projects c WHERE c.case_code = :c LIMIT 1"
             ), {"c": case_code})).first()
             if amt_row is not None:
                 if amt_row[0] is not None:
@@ -909,10 +912,12 @@ class ERPQuotationService(AuditableServiceMixin):
             """), {"cc": case_code})).scalar()
             pending += Decimal(str(row or 0))
 
-        row = (await self.db.execute(_sql("""
-            SELECT COALESCE(SUM(COALESCE(payable_amount,0)),0) FROM erp_vendor_payables
-            WHERE erp_quotation_id = :qid AND payment_status <> 'paid'
-        """), {"qid": quotation_id})).scalar()
+        from app.services.stats.finance import payable_amount_agg
+        # 未付應付＝應付合計片段（中心服務）＋ payment_status 條件；SUM 本來就略過 NULL，結果與舊寫法相同
+        row = (await self.db.execute(_sql(
+            f"SELECT {payable_amount_agg('p')} FROM erp_vendor_payables p "
+            "WHERE p.erp_quotation_id = :qid AND p.payment_status <> 'paid'"
+        ), {"qid": quotation_id})).scalar()
         pending += Decimal(str(row or 0))
 
         return {"actual_cost": actual, "pending_cost": pending}
