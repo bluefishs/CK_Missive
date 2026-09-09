@@ -16,7 +16,7 @@
 """
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class CaseListFilters(BaseModel):
     """案件類列表的**共同篩選條件 —— 單一定義**。
@@ -53,3 +53,23 @@ class CaseListFilters(BaseModel):
     # 2026-09-04 owner「/erp/client-accounts 表格無法查詢」：委託單位 186 家、預設 50 ⇒ 頁面永遠只有 50 家。
     # 彙總是每家一列，上限放到 1000（weekly 95 家族：上限壞在資料長過它的那天——頁面另有截斷警示）。
     limit: int = Field(50, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def _unify_keyword_and_search(self):
+        """`search`（`BaseQueryParams` 的舊名）與 `keyword`（本類的統一名）是**同一個語意**。
+
+        2026-09-09 晚：報價單／PM 案件的 Request 同時繼承兩邊，於是同一個「關鍵字」有兩個欄位，
+        前端 27 處有的送 search、有的送 keyword，服務層要各自寫 `search or keyword`。
+        收斂第一步：在 schema 層合一 —— 送任一個都等於兩個都有；服務層與統計端點只需認一個。
+        欄名本身的改名（前端逐頁）是第二步，改到哪裡都不會壞。只對同時有兩個欄位的類生效。
+        """
+        has_search = "search" in type(self).model_fields
+        if not has_search:
+            return self
+        s = getattr(self, "search", None)
+        k = self.keyword
+        if k and not s:
+            object.__setattr__(self, "search", k)
+        elif s and not k:
+            object.__setattr__(self, "keyword", s)
+        return self
