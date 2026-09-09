@@ -20,6 +20,45 @@ from app.services.audit.mixin import AuditableServiceMixin
 logger = logging.getLogger(__name__)
 
 
+async def settle_placeholder_for_invoice(db, *, quotation_id: int, invoice_date, amount,
+                                         billing_id: Optional[int] = None) -> Optional[int]:
+    """**發票已開 ⇒ 那筆請款已成立**（2026-09-09 owner：/erp/quotations/793 「發票 78,960｜請款 0」）。
+
+    「已請款」＝有請款日期的請款單（`stats/finance.BILLED_CONDITION`）。成案自動建的佔位沒有日期，
+    而總表匯入的發票（CA19547059，2026-07-30）掛在同一張報價單上 ⇒ 帳上變成「開了發票卻沒請款」。
+    發票是請款的下游：有發票就一定請過款。所以在**發票落地的那一刻**把對應的佔位補上
+    請款日期（＝發票日期），而不是讓兩張表各說各話。
+
+    對象只有兩種：`billing_id` 指定的那一筆（尚無日期），或同報價單**唯一**一筆同額、無日期、
+    尚未被任何發票綁走的請款。多於一筆就不猜（留給人）。回傳被補上日期的 billing id，沒動回 None。
+    不 commit —— 跟呼叫端同一個交易。
+    """
+    from decimal import Decimal as _D
+    from sqlalchemy import text as _t
+    if invoice_date is None:
+        return None
+    target = None
+    if billing_id is not None:
+        row = (await db.execute(_t(
+            "SELECT id FROM erp_billings WHERE id = :b AND billing_date IS NULL"), {"b": billing_id})).first()
+        target = row[0] if row else None
+    else:
+        rows = (await db.execute(_t(
+            "SELECT b.id FROM erp_billings b "
+            "WHERE b.erp_quotation_id = :q AND b.billing_date IS NULL "
+            "  AND b.billing_amount = :amt "
+            "  AND NOT EXISTS (SELECT 1 FROM erp_invoices i WHERE i.billing_id = b.id AND i.voided_at IS NULL)"
+        ), {"q": quotation_id, "amt": _D(str(amount or 0))})).all()
+        if len(rows) == 1:
+            target = rows[0][0]
+    if target is None:
+        return None
+    await db.execute(_t(
+        "UPDATE erp_billings SET billing_date = :d, updated_at = now() WHERE id = :b AND billing_date IS NULL"
+    ), {"d": invoice_date, "b": target})
+    return target
+
+
 class ERPBillingService(AuditableServiceMixin):
     """請款管理服務"""
 

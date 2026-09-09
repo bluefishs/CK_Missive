@@ -63,6 +63,16 @@ class ERPInvoiceService(AuditableServiceMixin):
                 data.billing_id = same[0].id
             bid = getattr(data, "billing_id", None)
 
+        # ④ 發票已開 ⇒ 請款已成立：綁到（或唯一同額）的無日期佔位補上請款日期＝發票日期（一份實作在 billing_service）
+        inv_date = getattr(data, "invoice_date", None)
+        if qid and inv_date:
+            from app.services.erp.billing_service import settle_placeholder_for_invoice
+            settled = await settle_placeholder_for_invoice(
+                self.db, quotation_id=qid, invoice_date=inv_date, amount=amount, billing_id=bid)
+            if settled and bid is None:
+                data.billing_id = settled
+                bid = settled
+
         # ①-a 一票多案：帶了分攤就以分攤為準，且合計必須等於發票金額。
         # 沒有這一層時，一張跨兩案的發票只能挑一個案掛上去 —— 另一個案在帳上看不到那筆收入。
         allocs = getattr(data, "allocations", None)

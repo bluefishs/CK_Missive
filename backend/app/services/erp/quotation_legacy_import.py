@@ -750,6 +750,7 @@ class QuotationLegacyImportService:
                 ), {"n": inv_no, "d": r.get("invoice_date"), "amt": r.get("invoice_amount"), "tax": r.get("invoice_tax"), "q": int(q)})
                 if res.rowcount:
                     out["invoice_updated"] += res.rowcount
+                    await self._settle_invoice_billing(int(q), inv_no, r.get("invoice_date"), r.get("invoice_amount") or r.get("total_price"))
                 else:
                     has = await self.db.scalar(_t("SELECT 1 FROM erp_invoices WHERE erp_quotation_id=:q LIMIT 1"), {"q": int(q)})
                     if not has and r.get("invoice_date"):
@@ -758,8 +759,29 @@ class QuotationLegacyImportService:
                             "VALUES (:q, :n, :d, :amt, :tax, 'sales', 'issued', (SELECT id FROM erp_billings WHERE erp_quotation_id=:q ORDER BY billing_date LIMIT 1), '由報價單彙整匯入（發票明細）', 'xls_import', now(), now())"
                         ), {"q": int(q), "n": inv_no, "d": r["invoice_date"], "amt": r.get("invoice_amount") or r.get("total_price"), "tax": r.get("invoice_tax") or 0})
                         out["invoice_created"] += 1
+                        await self._settle_invoice_billing(int(q), inv_no, r["invoice_date"], r.get("invoice_amount") or r.get("total_price"))
         await self.db.commit()
         return out
+
+    async def _settle_invoice_billing(self, quotation_id: int, inv_no: str, invoice_date, amount) -> None:
+        """發票已開 ⇒ 請款已成立（一份實作在 billing_service）；並把發票綁到那筆請款。
+
+        2026-09-09 owner：總表匯入的發票掛在只有無日期佔位的報價單上（793／794／788），
+        帳上就是「發票 78,960｜請款 0」。匯入發票時同步補佔位的請款日期＝發票日期。
+        """
+        if not invoice_date:
+            return
+        from sqlalchemy import text as _t
+        from app.services.erp.billing_service import settle_placeholder_for_invoice
+        bid = (await self.db.execute(_t(
+            "SELECT billing_id FROM erp_invoices WHERE erp_quotation_id=:q AND invoice_number=:n LIMIT 1"
+        ), {"q": quotation_id, "n": inv_no})).scalar()
+        settled = await settle_placeholder_for_invoice(
+            self.db, quotation_id=quotation_id, invoice_date=invoice_date, amount=amount, billing_id=bid)
+        if settled and bid is None:
+            await self.db.execute(_t(
+                "UPDATE erp_invoices SET billing_id=:b, updated_at=now() WHERE erp_quotation_id=:q AND invoice_number=:n AND billing_id IS NULL"
+            ), {"b": settled, "q": quotation_id, "n": inv_no})
 
     @staticmethod
     def _legacy_base(ln: Optional[str]) -> Optional[str]:
