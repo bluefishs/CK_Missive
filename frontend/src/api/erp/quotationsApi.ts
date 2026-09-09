@@ -70,7 +70,7 @@ export const erpQuotationsApi = {
   },
 
   /** 取得損益摘要 */
-  async profitSummary(params?: { year?: number; search?: string; category?: string; client_name?: string }): Promise<ERPProfitSummary> {
+  async profitSummary(params?: { year?: number; search?: string; category?: string; client_name?: string; staff_user_id?: number }): Promise<ERPProfitSummary> {
     const response = await apiClient.post<SuccessResponse<ERPProfitSummary>>(
       ERP_ENDPOINTS.PROFIT_SUMMARY,
       params ?? {}

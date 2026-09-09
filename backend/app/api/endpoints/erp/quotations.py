@@ -227,7 +227,7 @@ async def get_profit_summary(
     result = await service.get_profit_summary(
         year=req.year, search=req.search,
         category=req.category, client_name=req.client_name,
-        accessible_case_codes=scope,
+        accessible_case_codes=scope, staff_user_id=req.staff_user_id,
     )
     return SuccessResponse(data=result)
 

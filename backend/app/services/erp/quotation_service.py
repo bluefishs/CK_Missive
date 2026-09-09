@@ -112,6 +112,26 @@ def compute_quotation_profit(
     }
 
 
+async def narrow_scope_to_staff(db, accessible_case_codes, staff_user_id):
+    """把「伺服器決定的身分範圍」再交集「使用者自選的承辦」。**列表與統計卡都走這一份。**
+
+    - `staff_user_id` 為 None ⇒ 原樣回傳（不動範圍）。
+    - 有值 ⇒ 承辦案號集合；若已有身分範圍則取交集；交集為空回 ``{"__none__"}``
+      （讓 SQL `IN` 得到空結果，而不是 `IN ()` 的語法錯誤或「不篩＝全部」）。
+
+    2026-09-09：此前只有 `list_quotations` 有這段、`get_profit_summary` 沒有 ⇒
+    選了承辦之後列表 85 張、卡片仍是全公司 112 張的 2,149 萬。
+    """
+    if staff_user_id is None:
+        return accessible_case_codes
+    from app.repositories.erp.case_staff import case_codes_of_user
+    mine = await case_codes_of_user(db, staff_user_id)
+    return (
+        mine if accessible_case_codes is None
+        else (set(accessible_case_codes) & set(mine))
+    ) or {"__none__"}
+
+
 class ERPQuotationService(AuditableServiceMixin):
     """報價管理服務 — 損益計算核心"""
 
@@ -303,14 +323,8 @@ class ERPQuotationService(AuditableServiceMixin):
                 logger.error("可見範圍解析失敗，限縮為空：%s", e, exc_info=True)
                 accessible_case_codes = set()
 
-        staff_uid = params.staff_user_id
-        if staff_uid is not None:
-            from app.repositories.erp.case_staff import case_codes_of_user
-            mine = await case_codes_of_user(self.db, staff_uid)
-            accessible_case_codes = (
-                mine if accessible_case_codes is None
-                else (set(accessible_case_codes) & mine)
-            ) or {"__none__"}
+        accessible_case_codes = await narrow_scope_to_staff(
+            self.db, accessible_case_codes, params.staff_user_id)
 
         # ⭐ 2026-09-08：金流異常篩選。判準只有一份（finance_anomaly），
         # 這裡只是把它算出來的 id 清單交給查詢。
@@ -761,7 +775,7 @@ class ERPQuotationService(AuditableServiceMixin):
     async def get_profit_summary(
         self, year: Optional[int] = None, search: Optional[str] = None,
         category: Optional[str] = None, client_name: Optional[str] = None,
-        accessible_case_codes=None,
+        accessible_case_codes=None, staff_user_id: Optional[int] = None,
     ) -> ERPProfitSummary:
         """年度損益摘要 — 批次聚合消除 N+1（與列表同一組條件：年度／關鍵字／類別／委託單位，統計卡是列表的分母）
 
@@ -775,6 +789,9 @@ class ERPQuotationService(AuditableServiceMixin):
         身分範圍不是使用者的篩選，它是這個人看得到的全部 ——
         分母可以不隨勾選變，但不能超出他看得到的範圍。
         """
+        # 2026-09-09 owner：選了承辦「邱元宏」，列表 85 張而卡片 2,149 萬（全公司 112 張）——
+        # 列表用 `narrow_scope_to_staff` 交集承辦案號，這裡此前沒有。同一份 helper，不再各寫一份。
+        accessible_case_codes = await narrow_scope_to_staff(self.db, accessible_case_codes, staff_user_id)
         items, _ = await self.repo.filter_quotations(
             year=year, search=search or None, category=category or None, client_name=client_name or None,
             accessible_case_codes=accessible_case_codes,

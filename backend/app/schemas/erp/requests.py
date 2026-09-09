@@ -58,6 +58,9 @@ class ERPSummaryRequest(BaseModel):
     search: Optional[str] = Field(None, description="與列表同一個關鍵字（統計卡是列表的分母，2026-09-04）")
     category: Optional[str] = Field(None, description="計畫類別 01／02（與列表同條件）")
     client_name: Optional[str] = Field(None, description="委託單位（與列表同條件）")
+    # 2026-09-09 owner：/erp/quotations 選了承辦「邱元宏」，列表 85 張、卡片卻是全公司 2,149 萬——
+    # 列表有這個參數、統計卡沒有。統計卡是列表的分母（§2.6 ①），分母不能比列表寬。
+    staff_user_id: Optional[int] = Field(None, description="承辦同仁（與列表同條件；在身分範圍內再交集）")
 
 
 class ERPGenerateCodeRequest(BaseModel):

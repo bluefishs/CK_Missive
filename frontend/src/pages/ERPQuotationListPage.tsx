@@ -122,7 +122,8 @@ export const ERPQuotationListPage: React.FC = () => {
   // 是前端沒傳（同「送出的與收到的不一致」家族）。
   // 2026-09-04：統計卡跟著列表的年度＋關鍵字走（分母＝列表範圍）
   // 統計卡＝列表的分母：年度／關鍵字／類別／委託單位四個條件都跟（§2.6 ①；2026-09-04 前 api 層固定送空物件）
-  const { data: profitSummary } = useERPProfitSummary({ year: params.year, search: params.search, category: params.category, client_name: params.client_name });
+  // 2026-09-09 owner：選承辦後列表 85 張、卡片仍是全公司 2,149 萬——統計卡是列表的分母，承辦也要一起送。
+  const { data: profitSummary } = useERPProfitSummary({ year: params.year, search: params.search, category: params.category, client_name: params.client_name, staff_user_id: params.staff_user_id });
   // 2026-08-15：刪除改由詳情頁提供（對照 /documents 的導航設計），
   // 列表不再持有刪除能力，故 useDeleteERPQuotation 與 handleDelete 一併移除。
 
