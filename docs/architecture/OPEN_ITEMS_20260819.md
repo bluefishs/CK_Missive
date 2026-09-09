@@ -12,7 +12,7 @@
 | **A129 長期紅燈 9 支** | 從來沒綠過、已登記名冊（34／35／50／54／55／56／61／69／71） | 逐支決定「撤掉檢核」或「留下並寫到期日」；撤掉的從 runner 移除 | `WEEKLY_ROLLUP_20260909.md` §三 |
 | **A130 誤植成案下架** | 註銷狀態會擴散到 92 處口徑；**D1 唯讀預覽已做**（`scripts/tools/reassign_case_preview.py --from 案號 [--to 案號]`，容器內跑，六張表可動筆數＋三張連帶） | 看過預覽再決定要不要做 D2 轉掛 | `VOID_VS_REASSIGN_20260909.md` |
 | ~~**A131 promote 缺範圍檢查**~~ | ✅ 09-09 晚已補 `assert_case_scope`（全公司視角不受限）；若「替別人的案成案」是現行作法請說 | 已上線 `f42fbf6e` | `FLOW_REVIEW_20260909.md` §一 |
-| **A134 資料更正待授權：CK2021_PM_02_003 兩張案件表殘留 351,200** | 報價單 09-08 已改成 40,950，但 `contract_projects`（id 629）與 `pm_cases`（id 823）的 `contract_amount` 仍是 L146 匯錯的 351,200 ⇒ 承攬金額統計多算 310,250 | 兩行 UPDATE（`… SET contract_amount=40950 WHERE id=629 AND contract_amount=351200`；pm_cases id=823 同）；被分類器擋下，**不轉包** | 本檔 §B |
+| ~~**A134 資料更正：CK2021_PM_02_003 兩張案件表殘留 351,200**~~ ✅ owner 13:5x 在 PowerShell 執行完成（兩表皆 40,950） | 報價單 09-08 已改成 40,950，但 `contract_projects`（id 629）與 `pm_cases`（id 823）的 `contract_amount` 仍是 L146 匯錯的 351,200 ⇒ 承攬金額統計多算 310,250 | 兩行 UPDATE（`… SET contract_amount=40950 WHERE id=629 AND contract_amount=351200`；pm_cases id=823 同）；被分類器擋下，**不轉包** | 本檔 §B |
 | **A105 委託單位雙主檔** | 15 家同名兩張主檔 | 方案 A（補一條鍵、不合併） | `runbooks/dual_master_client_vendors_20260906.md` |
 | **A113 12 張遷移備份表** | DROP 不可逆 | 2026-10-04 滿月後，我先出清單 | — |
 | **A103 RWD 整體** | 11 條路由手機仍橫向捲動、768–991px 無人看、統計卡網格 6 處違規 | 給我 3–5 個最常用手機看的頁；順序照 `FLOW_REVIEW` §四 1→5 | `FLOW_REVIEW_20260909.md` §四 |
@@ -30,6 +30,7 @@
 - 「案件皆請款？」：**定義錯，不是程式錯**（L151）——已請款改為「有請款日期的請款單」，成案佔位是應收；應收未收＝承攬－已收（`74a959f5`）。同條件數字：承攬 5,057,835／已請款 1,546,613／已收 184,000／應收未收 4,873,835。
 - 自我檢核精進：weekly 133「列表↔統計卡篩選參數同構」（首跑 12 組 58 欄位存量入基線、新增即紅）；weekly 132 補 Core 寫法判準（七處躲了一天）。
 - weekly 132 經費指標存量 3→0（請款上限／報價單批次與詳情／未付應付）；`billing_service`／`proactive` 的上限與超支判斷永久豁免（要含佔位）。
+- **六個列表頁翻頁失效**（owner「下方書籤頁無法切換下一頁」）：表頭篩選第二批把「回第 1 頁」放進 Table.onChange，而翻頁也走它 ⇒ 頁碼被蓋回 1。改 `extra.action === 'paginate'` 分流（`b4ca9ee9`）；流程走查新增 `quotation-pagination`，對修前線上版本實跑 FAIL（負向對照）。
 
 - 重啟後五步檢查全綠（`reboot-pre-flight-20260908.md` §5）；每日 02:00 三紅燈為部署前舊映像所致，容器內複跑 0／10 GREEN、14 YELLOW。
 - AaaP 交辦 `B-MISSIVE-MOCK-OOM` 三項全辦：L150 入冊、`.claude/rules/testing.md` 負向測試規範、事件單納入版控並附處理狀態。**刻意不做成檢核**（違規在對話裡不在檔案裡；護欄是 host 層 pyguard）。
