@@ -182,6 +182,11 @@ apiClient.post(`${AI_ENDPOINTS.ANALYSIS}/${documentId}`);
 - **③** 不篩年度時歷年混算，數字看起來大得莫名其妙；而年度一旦要篩，紀年契約必須
   一致（§2.5 就是為此立的）。
 
+| ⑤ **統計走中心服務**（owner 2026-09-09「異值同工」） | 金額指標（承攬／已請款／已收款／應付／已付／年度條件）一律從 `backend/app/services/stats/finance.py` 拿片段；範圍（年度／身分／類別／狀態）用 `stats/case_scope.CaseStatsScope`；「誰是全公司視角」只問 `core/case_scope.has_company_wide_scope`。**在這三個家以外自己寫 = 第二份實作**，weekly 132 新增即紅 | ❌ 在 repository 裡自己寫 `COALESCE(NULLIF(winning_amount…` ；❌ 自己判 `is_admin or is_superuser` 決定範圍；❌ 用 `case_code LIKE 'CK2026_%'` 當年度（那是後備不是主口徑） |
+
+> ⑤ 的教訓：09-09 盤點時承攬金額有 4 份、已收款 3 份，而三份已收款的狀態條件**各不相同卻算出同一個數字**——
+> 因為 59 筆有金額的請款狀態剛好全是 `paid`。**數字對得起來不代表只有一份實作，要數程式碼。**
+
 ### 實作參考
 
 `ERPClientAccountsPage`（後端多回 `totals` 物件）與 `ERPLedgerPage`
