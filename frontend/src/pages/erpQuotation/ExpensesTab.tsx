@@ -148,10 +148,19 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
           onRow={(row: FinanceRecord) => ({
             // 點整列即進核銷詳情。操作欄已移除，理論上列上不再有按鈕，
             // 但保留 target 判斷作為防護（日後若有人加回列內元件不會立刻壞掉）。
+            //
+            // 2026-09-09 owner「/erp/expenses/23 找不到資料」：08-15 讓卡片切換型別後，
+            // 表格會列出請款／開票列，而這裡不分型別一律拿 row.id 去開**費用單**詳情 ——
+            // 請款 #23 被當成費用單 #23（不存在）⇒ 404。三種型別的 id 是三張表的 id，
+            // 只有 expense 有獨立詳情頁；請款／開票導回本頁「應收帳款」分頁（同一張報價單底下）。
             onClick: (e: React.MouseEvent) => {
               const el = e.target as HTMLElement;
               if (el.closest('button') || el.closest('.ant-popover')) return;
-              navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(row.id)));
+              if (row.type === 'expense') {
+                navigate(ROUTES.ERP_EXPENSE_DETAIL.replace(':id', String(row.id)));
+              } else {
+                navigate({ search: '?tab=receivable' });
+              }
             },
             style: { cursor: 'pointer' },
           })}
