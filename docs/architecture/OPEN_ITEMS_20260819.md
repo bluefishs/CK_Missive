@@ -2,6 +2,43 @@
 
 > `lifecycle: status=current reviewed=2026-09-09 owner=CK_Missive`
 
+## 🧭 09-09 晚 統整入口（重啟後覆盤；**owner 決策總表**——所有仍開著的決定集中在這一張，下方各段只是出處）
+
+### A. 等 owner 決定的（跨日累積，全部列出）
+
+| 項 | 是什麼 | 建議 | 出處 |
+|---|---|---|---|
+| **A127＋A132 主機層記憶體** | swap=0 實驗**未執行**（12:04 重啟時 `.wslconfig` 仍 `swap=8GB`）；mdsched 從未做；09-08 21:26 硬當成因已定＝mock OOM（L150），**不屬此家族** | 先查 08-11 三筆 Windows 更新（AaaP 建議）；要停機的實驗（swap=0＋memtest Extended）合併排一次夜間停機 | `runbooks/swap-zero-experiment-20260909.md` §執行紀錄 |
+| **A129 長期紅燈 9 支** | 從來沒綠過、已登記名冊（34／35／50／54／55／56／61／69／71） | 逐支決定「撤掉檢核」或「留下並寫到期日」；撤掉的從 runner 移除 | `WEEKLY_ROLLUP_20260909.md` §三 |
+| **A130 誤植成案下架** | 註銷狀態會擴散到 92 處口徑 | 先做 D1 唯讀預覽（零風險），看過再決定 D2 轉掛 | `VOID_VS_REASSIGN_20260909.md` |
+| **A131 promote 缺範圍檢查** | 任何登入者可把任何案成案 | 補 `assert_case_scope`，超管／管理員不受限；若「替別人的案成案」是現行作法請說 | `FLOW_REVIEW_20260909.md` §一 |
+| **A105 委託單位雙主檔** | 15 家同名兩張主檔 | 方案 A（補一條鍵、不合併） | `runbooks/dual_master_client_vendors_20260906.md` |
+| **A113 12 張遷移備份表** | DROP 不可逆 | 2026-10-04 滿月後，我先出清單 | — |
+| **A103 RWD 整體** | 11 條路由手機仍橫向捲動、768–991px 無人看、統計卡網格 6 處違規 | 給我 3–5 個最常用手機看的頁；順序照 `FLOW_REVIEW` §四 1→5 | `FLOW_REVIEW_20260909.md` §四 |
+| **應付 #51 拆帳／#39 錯字／主檔併寫 2 筆／顏新元 3 筆** | 業務事實，系統無憑證可判 | 拆帳工具已備（給兩家金額即可）；其餘逐筆判 | 本檔 §E／§G／§H |
+| **型二 #144／#108 實收 > 報價** | 錢真的進來了，少記的是營收 | 畫面上 revision+1 補到實收，或告知是追加還是漏記 | 本檔 §G |
+| **卡片↔下拉同步三處等產品判斷** | `search`／`category` 算不算分母 | 我建議都算（卡片是分母） | `FLOW_REVIEW_20260909.md` §二 |
+| **收斂下一輪排序** | UserRole DB 載入／權限標籤 DB 產生／名稱快照退場／端點轉接層／React Query 守門 | 建議順序見 `ARCHITECTURE_REVIEW_20260909.md` §四 Wave 1 | `CONSOLIDATION_20260907.md` §六 |
+| **平臺 colo（跨 repo）** | 每支 API 多 0.4–0.55 秒 | 由 AaaP session 提案 | — |
+
+### B. 09-09 晚已辦（不需你決定）
+
+- 重啟後五步檢查全綠（`reboot-pre-flight-20260908.md` §5）；每日 02:00 三紅燈為部署前舊映像所致，容器內複跑 0／10 GREEN、14 YELLOW。
+- AaaP 交辦 `B-MISSIVE-MOCK-OOM` 三項全辦：L150 入冊、`.claude/rules/testing.md` 負向測試規範、事件單納入版控並附處理狀態。**刻意不做成檢核**（違規在對話裡不在檔案裡；護欄是 host 層 pyguard）。
+- `TESTING_MAP` 產生器寫死的「17／114 步」改為讀 runner（實際 17／132）；兩條過期敘述（A111 基線 86、視覺走查只有手動）訂正。
+- `CLAUDE.md` 檔頭 08-30／08-31／09-04 十一輪日記段（約 12 KB、每 session 載入）依既有慣例搬入 `MILESTONES_ARCHIVE.md`。
+- 新文件：`docs/architecture/ARCHITECTURE_REVIEW_20260909.md`（整體覆盤＋三個月規劃）。
+
+### C. 新登記
+
+| 項 | 是什麼 | 優先 |
+|---|---|---|
+| **A133 backend `GET /` 500** | 直打 :8001 根路徑回 `TypeError: BaseRoute.__call__() missing receive/send`（fastapi `routing.matches`），72h 內 5 次、只此路徑；公網首頁由前端容器服務不受影響 | 低；先查 `app.add_route("/metrics", …)` 註冊的物件型別 |
+| 跨 repo 未推送（只回報） | Hermes 17／DigitalTunnel 33（＋3 未提交）／lvrland_Webmap 42／shared-modules 99 未提交／KMapAdvisor 58 未提交 | 各 repo session 自理（chronic 34 家族） |
+| `CKProject_DailyBackup` rc=0xC000013A | 09-08 19:00 那次被中止（Ctrl-C／關機） | 屬 CKProject 層排程，只記錄 |
+
+---
+
 ## 🧭 09-09 統整入口（v6.76；比 09-06 入口新，先看這張）
 
 ### A. 等 owner 決定的（我不自行動手）

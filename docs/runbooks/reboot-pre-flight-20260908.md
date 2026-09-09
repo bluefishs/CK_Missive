@@ -69,7 +69,7 @@ python scripts/checks/deploy_verify.py
 powershell -NoProfile -Command "Get-ScheduledTask -TaskName 'CK*Missive*' | %{ $i=$_|Get-ScheduledTaskInfo; '{0} {1} {2}' -f $_.TaskName,$_.State,$i.LastRunTime }"
 ```
 
-**預期**：版本仍是 `v6.75 @ ac50faa1`、業務量與 §1 相同（±當日新增）、公網三次都 200。
+**預期**：版本仍是 `v6.76 @ 768c8165`（09-09 更新；原 `v6.75 @ ac50faa1` 為 09-08 基線）、業務量與 §1 相同（±當日新增）、公網三次都 200。
 
 ### 出問題時的對照
 
@@ -103,3 +103,20 @@ powershell -NoProfile -Command "Get-ScheduledTask -TaskName 'CK*Missive*' | %{ $
 | weekly 120 報價單總表 vs DB | RED 3 筆：第 59 列無編號、2 筆「總表未標成立而系統已成案」——**要 owner 在總表補 v**，不是系統問題 |
 | 公文附件稽核 | YELLOW「NAS 多 2 檔」：同步用 `/XO` 不用 `/MIR`，本機刪過的檔在 NAS 留著是預期 |
 | 其他 repo 的排程 | `CK_PileMgmt_PM2_Autostart` result=255、`CK_DigitalTunnel-PostRestart-Check` result=2、`CK-Hermes-Health-Smoke` 從未執行 —— **不是本 repo 的事，只記錄**（跨 session 權責 §1） |
+
+---
+
+## 5. 2026-09-09 12:04 重啟結果（實測）
+
+| 步 | 結果 |
+|---|---|
+| 1 容器 | Missive 5 個 healthy＋平臺 11 個（prometheus／grafana／loki／hermes ×3／ollama…）全 Up |
+| 2 build | `v6.76 @ 768c8165` ＝ HEAD，built 2026-09-09T03:58Z |
+| 3 公網 | `200 200 200`；`/uploads/...` 未登入 **401** |
+| 4 四層驗證 | GREEN（host／首頁／api/health／auth/check 401） |
+| 5 排程 | `CK_Missive-*` 的 LastRunTime 全在今天；`Fitness-Weekly` rc=1 是 09-06 週跑的慢性紅（A129）；`SelfAudit-CapabilityUsage` rc=1＝「判定時點已到，需人工下結論」，非故障 |
+
+每日 02:00 的三個紅燈（步驟 0 表態閘門／10 CRLF／14 知識文庫）在容器內複跑：**0 GREEN、10 GREEN**（CRLF 已於 `3ac7fcd1` 修）、**14 YELLOW**（3 檔等 05:15 同步）
+⇒ 那次紅是 02:00 跑在部署前的舊映像上，不是現況。
+`.wslconfig` 仍 `swap=8GB` ⇒ **swap=0 實驗未執行**（見 `swap-zero-experiment-20260909.md` §執行紀錄）。
+

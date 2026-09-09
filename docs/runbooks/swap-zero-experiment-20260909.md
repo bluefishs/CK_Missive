@@ -241,3 +241,14 @@ docker run --rm --privileged alpine sh -c 'dmesg | grep -cE "segfault|general pr
 1. **未推送必須為 0**（本 session 每次改動都已推送，重啟前再確認一次）。
 2. **NAS 上 08-14 那份 dump 已移出輪替**（`missive_databsae/known_good_pre_20260815/`），
    那是 08-15 爆發期之前最後一份乾淨參考，不受 30 天輪替影響。
+
+## 執行紀錄
+
+### 2026-09-09 12:04 重開機 —— 不是這個實驗
+
+- 主機 12:04 重開；`%UserProfile%\.wslconfig` 仍是 `swap=8GB`、`wsl -e free -m` 顯示 Swap 8192 total／0 used
+  ⇒ **swap=0 未套用，這次重啟對 A127 沒有任何判別力**。實驗要另外排。
+- 重啟後五步全綠：容器 16 個 Up（Missive 5＋平臺 11）、build `768c8165`＝HEAD、公網 3/3 200、`/uploads` 未登入 401、四層驗證 GREEN。
+- **09-08 21:26 那次硬當的成因已定＝host 層 OOM**（本 repo session 的 MagicMock 負向測試，L150／`docs/incidents/2026-09-08-host-oom-mock-negative-test.md`），
+  **不屬本家族**。§0 表裡「21:27 開機時自動跑過 Standard 並 PASS」那次重開機的原因就是它；十筆故障若含 21:2x 的任何一筆，先剔除。
+- 三個選項 (a)/(b)/(c) 仍待 owner；AaaP 建議先查 08-11 三筆 Windows 更新。

@@ -1888,3 +1888,30 @@ Python 端直接 TypeError，SQL 端回 interval（畫面印「逾期 557 days �
 ⚠️ 收斂途中我自己製造了一個同型缺陷：把跨案權限碼寫成 `erp:quotations:cross_case`，而 DB 裡是 `reports:erp:view`——等於把一條路徑靜靜關掉，且不會有人發現（那幾位還有角色路徑撐著）。**收斂時不得發明新的常數值。**
 
 判準句：**問「這件事有幾份實作」要數程式碼，不能比數字；數字在特定資料切片下相同，是最容易讓人停止追查的假證據。**
+
+---
+
+## L150 — 架構風險清單不能替代證據：一段 MagicMock 負向測試把整台主機當掉，而前兩次歸因都是推論
+
+**2026-09-08 19:08 → 21:26。** 本 repo 的 session 執行 `del s.__iter__; set(s)` 這種「刪 dunder 再呼叫內建協定」的負向測試。
+MagicMock 走舊式序列協定：`__getitem__(0,1,2,…)` 永遠回新的 MagicMock、永不拋 `IndexError` ⇒ 無限迭代，每一步 append 一筆 `_Call` 到 `mock_calls`，約 1.4 GB/分鐘。
+單一 python.exe 長到 151 GB（事件 2004 列 162 GB），**21:26:57 主機硬當（事件 41）**，公文／地價／樁位所有生產容器一併中斷。
+
+三個疊加的失效，每一個單獨看都「沒有錯」：
+
+1. **測試寫法**：要驗 `TypeError`，卻用了一個會無限迭代的構造。
+2. **`timeout 60` 是 Git Bash 的 coreutils timeout，Windows 下殺不掉子 python** ⇒ 工具回報「completed with no output」被讀成「跑完了」，行程其實還在長。
+3. **移到背景後沒有邊界**：輸出檔 19:18 就寫下 `MemoryError`，沒有人在看；主機兩小時後才倒。
+
+前兩次歸因（vmmem 膨脹、`:5201` 洩漏）都是從**架構風險清單**推出來的，聽起來合理、方向也對，但都不是真因。
+定案靠三份原始證據：背景輸出檔的 traceback（堆疊停在 `unittest/mock.py:1193 _increment_mock_call`）、事件 2004 的 PID 與 commit 量、對話 jsonl 裡指令的時間戳。
+
+**防線**：host 層 `C:\Tools\pyguard\sitecustomize.py` 每行程 16 GB（CK_AaaP 落地）；`~/.claude/rules/memory-safety.md` 全 repo 每個 session 載入；
+本 repo `.claude/rules/testing.md`「負向測試的記憶體邊界」；事件單 `docs/incidents/2026-09-08-host-oom-mock-negative-test.md`。
+**刻意不做成檢核**：違規形狀是「一段對話裡執行的指令」，不在 repo 檔案裡，靜態掃描抓不到；真正的護欄是 host 層封頂。
+
+判準句：**歸因先拿原始證據（traceback／事件 ID／時間戳），架構清單只用來決定去哪裡找證據。**
+第二句：**在 Windows 上「有下 timeout」不等於「有逾時」——Git Bash 的 `timeout` 殺不掉子行程；要逾時用 `subprocess.run(timeout=)` 或 PowerShell `Wait-Process`＋`Stop-Process`。**
+
+⚠️ 與 A127 的關係：A127 追的是 WSL 核心層段錯誤（容器內 segfault／GPF，十筆），這次是 host 層 OOM，成因已定，**不屬於那組未解故障**；
+A127 的時間軸若把 09-08 21:27 那次重開機當成該家族事件，要先剔除。
