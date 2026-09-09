@@ -283,6 +283,9 @@ class ClientReceivableRepository:
                     "_tr": Decimal(str(r.total_received or 0)),
                 })
 
+        # 2026-09-09 owner 截圖「鎮泓有限公司 0 案 0 金額」：該單位 2026 只有一件評估中的案（未成案、報價單 draft），
+        # 09-05 已把未成案金額排除，但那一列還留著 ⇒ 全 0。帳款總覽只列「該年度有成案或有金流」的單位。
+        items = [r for r in items if r.get("case_count") or r["_tc"] or r["_tb"] or r["_tr"]]
         items.sort(key=lambda x: x["_tc"], reverse=True)
         total = len(items)
 

@@ -141,10 +141,10 @@ const ERPClientAccountsPage: React.FC = () => {
       title: termTitle('contract_amount_sum'),
       dataIndex: 'total_contract',
       key: 'total_contract',
-      width: 130,
+      width: 160,  // 2026-09-09 owner 截圖：130 讓「承攬金額（含稅）ⓘ」折成兩行
       align: 'right',
       sorter: (a, b) => Number(a.total_contract ?? 0) - Number(b.total_contract ?? 0),
-      render: (v: number) => fmtMoney(v),
+      render: (v: number) => fmtMoneyOr(v, '無承攬'),
     },
     {
       title: termTitle('billed'),
