@@ -1,0 +1,59 @@
+ck_missive_backend Up 9 minutes (healthy)
+ck-tunnel-api-1 Up 5 hours (healthy)
+ck_pilemgmt-frontend-1 Up 5 hours (healthy)
+ck_missive_postgres Up 5 hours (healthy)
+ck_lvrland_webmap-frontend-1 Up 5 hours (healthy)
+ck_pilemgmt-backend-1 Up 58 minutes (healthy)
+ck_pilemgmt-db-1 Up 5 hours (healthy)
+ck_pilemgmt-redis-1 Up 5 hours (healthy)
+ck-platform-prometheus Up 5 hours (healthy)
+ck-platform-node-exporter Up 5 hours (healthy)
+ck_lvrland_dataform-ors Up 5 hours (healthy)
+ck_lvrland_webmap-redis-1 Up 5 hours (healthy)
+ck_lvrland_webmap-backend-1 Up 42 minutes (healthy)
+ck_missive_frontend Up 5 hours (healthy)
+ck_lvrland_webmap-celery-worker-1 Up 5 hours (healthy)
+ck_lvrland_webmap-celery-beat-1 Up 5 hours (healthy)
+ck_missive_redis Up 5 hours (healthy)
+pile-cloudflared Up 5 hours
+ck-platform-promtail Up 5 hours (healthy)
+ck-hermes-gateway Up 2 hours (healthy)
+ck-tunnel-worker-1 Up 5 hours (healthy)
+ck_lvrland_dataform-backend-1 Up 5 hours (healthy)
+ck_missive_cloudflared Up 5 hours
+ck_lvrland_webmap-frontend-dev-1 Exited (137) 2 weeks ago
+ck_lvrland_dataform-frontend-1 Up 5 hours
+ck_website_dev Up 5 hours
+ck-tunnel-nginx-1 Up 5 hours (healthy)
+ck-tunnel-frontend-builder-1 Exited (0) 3 weeks ago
+ck-tunnel-minio-1 Up 5 hours (healthy)
+ck-tunnel-redis-1 Up 5 hours (healthy)
+ck-tunnel-postgres-1 Up 5 hours (healthy)
+sw-postgres Up 5 hours (healthy)
+sw-redis Up 5 hours (healthy)
+sw-minio Up 5 hours (healthy)
+kmapadvisor-postgres Up 5 hours (healthy)
+ck_lvrland_webmap-db-1 Up 5 hours (healthy)
+ck-platform-grafana Up 5 hours (healthy)
+ck-hermes-ops Up 5 hours
+ck-hermes-web Up 25 minutes (healthy)
+ck-label-studio Up 5 hours
+sw-worker Up 5 hours (healthy)
+ck-tunnel-celery-beat-1 Up 5 hours (healthy)
+sw-api Up 5 hours (healthy)
+sw-titiler Up 5 hours
+sw-adminer Up 5 hours
+sw-frontend Up 5 hours
+sw-nginx Up 5 hours
+ck-platform-loki Up 5 hours (healthy)
+ck-platform-alertmanager Up 5 hours (healthy)
+ck-tunnel-cloudflared Up 5 hours
+kmapadvisor-backend Up 5 hours
+kmapadvisor-frontend Up 5 hours
+kmapadvisor-redis Up 5 hours (healthy)
+ck-open-webui Up 5 hours (healthy)
+ck_lvrland_cloudflared Up 5 hours (healthy)
+ck-platform-blackbox Up 5 hours (healthy)
+ck_missive_ollama_dev Created
+ck-tunnel-celery-exporter-1 Up 32 minutes (healthy)
+ck-ollama Up 5 hours (healthy)

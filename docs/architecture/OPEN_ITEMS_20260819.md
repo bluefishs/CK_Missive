@@ -8,7 +8,8 @@
 
 | 項 | 是什麼 | 建議 | 出處 |
 |---|---|---|---|
-| **A127＋A132 主機層記憶體** | swap=0 實驗**未執行**（12:04 重啟時 `.wslconfig` 仍 `swap=8GB`）；mdsched 從未做；09-08 21:26 硬當成因已定＝mock OOM（L150），**不屬此家族** | 先查 08-11 三筆 Windows 更新（AaaP 建議）；要停機的實驗（swap=0＋memtest Extended）合併排一次夜間停機 | `runbooks/swap-zero-experiment-20260909.md` §執行紀錄 |
+| **A127＋A132 主機層記憶體（🔴 今晚就做）** | 第五波 14:47–16:44 共 28+ 筆、五容器四 repo、missive 重啟 11 次、公網 502；程式擋不住 | **今晚二選一**：mdsched Extended（整夜）或 08-12 三筆 KB 回退對照（觀察 ≥4 h）；程序＝`runbooks/reboot-pre-flight-20260909-evening.md` §2 | 該 runbook |
+| ~~A127 舊列~~ | swap=0 實驗**未執行**（12:04 重啟時 `.wslconfig` 仍 `swap=8GB`）；mdsched 從未做；09-08 21:26 硬當成因已定＝mock OOM（L150），**不屬此家族** | 先查 08-11 三筆 Windows 更新（AaaP 建議）；要停機的實驗（swap=0＋memtest Extended）合併排一次夜間停機 | `runbooks/swap-zero-experiment-20260909.md` §執行紀錄 |
 | **A129 長期紅燈 9 支** | 從來沒綠過、已登記名冊（34／35／50／54／55／56／61／69／71） | 逐支決定「撤掉檢核」或「留下並寫到期日」；撤掉的從 runner 移除 | `WEEKLY_ROLLUP_20260909.md` §三 |
 | **A135 R1 三筆補請款日期** | 788（TT18531912 2025-12-08）／793（CA19547059 2026-07-30）／794（CC14720057 2026-07-30）：總表發票明細掛在無日期佔位上 | 你確認總表發票正確就執行前述 SQL；否則要改發票紀錄 | weekly 134 |
 | **A130 誤植成案下架** | 註銷狀態會擴散到 92 處口徑；**D1 唯讀預覽已做**（`scripts/tools/reassign_case_preview.py --from 案號 [--to 案號]`，容器內跑，六張表可動筆數＋三張連帶） | 看過預覽再決定要不要做 D2 轉掛 | `VOID_VS_REASSIGN_20260909.md` |
@@ -37,6 +38,7 @@
 - ⚠️ **我自己的錯二（已修）**：取代腳本少接 `s[m.end():]` 把 `scheduler.py` 截成 1,569 行；同時部署 1j 正在建映像——**部署建的是工作樹不是 HEAD**，建置期間在 `backend/` 改檔會被烘進去（1j 標成 `b164f043-dirty`；容器那份剛好完整）。⇒ 部署腳本加「工作樹髒就拒絕」守門（`DEPLOY_ALLOW_DIRTY=1` 才放行）。
 - **weekly 134 請款佔位與下游一致性**（owner「是否還有類似問題請統一複查，不要重複人工檢核」）：七條規則全庫量；R1=3（788／793／794，總表匯入發票掛在無日期佔位，待你補日期）、R7=2 已用系統機制回填（614／615）、其餘 0。機制修法＝`settle_placeholder_for_invoice`（發票落地即補佔位日期，發票建立與總表匯入共用，`84bf112b`）。
 - ⚠️ **我自己的錯三（已修）**：1k 部署執行中我改了 `deploy-public.sh`（加髒工作樹守門），bash 逐段讀檔 ⇒ 讀到被改過的區段當機。⇒ **執行中的腳本不得改**；1l 從 HEAD 重跑成功（線上 `f2517cfa`，32/32）。
+- **L152 mapper 毒化**（owner「Google 登入 500」）：啟動期 `configure_mappers()`（`2ccfe1d5`）；16:55 手動重啟已恢復。
 - **篩選模組化收尾**：`search`／`keyword` 在 `CaseListFilters` 合一（`cf22bc81`）；`CaseFilterBar` 宣告式篩選列上線、三個財務分頁改用（`980c43f9`）；weekly 135 守「列表頁不得自畫維度下拉」（存量入基線）。
 - **六個列表頁翻頁失效**（owner「下方書籤頁無法切換下一頁」）：表頭篩選第二批把「回第 1 頁」放進 Table.onChange，而翻頁也走它 ⇒ 頁碼被蓋回 1。改 `extra.action === 'paginate'` 分流（`b4ca9ee9`）；流程走查新增 `quotation-pagination`，對修前線上版本實跑 FAIL（負向對照）。
 
