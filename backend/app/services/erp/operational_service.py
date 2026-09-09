@@ -238,9 +238,10 @@ class OperationalAccountService(AuditableServiceMixin):
 
     async def get_stats(
         self, fiscal_year: Optional[int] = None, keyword: Optional[str] = None,
+        category: Optional[str] = None, status: Optional[str] = None,
     ) -> OperationalAccountStatsResponse:
         """取得統計數據"""
-        raw = await self.account_repo.get_stats(fiscal_year, keyword)
+        raw = await self.account_repo.get_stats(fiscal_year, keyword, category=category, status=status)
         return OperationalAccountStatsResponse(**raw)
 
     # ========================================================================

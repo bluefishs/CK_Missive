@@ -682,7 +682,7 @@ export function useAssetDetail(assetId: number | null) {
 }
 
 /** 資產統計 */
-export function useAssetStats(params?: { keyword?: string }) {
+export function useAssetStats(params?: { keyword?: string; category?: string; case_code?: string }) {
   return useQuery<AssetStats>({
     queryKey: erpFinanceKeys.assets.stats(params),
     queryFn: async () => {
@@ -889,7 +889,7 @@ export function useOperationalAccountDetail(id: number | null) {
 }
 
 /** 營運帳目統計 */
-export function useOperationalAccountStats(params?: { fiscal_year?: number; keyword?: string }) {
+export function useOperationalAccountStats(params?: { fiscal_year?: number; keyword?: string; category?: string; status?: string }) {
   return useQuery<OperationalAccountStats>({
     queryKey: erpFinanceKeys.operational.stats(params),
     queryFn: async () => {

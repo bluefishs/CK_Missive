@@ -61,6 +61,7 @@ interface AssetListParams {
   category?: string;
   status?: string;
   keyword?: string;
+  case_code?: string;  // 2026-09-09：與後端 AssetListRequest 對齊（統計卡分母一起送）
 }
 
 // --- 元件 ---
@@ -74,7 +75,8 @@ const ERPAssetListPage: React.FC = () => {
 
   const { data, isLoading, isError, refetch } = useAssetList(params);
   // 2026-09-04：統計卡跟著關鍵字走
-  const { data: stats } = useAssetStats({ keyword: params.keyword || undefined });
+  // 統計卡是列表的分母：類別／案號跟列表一起送；status 是卡片自己（後端 STATS_EXEMPT）
+  const { data: stats } = useAssetStats({ keyword: params.keyword || undefined, category: params.category || undefined, case_code: params.case_code || undefined });
   const exportMutation = useExportAssets();
   const importMutation = useImportAssets();
   const batchInventoryMutation = useBatchInventory();

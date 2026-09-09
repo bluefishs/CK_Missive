@@ -29,20 +29,10 @@ class OperationalAccountRepository(BaseRepository[OperationalAccount]):
     async def list_filtered(
         self, params: OperationalAccountListRequest
     ) -> Tuple[List[OperationalAccount], int]:
-        """篩選帳目列表"""
-        stmt = select(self.model)
-
-        if params.category:
-            stmt = stmt.where(self.model.category == params.category)
-        if params.fiscal_year:
-            stmt = stmt.where(self.model.fiscal_year == params.fiscal_year)
-        if params.status:
-            stmt = stmt.where(self.model.status == params.status)
-        if params.keyword:
-            kw = f"%{params.keyword}%"
-            stmt = stmt.where(
-                self.model.name.ilike(kw) | self.model.account_code.ilike(kw)
-            )
+        """篩選帳目列表（條件由 `account_filters()` 產生，與統計共用）"""
+        stmt = select(self.model).where(*self.account_filters(
+            fiscal_year=params.fiscal_year, keyword=params.keyword,
+            category=params.category, status=params.status))
 
         count_query = select(func.count()).select_from(stmt.subquery())
         total = await self.db.scalar(count_query) or 0
@@ -87,17 +77,30 @@ class OperationalAccountRepository(BaseRepository[OperationalAccount]):
 
         return f"{prefix}{seq:03d}"
 
-    async def get_stats(
-        self, fiscal_year: Optional[int] = None, keyword: Optional[str] = None,
-    ) -> dict:
-        """取得統計數據（2026-09-04：加 keyword，與列表同一組條件——統計卡是列表的分母）"""
-        # Base filters
-        acct_filter = []
+    def account_filters(self, fiscal_year: Optional[int] = None, keyword: Optional[str] = None,
+                        category: Optional[str] = None, status: Optional[str] = None) -> list:
+        """**篩選條件的家**：列表與統計都從這裡拿條件（2026-09-09，weekly 133）。
+
+        此前列表四個條件、統計兩個（fiscal_year／keyword）各寫一份 ⇒ 選了類別或狀態，卡片不跟。
+        """
+        conds = []
         if fiscal_year:
-            acct_filter.append(self.model.fiscal_year == fiscal_year)
+            conds.append(self.model.fiscal_year == fiscal_year)
+        if category:
+            conds.append(self.model.category == category)
+        if status:
+            conds.append(self.model.status == status)
         if keyword:
             kw = f"%{keyword}%"
-            acct_filter.append(self.model.name.ilike(kw) | self.model.account_code.ilike(kw))
+            conds.append(self.model.name.ilike(kw) | self.model.account_code.ilike(kw))
+        return conds
+
+    async def get_stats(
+        self, fiscal_year: Optional[int] = None, keyword: Optional[str] = None,
+        category: Optional[str] = None, status: Optional[str] = None,
+    ) -> dict:
+        """取得統計數據。條件與列表同一份（`account_filters()`）——統計卡是列表的分母。"""
+        acct_filter = self.account_filters(fiscal_year=fiscal_year, keyword=keyword, category=category, status=status)
 
         # Total accounts
         stmt_count = select(func.count(self.model.id))
@@ -118,11 +121,8 @@ class OperationalAccountRepository(BaseRepository[OperationalAccount]):
             .join(OperationalAccount)
             .where(OperationalExpense.approval_status == "approved")
         )
-        if fiscal_year:
-            spent_stmt = spent_stmt.where(OperationalAccount.fiscal_year == fiscal_year)
-        if keyword:
-            kw = f"%{keyword}%"
-            spent_stmt = spent_stmt.where(OperationalAccount.name.ilike(kw) | OperationalAccount.account_code.ilike(kw))
+        if acct_filter:
+            spent_stmt = spent_stmt.where(*acct_filter)  # 已 join OperationalAccount，同一組條件
         total_spent = await self.db.scalar(spent_stmt) or Decimal("0")
 
         # By category

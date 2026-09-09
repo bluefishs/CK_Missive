@@ -1,7 +1,7 @@
 """資產管理 Schema"""
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import ClassVar, Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -50,12 +50,18 @@ class AssetUpdateRequest(BaseModel):
 
 
 class AssetListRequest(BaseModel):
+    """資產列表查詢。**統計端點（/stats）吃同一份**（2026-09-09 weekly 133）：卡片是列表的分母，
+    篩選條件只宣告一次，`AssetRepository.filters()` 把它翻成 SQL，列表與統計共用。"""
     category: Optional[str] = None
     status: Optional[str] = None
     keyword: Optional[str] = None
     case_code: Optional[str] = None
     skip: int = 0
     limit: int = 50
+
+    #: weekly 133：統計卡不收的欄位與理由。資產頁的卡片本身就是「各狀態的計數」——
+    #: 點「使用中」篩列表時，卡片不能跟著只剩使用中（§2.6 ②）。
+    STATS_EXEMPT: ClassVar[dict[str, str]] = {"status": "卡片本身是各狀態計數，不隨自己的篩選歸零"}
 
 
 class AssetBatchInventoryRequest(BaseModel):

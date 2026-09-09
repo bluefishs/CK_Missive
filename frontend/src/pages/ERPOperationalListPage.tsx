@@ -75,7 +75,8 @@ const ERPOperationalListPage: React.FC = () => {
   const [statFilter, setStatFilter] = useState<string | null>(null);
   const { data, isLoading, isError, refetch } = useOperationalAccounts(params);
   // 2026-09-04：統計卡跟著年度＋關鍵字走（此前送空 body ⇒ 選了年度卡片不動）
-  const { data: stats } = useOperationalAccountStats({ fiscal_year: params.fiscal_year, keyword: params.keyword || undefined });
+  // 統計卡是列表的分母：四個篩選一起送（weekly 133）
+  const { data: stats } = useOperationalAccountStats({ fiscal_year: params.fiscal_year, keyword: params.keyword || undefined, category: params.category || undefined, status: params.status || undefined });
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const total = data?.total ?? 0;

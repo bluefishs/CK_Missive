@@ -116,14 +116,13 @@ async def delete_account(
 
 @router.post("/stats")
 async def get_stats(
-    params: dict = {},
+    params: OperationalAccountListRequest = OperationalAccountListRequest(),
     service: OperationalAccountService = Depends(get_service(OperationalAccountService)),
     current_user: User = Depends(require_auth()),
 ):
-    """營運帳目統計"""
-    fiscal_year = params.get("fiscal_year") if isinstance(params, dict) else None
-    keyword = params.get("keyword") if isinstance(params, dict) else None
-    result = await service.get_stats(fiscal_year=fiscal_year, keyword=keyword or None)
+    """營運帳目統計 —— 與列表**同一份** schema（weekly 133）：類別／年度／狀態／關鍵字都跟"""
+    result = await service.get_stats(fiscal_year=params.fiscal_year, keyword=params.keyword or None,
+                                     category=params.category or None, status=params.status or None)
     return SuccessResponse(data=result)
 
 

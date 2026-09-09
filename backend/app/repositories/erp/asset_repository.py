@@ -27,28 +27,8 @@ class AssetRepository(BaseRepository[Asset]):
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[List[Asset], int]:
-        """篩選資產列表 + 總數"""
-        query = select(Asset)
-
-        if category:
-            query = query.where(Asset.category == category)
-        if status:
-            query = query.where(Asset.status == status)
-        if case_code:
-            query = query.where(Asset.case_code == case_code)
-        if keyword:
-            pattern = f"%{keyword}%"
-            query = query.where(
-                or_(
-                    Asset.name.ilike(pattern),
-                    Asset.asset_code.ilike(pattern),
-                    Asset.brand.ilike(pattern),
-                    Asset.model.ilike(pattern),
-                    Asset.serial_number.ilike(pattern),
-                    Asset.custodian.ilike(pattern),
-                    Asset.location.ilike(pattern),
-                )
-            )
+        """篩選資產列表 + 總數（條件由 `filters()` 產生，與統計共用）"""
+        query = select(Asset).where(*self.filters(category=category, status=status, keyword=keyword, case_code=case_code))
 
         # Count
         count_query = select(func.count()).select_from(query.subquery())
@@ -94,6 +74,25 @@ class AssetRepository(BaseRepository[Asset]):
         await self.db.flush()
         return True
 
+    @classmethod
+    def filters(cls, category: Optional[str] = None, status: Optional[str] = None,
+                keyword: Optional[str] = None, case_code: Optional[str] = None) -> list:
+        """**篩選條件的家**：列表與統計都從這裡拿條件（2026-09-09，weekly 133）。
+
+        此前列表在 `list_assets` 自己寫一份、統計只認 keyword —— 於是選了類別，卡片不跟。
+        """
+        conds = []
+        if category:
+            conds.append(Asset.category == category)
+        if status:
+            conds.append(Asset.status == status)
+        if case_code:
+            conds.append(Asset.case_code == case_code)
+        kw = cls._keyword_clause(keyword)
+        if kw is not None:
+            conds.append(kw)
+        return conds
+
     @staticmethod
     def _keyword_clause(keyword: Optional[str]):
         """列表與統計共用的關鍵字條件（2026-09-04：統計卡是列表的分母，兩邊必須同一組欄位）"""
@@ -106,12 +105,13 @@ class AssetRepository(BaseRepository[Asset]):
             Asset.custodian.ilike(pattern), Asset.location.ilike(pattern),
         )
 
-    async def get_asset_stats(self, keyword: Optional[str] = None) -> Dict[str, Any]:
-        """取得資產統計（keyword 與列表同一組條件）"""
-        kw = self._keyword_clause(keyword)
+    async def get_asset_stats(self, keyword: Optional[str] = None, category: Optional[str] = None,
+                              case_code: Optional[str] = None) -> Dict[str, Any]:
+        """取得資產統計。條件與列表同一份（`filters()`）；`status` 刻意不收——卡片本身就是各狀態計數。"""
+        conds = self.filters(category=category, status=None, keyword=keyword, case_code=case_code)
 
         def _scoped(q):
-            return q.where(kw) if kw is not None else q
+            return q.where(*conds) if conds else q
 
         # Status counts
         status_query = _scoped(
