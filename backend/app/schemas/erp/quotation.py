@@ -1,5 +1,5 @@
 """ERP 報價/成本主檔 Schemas"""
-from typing import Optional, List
+from typing import ClassVar, Optional, List
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
@@ -270,6 +270,10 @@ class ERPQuotationResponse(BaseModel):
 class ERPQuotationListRequest(BaseQueryParams, CaseListFilters):
     """【09-09 篩選單一定義】year／category／staff_user_id 繼承自 CaseListFilters，本類不再宣告。
     報價列表查詢"""
+    #: weekly 133：統計卡（profit-summary）不收的欄位與理由。唯一正當理由＝「那個欄位是卡片自己」。
+    STATS_EXEMPT: ClassVar[dict[str, str]] = {
+        "card": "點卡片篩列表，卡片本身不隨自己的篩選歸零（§2.6 ②）",
+    }
     status: Optional[str] = Field(None, description="報價單狀態篩選")
     case_code: Optional[str] = Field(None, description="案號篩選")
     case_status: Optional[str] = Field(None, description="案件狀態：planning 評估中／contracted 已承攬（執行中）／closed 已結案")

@@ -853,7 +853,9 @@ class ERPQuotationService(AuditableServiceMixin):
             avg_gross_margin=avg_margin,
             total_billed=total_billed,
             total_received=total_received,
-            total_outstanding=total_billed - total_received,
+            # 2026-09-09：應收未收＝承攬金額－已收款（不是已請款－已收款）。
+            # 已請款改成只認有請款日期的請款單後，兩者才分得開：佔位是應收、不是已請款。
+            total_outstanding=total_awarded - total_received,
             total_payable=total_payable,
             case_count=len(items),
         )

@@ -211,9 +211,15 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
             # 2026-09-04 晚：統計卡點下去要篩列表（§2.6 ②）。此前四張卡只換底色。
             from app.extended.models.erp import ERPBilling, ERPVendorPayable
             if card == "outstanding":
-                conditions.append(ERPQuotation.id.in_(
-                    select(ERPBilling.erp_quotation_id).where(ERPBilling.billing_amount > func.coalesce(ERPBilling.payment_amount, 0))
-                ))
+                # 2026-09-09：應收未收＝承攬金額－已收款 > 0（與統計卡同口徑；此前看「請款單金額 > 收款」，
+                # 沒有請款單的成案永遠不在卡片裡，而它正是最該追的）。
+                from app.extended.models.core import ContractProject as _CP
+                from app.services.stats.finance import awarded_amount_col, received_amount_col
+                _recv = (select(received_amount_col(ERPBilling))
+                         .where(ERPBilling.erp_quotation_id == ERPQuotation.id).scalar_subquery())
+                _awd = (select(awarded_amount_col(_CP, ERPQuotation))
+                        .where(_CP.case_code == ERPQuotation.case_code).limit(1).scalar_subquery())
+                conditions.append(func.coalesce(_awd, ERPQuotation.total_price, 0) > _recv)
             elif card == "payable":
                 conditions.append(ERPQuotation.id.in_(select(ERPVendorPayable.erp_quotation_id)))
             elif card == "cost":

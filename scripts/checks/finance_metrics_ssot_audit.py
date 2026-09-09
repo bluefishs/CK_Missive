@@ -68,6 +68,12 @@ PATTERNS = {
     "已收款合計": "SUM[(]" + _NOTPAREN + "{0,24}payment_amount",
     "應付合計": "SUM[(]" + _NOTPAREN + "{0,24}payable_amount",
     "已付合計": "SUM[(]" + _NOTPAREN + "{0,24}paid_amount",
+    # 2026-09-09：以上四條只認 SQL 文字，`func.sum(ERPBilling.billing_amount)` 這種 Core 寫法
+    # 躲了一天（七處）。owner 當天問「案件皆請款？」才發現「已請款」含成案佔位，而那七處各算各的。
+    "已請款合計（Core）": "sum[(]" + _WS + "*ERPBilling[.]billing_amount",
+    "已收款合計（Core）": "sum[(]" + _WS + "*ERPBilling[.]payment_amount",
+    "應付合計（Core）": "sum[(]" + _WS + "*ERPVendorPayable[.]payable_amount",
+    "已付合計（Core）": "sum[(]" + _WS + "*ERPVendorPayable[.]paid_amount",
     "年度＝案號年（應為後備）": "case_code" + _NOTNL + "{0,40}LIKE" + _NOTNL + "{0,24}CK",
     # ⭐ owner 2026-09-09：「同步考量整合配合角色與帳號（承辦同仁）等機制」。
     # 「誰是全公司視角」原本有兩份：`core/case_scope.has_company_wide_scope`（超管＋角色集合）

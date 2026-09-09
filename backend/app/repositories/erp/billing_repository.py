@@ -30,8 +30,9 @@ class ERPBillingRepository(BaseRepository[ERPBilling]):
 
     async def get_total_billed(self, quotation_id: int) -> Decimal:
         """取得報價單累計請款金額"""
+        from app.services.stats.finance import billed_amount_col
         query = (
-            select(func.coalesce(func.sum(ERPBilling.billing_amount), 0))
+            select(billed_amount_col(ERPBilling))  # 已請款＝有請款日期的（佔位不算；中心口徑）
             .where(ERPBilling.erp_quotation_id == quotation_id)
         )
         result = await self.db.execute(query)
@@ -60,12 +61,13 @@ class ERPBillingRepository(BaseRepository[ERPBilling]):
         if not quotation_ids:
             return {}
 
+        from app.services.stats.finance import billed_amount_col, received_amount_col
         query = (
             select(
                 ERPBilling.erp_quotation_id,
                 func.count(ERPBilling.id).label("cnt"),
-                func.coalesce(func.sum(ERPBilling.billing_amount), 0).label("billed"),
-                func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("received"),
+                billed_amount_col(ERPBilling).label("billed"),
+                received_amount_col(ERPBilling).label("received"),
             )
             .where(ERPBilling.erp_quotation_id.in_(quotation_ids))
             .group_by(ERPBilling.erp_quotation_id)

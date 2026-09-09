@@ -86,8 +86,8 @@ class FinancialSummaryRepository:
         stmt_bill = (
             select(
                 ERPQuotation.case_code,
-                func.coalesce(func.sum(ERPBilling.billing_amount), 0).label("billed"),
-                func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("received"),
+                _fm.billed_amount_col(ERPBilling).label("billed"),        # 已請款＝有請款日期（中心口徑）
+                _fm.received_amount_col(ERPBilling).label("received"),
             )
             .join(ERPQuotation, ERPQuotation.id == ERPBilling.erp_quotation_id)
             .where(ERPQuotation.case_code.in_(case_codes), ERPQuotation.deleted_at.is_(None))

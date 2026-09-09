@@ -323,7 +323,8 @@ const ERPClientAccountsPage: React.FC = () => {
                 amounts={[
                   { label: '承攬金額', value: fmtMoney(r.total_contract) },
                   { label: '已請款', value: fmtMoney(billed) },
-                  { label: '未收', value: fmtMoney(billed - received), tone: billed - received > 0 ? 'warn' : 'good' },
+                  // 2026-09-09：應收未收＝承攬金額－已收款（已請款改為只認有請款日期的請款單後，佔位不再算進已請款）
+                  { label: '未收', value: fmtMoney(Number(r.total_contract ?? 0) - received), tone: Number(r.total_contract ?? 0) - received > 0 ? 'warn' : 'good' },
                 ]}
                 onClick={r.vendor_id != null ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${r.vendor_id}?year=${year ?? 0}`) : undefined}
               />

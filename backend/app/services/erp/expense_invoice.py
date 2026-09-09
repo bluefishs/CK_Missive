@@ -411,15 +411,16 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         from sqlalchemy import select, func, case as sa_case
         from app.extended.models.erp import ERPQuotation, ERPBilling, ERPVendorPayable
         from app.extended.models.invoice import ExpenseInvoice
+        from app.services.stats import finance as _fm
 
         billing_stmt = (
             select(
                 ERPQuotation.case_code, ERPQuotation.case_name, ERPQuotation.project_code,
                 func.count(ERPBilling.id).label("billing_count"),
-                func.sum(ERPBilling.billing_amount).label("billing_total"),
-                func.sum(sa_case(
-                    (ERPBilling.payment_status == "paid", ERPBilling.billing_amount), else_=0
-                )).label("billing_received"),
+                # 2026-09-09：改走中心口徑。此前「已收」拿的是 paid 請款單的**請款金額**而非收款金額，
+                # 且「已請款」含成案自動建的佔位（L149 同族）。
+                _fm.billed_amount_col(ERPBilling).label("billing_total"),
+                _fm.received_amount_col(ERPBilling).label("billing_received"),
             )
             .join(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .group_by(ERPQuotation.case_code, ERPQuotation.case_name, ERPQuotation.project_code)

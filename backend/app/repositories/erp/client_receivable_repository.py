@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 from decimal import Decimal
 
+from app.services.stats import finance as _fm
 from sqlalchemy import select, func, or_, case as sa_case
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,8 +67,8 @@ class ClientReceivableRepository:
                 ERPQuotation.id.label("quotation_id"),
                 ERPQuotation.project_code,
                 awarded_expr.label("contract_amount"),
-                func.coalesce(func.sum(ERPBilling.billing_amount), 0).label("total_billed"),
-                func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("total_received"),
+                _fm.billed_amount_col(ERPBilling).label("total_billed"),      # 已請款＝有請款日期（中心口徑）
+                _fm.received_amount_col(ERPBilling).label("total_received"),
             )
             .outerjoin(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
             .outerjoin(ContractProject, ContractProject.case_code == ERPQuotation.case_code)
@@ -292,7 +293,8 @@ class ClientReceivableRepository:
             "total_contract": str(sum((r["_tc"] for r in items), Decimal("0"))),
             "total_billed": str(sum((r["_tb"] for r in items), Decimal("0"))),
             "total_received": str(sum((r["_tr"] for r in items), Decimal("0"))),
-            "outstanding": str(sum((r["_tb"] - r["_tr"] for r in items), Decimal("0"))),
+            # 2026-09-09：應收未收＝承攬金額－已收款（已請款改為只認有請款日期的請款單，佔位不再算進去）
+            "outstanding": str(sum((r["_tc"] - r["_tr"] for r in items), Decimal("0"))),
         }
 
         page = items[skip: skip + limit]
@@ -323,7 +325,7 @@ class ClientReceivableRepository:
                 "total_contract": str(tc),
                 "total_billed": str(tb),
                 "total_received": str(tr),
-                "outstanding": str(tb - tr),
+                "outstanding": str(tc - tr),  # 承攬－已收（09-09）
             })
         return out, total, totals
 

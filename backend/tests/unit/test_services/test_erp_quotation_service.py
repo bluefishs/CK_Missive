@@ -541,7 +541,9 @@ class TestERPQuotationServiceProfitSummary:
             assert result.avg_gross_margin == Decimal("38.33")
             assert result.total_billed == Decimal("400000")
             assert result.total_received == Decimal("200000")
-            assert result.total_outstanding == Decimal("200000")
+            # 2026-09-09 owner「案件皆請款？」：應收未收＝承攬金額－已收款（1,575,000 − 200,000），
+            # 不再是已請款－已收款——佔位是應收不是已請款，兩者從此分得開。
+            assert result.total_outstanding == Decimal("1375000")
 
     @pytest.mark.asyncio
     async def test_get_profit_summary_empty(self, mock_db_session):

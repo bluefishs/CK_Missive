@@ -639,6 +639,7 @@ run_step "129" "承辦身分合併展開（alias 帳號上的指派；只認 can
 run_step "130" "請求物件的「猜」欄位（schema 已宣告卻用 getattr ⇒ 改名時靜默變 None）" "scripts/checks/request_field_guess_audit.py"
 run_step "131" "列表與統計卡的身分口徑（同一身分下兩邊數字必須相同；須容器內跑）" "scripts/checks/list_stat_scope_parity_audit.py"
 run_step "132" "經費指標唯一實作（金額算式不得在 finance_metrics 之外出現；存量走基線）" "scripts/checks/finance_metrics_ssot_audit.py"
+run_step "133" "列表↔統計卡篩選參數同構（統計 schema 必須涵蓋列表的篩選欄位；豁免寫在列表 schema 的 STATS_EXEMPT）" "scripts/checks/list_stats_filter_parity_audit.py"
 
 # ------------------------------------------------------------------
 # 逐步結果歷史（2026-08-13）

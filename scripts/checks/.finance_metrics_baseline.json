@@ -6,5 +6,16 @@
     "下午：財務摘要 pay_rows 應付／已付（分組版片段）、承攬案／PM／報價單三份 schema 改繼承 CaseListFilters、finance_anomaly 已請款／已收款",
     "晚：請款上限的承攬金額（議價→契約→報價，pick_awarded）、報價單列表批次與詳情的議價／承攬欄位（winning_amount_expr／awarded_amount_case_only）、未付應付（payable_amount_agg）—— 存量歸零；量過全庫只有 CK2021_PM_02_003 一案兩層不同（L146 殘留值，資料更正待 owner 授權）"
   ],
-  "allow": {}
+  "allow": {
+    "services/erp/billing_service.py::已請款合計（Core）": "請款上限檢查（累計不得超過報價 110%）——是上限不是統計，成案佔位本來就要算進去；永久豁免，見 stats/finance.BILLED_CONDITION 註解",
+    "services/ai/proactive/proactive_triggers_erp.py::已請款合計（Core）": "請款超支告警——同上，是超支判斷不是統計，要含佔位；永久豁免",
+    "services/ai/proactive/proactive_triggers_erp.py::應付合計（Core）": "應付超支告警——同上",
+    "repositories/erp/financial_summary_repository.py::應付合計（Core）": "09-09 晚 Core 判準補上後新見的存量：應付合計無狀態條件、各處同值；下一輪改 payable_amount_col",
+    "repositories/erp/financial_summary_repository.py::已付合計（Core）": "存量：已付的狀態條件要逐處核對再收（L149 的形狀：可能同值但條件不同）",
+    "repositories/erp/vendor_payable_repository.py::應付合計（Core）": "存量 4 處（36／68／126／221）：下一輪改 payable_amount_col",
+    "repositories/erp/vendor_payable_repository.py::已付合計（Core）": "存量 3 處（45／69／127）：狀態條件逐處核對後改 paid_amount_col",
+    "repositories/vendor_repository.py::應付合計（Core）": "存量：下一輪",
+    "repositories/vendor_repository.py::已付合計（Core）": "存量：下一輪",
+    "services/erp/expense_invoice.py::應付合計（Core）": "存量（財務總覽 payable_total）：下一輪；已請款／已收兩欄已於 09-09 晚改走中心口徑"
+  }
 }

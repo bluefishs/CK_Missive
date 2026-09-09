@@ -58,6 +58,8 @@ class TestReceived:
     def test_金額欄位沒有互相寫錯(self):
         assert "SUM(b.payment_amount)" in received_amount()
         assert "SUM(b.billing_amount)" in billed_amount()
+        # 2026-09-09 owner「案件皆請款？」：已請款只認有請款日期的請款單（成案佔位不算）
+        assert "billing_date IS NOT NULL" in billed_amount()
         assert "SUM(p.payable_amount)" in payable_amount()
         assert "SUM(p.paid_amount)" in paid_amount()
 

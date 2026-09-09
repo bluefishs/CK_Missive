@@ -90,11 +90,22 @@ def pick_awarded(winning, contract, quote_total=None):
 
 #: 消費端有兩種形狀：查詢裡 join 了報價單（用 `q.id`），或只有一個 bind 參數（`:qid`）。
 #: 每個片段都吃 `ref` —— 那是「這一列的報價單 id 怎麼取」的表達式。
+#: 「已請款」認哪些請款單：**有請款日期的**。
+#:
+#: 2026-09-09 owner：「案件皆請款？這也是大問題」。09-03「成案即應收」讓系統在成案當下自動建一筆
+#: 請款單（金額＝承攬金額）當應收佔位，與真的開出去的請款單同表同欄；09-04 的定義把它算進「已請款」
+#: ⇒ 每個案成案那一刻就已請款 100%（全庫 96,872,983 裡 31,180,060 是這種佔位，85 筆、全無請款日期）。
+#: 09-07 已裁定「沒有請款就沒有請款日期」（佔位留白、人工填報必填）⇒ 請款日期就是「真的請了」的判準。
+#: 佔位仍是應收：應收未收＝承攬金額－已收款，不受本條影響。
+#: ⚠️ 上限／超支判斷（billing_service 的 110% 檢查、proactive 的請款超支）**要含佔位**，不用本條。
+BILLED_CONDITION = "billing_date IS NOT NULL"
+
+
 def billed_amount(ref: str = "q.id") -> str:
-    """已請款合計（該報價單底下所有請款單的請款金額）。"""
+    """已請款合計（該報價單底下**有請款日期**的請款單金額；見 `BILLED_CONDITION`）。"""
     return (
         f"COALESCE((SELECT SUM(b.billing_amount) FROM erp_billings b "
-        f"WHERE b.erp_quotation_id = {ref}), 0)"
+        f"WHERE b.erp_quotation_id = {ref} AND b.{BILLED_CONDITION}), 0)"
     )
 
 
@@ -171,8 +182,8 @@ def case_category_expr(case_code_col):
 # 2026-09-09：基線裡 4 處存量正是這個形狀（財務摘要 pay_rows、金流異常判準的逐案聚合）。
 # 口徑與上面的子查詢版**必須一致**（同一組 RECEIVED_STATUSES），差別只在形狀。
 def billed_amount_agg(b: str = "b") -> str:
-    """`SUM(b.billing_amount)`，查詢已 JOIN `erp_billings {b}`。"""
-    return f"COALESCE(SUM({b}.billing_amount), 0)"
+    """已請款聚合，查詢已 JOIN `erp_billings {b}`；只認有請款日期的（`BILLED_CONDITION`）。"""
+    return f"COALESCE(SUM(CASE WHEN {b}.{BILLED_CONDITION} THEN {b}.billing_amount END), 0)"
 
 
 def received_amount_agg(b: str = "b") -> str:
@@ -188,3 +199,39 @@ def payable_amount_agg(p: str = "p") -> str:
 def paid_amount_agg(p: str = "p") -> str:
     """已付聚合，狀態條件與 `paid_amount` 同一組。"""
     return f"COALESCE(SUM(CASE WHEN {p}.payment_status IN ({_RECEIVED_IN}) THEN {p}.paid_amount END), 0)"
+
+
+# ---------------------------------------------------------------------------
+# SQLAlchemy Core 版（給用 `select(func.sum(...))` 的消費端）。
+# 2026-09-09 才發現 weekly 132 的字樣判準只認 SQL 文字，`func.sum(ERPBilling.billing_amount)`
+# 這種寫法它看不見 —— 七處存量就這樣躲了一天。口徑與上面的 SQL 片段**逐字相同**，改一邊必改另一邊
+# （`test_finance_metrics.py` 鎖兩邊同值）。
+# ---------------------------------------------------------------------------
+def billed_amount_col(B):
+    """`B`＝`ERPBilling` model。已請款＝有請款日期的請款單金額。"""
+    from sqlalchemy import case, func
+    return func.coalesce(func.sum(case((B.billing_date.isnot(None), B.billing_amount), else_=0)), 0)
+
+
+def received_amount_col(B):
+    """已收款＝`RECEIVED_STATUSES` 的請款單的收款金額。"""
+    from sqlalchemy import case, func
+    return func.coalesce(func.sum(case((B.payment_status.in_(RECEIVED_STATUSES), B.payment_amount), else_=0)), 0)
+
+
+def payable_amount_col(P):
+    """`P`＝`ERPVendorPayable`。應付合計。"""
+    from sqlalchemy import func
+    return func.coalesce(func.sum(P.payable_amount), 0)
+
+
+def paid_amount_col(P):
+    """已付＝`RECEIVED_STATUSES` 的應付的已付金額（與 `paid_amount` 同口徑）。"""
+    from sqlalchemy import case, func
+    return func.coalesce(func.sum(case((P.payment_status.in_(RECEIVED_STATUSES), P.paid_amount), else_=0)), 0)
+
+
+def awarded_amount_col(C, Q):
+    """承攬金額（議價→契約→報價總價），`C`＝`ContractProject`、`Q`＝`ERPQuotation`（查詢已 outer join）。"""
+    from sqlalchemy import func
+    return func.coalesce(func.nullif(C.winning_amount, 0), C.contract_amount, Q.total_price, 0)
