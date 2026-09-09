@@ -14,6 +14,7 @@ ProjectRepository - 專案資料存取層
 """
 
 from app.core.rls_filter import RLSFilter
+from app.extended.models.erp import ERPQuotation
 from app.core.roc_date import roc_year_to_ad
 import logging
 from typing import List, Optional, Dict, Any, Tuple
@@ -898,7 +899,25 @@ class ProjectRepository(BaseRepository[ContractProject]):
         avg_amount = round(float(avg_amount), 2) if avg_amount else 0.0
         # 合約總額：分頁前全量（§2.6 ①），且跟著目前點選的狀態卡走
         # 2026-09-04 晚：合計＝承攬金額 COALESCE(NULLIF(議價,0), 契約)——194 議價 596,000 而契約 625,000，實際應收是前者
-        amt_q = _scoped(select(func.sum(func.coalesce(func.nullif(ContractProject.winning_amount, 0), ContractProject.contract_amount))))
+        # 2026-09-09 owner「異值同工」：這裡原本是**兩層**（議價→契約），
+        # 而 `services/stats/finance.awarded_amount` 是**三層**（＋報價總價）——
+        # 同一個名詞兩個算法。實測 2026 年度無差異，但全年度有 25 件議價與契約都空
+        # ⇒ 選「全部年度」時兩個畫面會給不同數字。
+        # 統一到權威定義（`FIELD_SEMANTICS.md` 的經費名詞字典）。
+        # ⚠️ 實測那 25 件的報價總價合計是 0 ⇒ **這次統一不改變任何現有數字**。
+        # 承攬案表沒有 join 報價單，第三層以子查詢取該案最早的一張。
+        _first_quote_price = (
+            select(ERPQuotation.total_price)
+            .where(ERPQuotation.case_code == ContractProject.case_code,
+                   ERPQuotation.deleted_at.is_(None))
+            .order_by(ERPQuotation.id).limit(1).scalar_subquery()
+        )
+        amt_q = _scoped(select(func.sum(func.coalesce(
+            func.nullif(ContractProject.winning_amount, 0),
+            ContractProject.contract_amount,
+            _first_quote_price,
+            0,
+        ))))
         if status:
             amt_q = amt_q.where(ContractProject.status == status)
         sum_amount = await self.db.scalar(amt_q)

@@ -102,7 +102,7 @@ class ERPQuotationRepository(BaseRepository[ERPQuotation]):
         # `payment_status = 'paid'`（**不含 partial**），與財務彙總的
         # `IN ('paid','partial')` 不同。當時三份寫法三種狀態條件，
         # 而資料剛好全是 paid ⇒ 數字一致、看不出來。
-        from app.services.erp import finance_metrics as _fm
+        from app.services.stats import finance as _fm
 
         cash = (await self.db.execute(text(f"""
             SELECT

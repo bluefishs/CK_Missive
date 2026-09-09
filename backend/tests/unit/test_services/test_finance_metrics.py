@@ -9,7 +9,7 @@
 """
 import pytest
 
-from app.services.erp.finance_metrics import (
+from app.services.stats.finance import (
     RECEIVED_STATUSES,
     awarded_amount,
     billed_amount,

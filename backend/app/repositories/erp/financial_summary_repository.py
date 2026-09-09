@@ -492,7 +492,7 @@ class FinancialSummaryRepository:
         # ⭐ owner 2026-09-09：「統計應建構統一服務端，不應依各別頁面各自建構」。
         # 承攬金額／已請款／已收款／年度口徑一律從這裡拿 —— 盤點時這四個指標
         # 各有 3–4 份實作，而「已收款」三份的狀態條件已經不一樣了。
-        from app.services.erp import finance_metrics as _fm
+        from app.services.stats import finance as _fm
         scope = "q.deleted_at IS NULL"
         params: dict = {}
         if year:
@@ -505,7 +505,7 @@ class FinancialSummaryRepository:
             # 2026 年度執行。案號年看不到它，而它是真的 2026 年度的案。
             # 這個口徑 09-08 就已經裁定「year 欄優先、案號年只是後備」
             # （見 `app/repositories/erp/case_year.py` 的說明），這一支沒有跟上。
-            # 口徑從 `services/erp/finance_metrics` 拿，不在這裡自己寫（owner 09-09 收斂）
+            # 口徑從 `services/stats/finance` 拿，不在這裡自己寫（owner 09-09 收斂）
             scope += f" AND {_fm.case_year_condition(year)}"
             params.update(_fm.case_year_params(year))
         # ⚠️ `(?:` 的冒號會被 SQLAlchemy text() 當成 bind 參數 `:PM_`（L-family：冒號參數陷阱）⇒ 用 `\:` 跳脫

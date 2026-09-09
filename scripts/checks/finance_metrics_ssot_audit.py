@@ -53,7 +53,8 @@ NL = chr(10)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 APP = os.path.join(ROOT, "backend", "app")
-HOME = "services/erp/finance_metrics.py"
+#: 唯一實作的家。2026-09-09 owner 定調「建構中心服務」後搬到 `services/stats/`。
+HOME = "services/stats/finance.py"
 BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".finance_metrics_baseline.json")
 
 _NOTNL = "[^" + BS + "n]"
@@ -138,7 +139,7 @@ def main() -> int:
     print("=" * 70)
     print("經費指標的唯一實作守門（weekly）")
     print("=" * 70)
-    print("唯一實作＝backend/app/%s" % HOME)
+    print("唯一實作＝backend/app/%s（中心服務 app/services/stats/）" % HOME)
     print("在它以外出現的金額算式：%d 處" % len(hits))
     print("  基線允許（存量待清）：%d" % len(base))
     print("  ⛔ 新增的第二份：%d" % len(new))
@@ -158,7 +159,7 @@ def main() -> int:
 
     if new:
         print()
-        print("⇒ 修法：從 `app/services/erp/finance_metrics` 拿片段，不要自己寫。")
+        print("⇒ 修法：從中心服務 `app/services/stats/finance` 拿片段，不要自己寫。")
         return 2
     print()
     print("✅ 沒有新增的第二份實作（存量 %d 處待清）" % len(base))
