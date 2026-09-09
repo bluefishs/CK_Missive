@@ -113,7 +113,7 @@
 | 步 | 做什麼 | 風險 |
 |---|---|---|
 | **① 家先立起來**（本輪） | `schemas/erp/case_filters.CaseListFilters` 搬到中立模組，帳款兩頁繼承它（契約不變） | 零 |
-| **② 三份遷移** | `ProjectListQuery`／`PMCaseListRequest`／`ERPQuotationListRequest` 改繼承 `CaseListFilters`；`search` 改名 `keyword` **並保留 `search` 別名一個版本**（Pydantic `alias`），前端逐頁改用 `keyword` 後再拿掉別名 | 中——三頁前端呼叫端要跟；別名讓舊呼叫不斷 |
+| **② 三份遷移**（09-09 下午已做繼承那一半） | 三份已改繼承 `CaseListFilters`、各自的 year／category／staff_user_id 宣告移除，契約不動；`search`→`keyword` 欄名統一**尚未做**（要留 alias 一版、前端三頁跟改） | 中——欄名那一半才會動到契約 |
 | **③ 前端家** | 帳款兩頁改用既有 `FilterBar`（另三頁已在用），`CaseFilterBar` 在其上宣告式渲染維度 | 低——`FilterBar` 已存在，只是帳款兩頁沒用 |
 
 ⚠️ 步驟②的 `search`→`keyword` 改名是本方案唯一會動到契約的地方。**不做別名直接改，前端漏一頁就是靜默不篩**——那正是 weekly 130 抓的「猜欄位」形狀。

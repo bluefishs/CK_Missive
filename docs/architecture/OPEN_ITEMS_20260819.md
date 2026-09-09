@@ -18,10 +18,11 @@
 
 | 項 | 是什麼 | 何時 |
 |---|---|---|
-| 經費指標存量 7 處收斂 | `.finance_metrics_baseline.json`；4 處是 GROUP BY 形式要先設計**分組版片段**，2 處 Python 端組值，1 處請款上限檢查 | 下一輪，先做分組版片段 |
+| ~~經費指標存量 7 處收斂~~ → **剩 3 處**（09-09 下午）| 分組版片段已做、4 處已清；剩 `billing_service` 承攬金額（請款上限檢查）與 `quotation_service` 應付／承攬金額兩處（Python 端組值） | 下一輪 |
 | `/contract-cases` 篩選收斂到 `buildServerFilters` | 那頁篩選狀態是三個獨立 useState，收斂要動排序與搜尋（`TABLE_FILTER_CONVERGENCE_20260909.md` §三） | 與上面分開做，風險不疊 |
 | 手機隱形篩選的風險點 | `/contract-cases` 四個篩選欄是唯一入口（工具列已撤），任一欄若加 `hideOnMobile` 當場變隱形篩選 | 加一條 weekly 128 判準：唯一入口的欄位不得 hideOnMobile |
-| 篩選模組化第二步：`CaseFilterBar` 共用元件 | 後端 `CaseListFilters` 已是單一定義、三個財務分頁條件已一致；前端各頁仍各自畫 Select（`FILTER_MODULARIZATION_20260909.md` §四） | 下一輪 |
+| 篩選模組化：後端四份 schema **已全部繼承 `CaseListFilters`**（09-09 下午）；剩 `search`→`keyword` 欄名統一（要留 alias 一版、前端三頁跟改）與前端 `CaseFilterBar` 宣告式元件 | 下一輪 |
+| 統計範圍中心化：承攬案與 PM 案的 `_scoped()` **已改用 `CaseStatsScope.apply_sync`**；發票彙總端點已接 `scope_filter`（superuser 121 張／staff 1 張與 68 張，合計同步） | ✅ 09-09 完成 |
 | weekly 統整的分類表維護 | 新增 run_step 要同步登記 `weekly_step_taxonomy.json`，彙總器未分類即紅 | 持續 |
 
 ### C. 09-09 已結案（供對照）

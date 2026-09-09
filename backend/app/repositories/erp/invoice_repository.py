@@ -35,6 +35,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
     async def get_invoice_summary(
         self, invoice_type: Optional[str] = None, year: Optional[int] = None,
         search: Optional[str] = None,
+        accessible_case_codes=None,
         sort_by: Optional[str] = None, sort_order: Optional[str] = "desc",
         skip: int = 0, limit: int = 50,
     ) -> tuple:
@@ -70,6 +71,11 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
             # 2026-09-04 金流複查：發票彙總是稅務用途，「年度」＝發票開立年度（invoice_date），不是報價單案件年度。
             # 此前用 ERPQuotation.year ⇒ 2026 年只算到 54 張 204 萬，而 2026 年實際開了 118 張 1,005 萬（FIELD_SEMANTICS）。
             query = query.where(func.extract('year', ERPInvoice.invoice_date) == year)
+        # 2026-09-09 owner「各頁面需具備角色／承辦同仁篩選機制」：本端點此前 0 個身分訊號，
+        # 靠頁面權限控管而不限縮。範圍由伺服器依身分決定（`core/case_scope.scope_filter`），
+        # None＝不限縮；**列表與下方 sum_q 必須套同一份**，否則卡片與列表又是兩個口徑。
+        if accessible_case_codes is not None:
+            query = query.where(ERPQuotation.case_code.in_(accessible_case_codes or {"__none__"}))
 
         # Count
         count_query = select(func.count()).select_from(query.subquery())
@@ -99,6 +105,8 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
             ))
         if year:
             sum_q = sum_q.where(func.extract('year', ERPInvoice.invoice_date) == year)
+        if accessible_case_codes is not None:
+            sum_q = sum_q.where(ERPQuotation.case_code.in_(accessible_case_codes or {"__none__"}))
         sums = {"sales": Decimal("0"), "purchase": Decimal("0")}
         for itype, amt in (await self.db.execute(sum_q.group_by(ERPInvoice.invoice_type))).all():
             if itype in sums:

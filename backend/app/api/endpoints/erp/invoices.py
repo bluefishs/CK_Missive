@@ -2,7 +2,9 @@
 from app.schemas.erp.invoice import LinkInvoiceToBillingRequest
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.dependencies import get_service
+from app.core.dependencies import get_service, require_auth
+from app.core.case_scope import scope_filter
+from app.db.database import get_async_db
 from app.core.capabilities import require_page_permission
 from app.services.erp import ERPInvoiceService
 from app.schemas.erp import (
@@ -41,9 +43,13 @@ async def get_invoice_summary(
     # `/erp/quotations` ⇒ 同一張報價單的發票與它們是同一個敏感度層級。
     _: object = Depends(require_page_permission("/erp/invoices/summary-view")),
     service: ERPInvoiceService = Depends(get_service(ERPInvoiceService)),
+    db=Depends(get_async_db),
+    current_user=Depends(require_auth()),
 ):
     """跨案件發票彙總"""
+    scope = await scope_filter(db, current_user)   # 2026-09-09：與其他案件類端點同一份身分範圍
     result = await service.get_invoice_summary(
+        accessible_case_codes=scope,
         invoice_type=params.invoice_type,
         year=params.year,
         search=params.search,
