@@ -286,12 +286,17 @@ const ERPOperationalListPage: React.FC = () => {
             current: Math.floor((params.skip ?? 0) / (params.limit ?? 20)) + 1,
             pageSize: params.limit ?? 20,
             total,
-            onChange: (page, pageSize) =>
-              setParams((p) => ({ ...p, skip: (page - 1) * pageSize, limit: pageSize })),
+            // 翻頁統一在 Table.onChange（extra.action === 'paginate'）處理
             showSizeChanger: true,
             showTotal: (t, range) => `第 ${range[0]}-${range[1]} 項，共 ${t} 項`,
           }}
-          onChange={(_pagination, filters) => {
+          onChange={(pag, filters, _sorter, extra) => {
+            // 2026-09-09 owner「下方書籤頁無法切換下一頁」：Table.onChange 在翻頁時也會觸發，這裡無條件歸零
+            // 會把 pagination.onChange 剛設好的頁碼蓋掉。翻頁只動 skip／limit，篩選與排序才回第 1 頁。
+            if (extra?.action === 'paginate') {
+              setParams((p) => ({ ...p, skip: ((pag.current ?? 1) - 1) * (pag.pageSize ?? p.limit ?? 20), limit: pag.pageSize ?? p.limit }));
+              return;
+            }
             // 取消勾選要送 undefined 不是空字串（空字串會被後端當成「篩一個叫空字串的值」）。
             const pick = (k: string) => {
               const v = (filters?.[k] as (string | number | null)[] | null)?.[0];

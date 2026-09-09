@@ -498,7 +498,13 @@ export const PMCaseListPage: React.FC = () => {
           }}
           // 表頭排序轉成 API 參數（2026-08-31）。取消排序時回到預設的年度新→舊，
           // 不留空 —— `sort_by` 空字串在後端會退回 `id`，那不是使用者要的順序。
-          onChange={(_pagination, filters, sorter) => {
+          onChange={(pag, filters, sorter, extra) => {
+            // 2026-09-09 owner「下方書籤頁無法切換下一頁」（報價單頁同型）：Table.onChange 在翻頁時也會觸發，
+            // 末行的 setCurrentPage(1) 會把 pagination.onChange 剛設好的頁碼蓋掉。翻頁只動頁碼。
+            if (extra?.action === 'paginate') {
+              setCurrentPage(pag.current ?? 1);
+              return;
+            }
             // 表頭漏斗 → 同一份狀態（工具列下拉同步顯示）；只在值真的變時才寫，避免排序時把篩選重設
             const pick = (k: string) => { const v = filters?.[k]; return Array.isArray(v) && v.length ? v[0] : undefined; };
             const fy = pick('case_code') as number | undefined;

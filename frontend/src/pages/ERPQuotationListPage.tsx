@@ -615,7 +615,7 @@ export const ERPQuotationListPage: React.FC = () => {
             current: params.page,
             pageSize: params.limit,
             total: data?.pagination?.total ?? 0,
-            onChange: (page, pageSize) => setParams((p) => ({ ...p, page, limit: pageSize })),
+            // 翻頁統一在 Table.onChange（extra.action === 'paginate'）處理，這裡不再另設，避免兩處互相覆蓋
             showSizeChanger: true,
             showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
           }}
@@ -630,7 +630,14 @@ export const ERPQuotationListPage: React.FC = () => {
           //
           // 只有真欄位標 `sorter: true`。承辦同仁／填報者／毛利／毛利率
           // 都是**聚合出來的**，走這條路徑排序會靜靜地照 `id` 排。
-          onChange={(_p, filters, sorter) => {
+          onChange={(pag, filters, sorter, extra) => {
+            // 2026-09-09 owner「下方書籤頁無法切換下一頁」：Table.onChange 在**翻頁**時也會觸發，
+            // 而這裡無條件 `page: 1` ⇒ pagination.onChange 剛把 page 設成 2，這裡立刻蓋回 1。
+            // 翻頁只動 page／limit；只有篩選與排序才回到第 1 頁。
+            if (extra?.action === 'paginate') {
+              setParams((prev) => ({ ...prev, page: pag.current ?? 1, limit: pag.pageSize ?? prev.limit }));
+              return;
+            }
             const sd = Array.isArray(sorter) ? sorter[0] : sorter;
             const field = typeof sd?.field === 'string' ? sd.field : undefined;
             // 表頭篩選送進查詢參數（伺服器端篩選）。取消篩選時是 undefined 而不是空字串 ——

@@ -851,6 +851,44 @@
           "failMsg": "統計卡片不可點 —— 看到「未結餘額 200 萬」卻不知道是哪幾筆"
         }
       ]
+    },
+    {
+      "id": "quotation-pagination",
+      "name": "報價單列表翻頁：點第 2 頁後第 2 頁要高亮（Table.onChange 不得把頁碼蓋回 1）",
+      "roles": [
+        "admin"
+      ],
+      "roles_why": "要有超過一頁的資料才驗得到翻頁；admin 全公司 280+ 張。2026-09-09 owner 回報「下方書籤頁無法切換下一頁」：表頭篩選第二批（f9e1425b）讓 Table.onChange 無條件回第 1 頁，而翻頁也會觸發它。五頁同型（報價單／資產／營運／發票彙總／帳本／PM 案件）。",
+      "auth": true,
+      "url": "/erp/quotations",
+      "steps": [
+        {
+          "action": "wait",
+          "ms": 2600
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-pagination-item-2",
+          "min": 1,
+          "label": "page2-link",
+          "failMsg": "列表不足兩頁，翻頁驗不到（前提不成立）"
+        },
+        {
+          "action": "click",
+          "selector": ".ant-pagination-item-2"
+        },
+        {
+          "action": "wait",
+          "ms": 1800
+        },
+        {
+          "action": "assertCount",
+          "selector": ".ant-pagination-item-active.ant-pagination-item-2",
+          "min": 1,
+          "label": "page2-active",
+          "failMsg": "點了第 2 頁仍停在第 1 頁（Table.onChange 把頁碼蓋回 1）"
+        }
+      ]
     }
   ],
   "output": {
