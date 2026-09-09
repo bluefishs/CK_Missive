@@ -118,6 +118,15 @@ async def lifespan(app: FastAPI):
     # ⭐ 2026-09-07 收斂 B：頁面能力快取（選單表＝選單／路由守衛／API 三邊的唯一來源）
     #    啟動時載入，並對照程式碼裡引用過的頁面 —— 路徑打錯會安靜退回「只要求登入」，
     #    失效方向是放行，所以在這裡就要出聲（見 capabilities.refresh 的 WARNING）。
+    # 2026-09-09 owner 16:53「Google 登入 500」：SQLAlchemy mapper 此前是**第一個 ORM 請求時懶配置**。
+    # 容器被主機段錯誤拉回後，第一波併發請求同時觸發配置而競態，registry 被毒化成
+    # 「'_EventKey' object has no attribute 'dispatch'」——之後**每個** ORM 請求都 500（refresh／登入／通知），
+    # 直到再重啟（15 分鐘 54 次）。啟動期一次配置完，服務開門前就不會再有這條路。
+    from sqlalchemy.orm import configure_mappers as _configure_mappers
+    import app.extended.models  # noqa: F401  所有模型先註冊
+    _configure_mappers()
+    logger.info("SQLAlchemy mappers configured at startup")
+
     from app.core import capabilities as _capabilities
     await _capabilities.refresh()
 
