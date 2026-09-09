@@ -178,7 +178,7 @@ const ERPVendorAccountsPage: React.FC = () => {
         const num = Number(v);
         return (
           <Tag color={num > 0 ? 'red' : 'green'} style={{ margin: 0 }}>
-            {num.toLocaleString()}
+            {fmtMoneyOr(num, '已付清')}
           </Tag>
         );
       },
