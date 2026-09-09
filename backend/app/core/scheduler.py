@@ -1547,10 +1547,9 @@ async def ledger_reconciliation_job():
             from app.extended.models.finance import FinanceLedger
 
             # AR: 已付 billing vs ledger
-            paid_billing_total = await db.scalar(
-                select(func.coalesce(func.sum(ERPBilling.payment_amount), 0))
-                .where(ERPBilling.payment_status == "paid")
-            ) or 0
+            from app.services.stats.finance import received_amount_col, paid_amount_col
+            # 已收／已付走中心口徑（paid／partial）；此前自己寫 sum(...) where paid（weekly 132 Core 判準抓到）
+            paid_billing_total = await db.scalar(select(received_amount_col(ERPBilling))) or 0
 
             ledger_billing_total = await db.scalar(
                 select(func.coalesce(func.sum(FinanceLedger.amount), 0))
@@ -1565,10 +1564,7 @@ async def ledger_reconciliation_job():
             ) or 0
 
             # AP: 已付 payable vs ledger
-            paid_payable_total = await db.scalar(
-                select(func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0))
-                .where(ERPVendorPayable.payment_status == "paid")
-            ) or 0
+            paid_payable_total = await db.scalar(select(paid_amount_col(ERPVendorPayable))) or 0
 
             ledger_payable_total = await db.scalar(
                 select(func.coalesce(func.sum(FinanceLedger.amount), 0))

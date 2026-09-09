@@ -24,6 +24,7 @@ from app.extended.models import (
     project_vendor_association,
     ContractProject,
 )
+from app.repositories._fm import fm as _fm  # 延遲代理：唯一實作仍是 services/stats/finance（避免以 repository 為入口時循環匯入）
 
 logger = logging.getLogger(__name__)
 
@@ -169,8 +170,8 @@ class VendorRepository(BaseRepository[PartnerVendor]):
 
         # 1. 應付帳款彙總
         payable_stmt = select(
-            func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("total_payable"),
-            func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("total_paid"),
+            _fm.payable_amount_col(ERPVendorPayable).label("total_payable"),
+            _fm.paid_amount_col(ERPVendorPayable).label("total_paid"),
             func.count(ERPVendorPayable.id).label("payable_count"),
         ).where(ERPVendorPayable.vendor_id == vendor_id)
         payable_row = (await self.db.execute(payable_stmt)).one()

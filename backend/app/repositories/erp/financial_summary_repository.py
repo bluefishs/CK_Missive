@@ -10,7 +10,7 @@ from app.extended.models.erp import ERPQuotation
 from app.extended.models.invoice import ExpenseInvoice
 from app.extended.models.finance import FinanceLedger
 from app.schemas.erp.financial_summary import ProjectFinancialSummary, CompanyFinancialOverview
-from app.services.stats import finance as _fm  # 2026-09-09：模組層匯入——此前只有函式內區域匯入，別的方法用 _fm 就 NameError（探針 13/14 抓到）
+from app.repositories._fm import fm as _fm  # 延遲代理：唯一實作仍是 services/stats/finance（避免以 repository 為入口時循環匯入）
 
 class FinancialSummaryRepository:
     """跨模組財務彙總與統計，透過 JOIN 各資料表"""
@@ -98,8 +98,8 @@ class FinancialSummaryRepository:
         stmt_pay = (
             select(
                 ERPQuotation.case_code,
-                func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("payable"),
-                func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("paid"),
+                _fm.payable_amount_col(ERPVendorPayable).label("payable"),
+                _fm.paid_amount_col(ERPVendorPayable).label("paid"),
             )
             .join(ERPQuotation, ERPQuotation.id == ERPVendorPayable.erp_quotation_id)
             .where(ERPQuotation.case_code.in_(case_codes), ERPQuotation.deleted_at.is_(None))

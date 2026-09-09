@@ -432,10 +432,8 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             select(
                 ERPQuotation.case_code,
                 func.count(ERPVendorPayable.id).label("payable_count"),
-                func.sum(ERPVendorPayable.payable_amount).label("payable_total"),
-                func.sum(sa_case(
-                    (ERPVendorPayable.payment_status == "paid", ERPVendorPayable.payable_amount), else_=0
-                )).label("payable_paid"),
+                _fm.payable_amount_col(ERPVendorPayable).label("payable_total"),
+                _fm.paid_amount_col(ERPVendorPayable).label("payable_paid"),  # 已付＝paid_amount（中心口徑；此前拿 payable_amount）
             )
             .join(ERPVendorPayable, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
             .group_by(ERPQuotation.case_code)

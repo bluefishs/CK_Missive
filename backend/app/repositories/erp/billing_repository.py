@@ -40,8 +40,9 @@ class ERPBillingRepository(BaseRepository[ERPBilling]):
 
     async def get_total_received(self, quotation_id: int) -> Decimal:
         """取得報價單累計收款金額"""
+        from app.services.stats.finance import received_amount_col
         query = (
-            select(func.coalesce(func.sum(ERPBilling.payment_amount), 0))
+            select(received_amount_col(ERPBilling))  # 已收款＝paid/partial 的收款金額（中心口徑）
             .where(
                 ERPBilling.erp_quotation_id == quotation_id,
                 ERPBilling.payment_amount.isnot(None),

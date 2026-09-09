@@ -10,6 +10,7 @@ from app.repositories.erp.case_year import quotation_case_year_condition
 from app.extended.models.erp import ERPVendorPayable, ERPQuotation
 from app.extended.models.core import PartnerVendor
 from app.repositories.base_repository import BaseRepository
+from app.repositories._fm import fm as _fm  # 延遲代理：唯一實作仍是 services/stats/finance（避免以 repository 為入口時循環匯入）
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
     async def get_total_payable(self, quotation_id: int) -> Decimal:
         """取得報價單累計應付金額"""
         query = (
-            select(func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0))
+            select(_fm.payable_amount_col(ERPVendorPayable))
             .where(ERPVendorPayable.erp_quotation_id == quotation_id)
         )
         result = await self.db.execute(query)
@@ -42,7 +43,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
     async def get_total_paid(self, quotation_id: int) -> Decimal:
         """取得報價單累計已付金額"""
         query = (
-            select(func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0))
+            select(_fm.paid_amount_col(ERPVendorPayable))
             .where(
                 ERPVendorPayable.erp_quotation_id == quotation_id,
                 ERPVendorPayable.paid_amount.isnot(None),
@@ -65,8 +66,8 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         query = (
             select(
                 ERPVendorPayable.erp_quotation_id,
-                func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("payable"),
-                func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("paid"),
+                _fm.payable_amount_col(ERPVendorPayable).label("payable"),
+                _fm.paid_amount_col(ERPVendorPayable).label("paid"),
             )
             .where(ERPVendorPayable.erp_quotation_id.in_(quotation_ids))
             .group_by(ERPVendorPayable.erp_quotation_id)
@@ -123,8 +124,8 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
                 ERPVendorPayable.vendor_id,
                 ERPVendorPayable.vendor_name,
                 func.count(func.distinct(ERPVendorPayable.erp_quotation_id)).label("case_count"),
-                func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("total_payable"),
-                func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("total_paid"),
+                _fm.payable_amount_col(ERPVendorPayable).label("total_payable"),
+                _fm.paid_amount_col(ERPVendorPayable).label("total_paid"),
             )
             .join(ERPQuotation, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
         )
@@ -218,7 +219,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
         # Paginated results
         query = (
             query.group_by(*group_cols)
-            .order_by(func.sum(ERPVendorPayable.payable_amount).desc())
+            .order_by(_fm.payable_amount_col(ERPVendorPayable).desc())
             .offset(skip)
             .limit(limit)
         )

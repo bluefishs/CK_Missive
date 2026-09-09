@@ -18,7 +18,7 @@ import logging
 from typing import Optional
 from decimal import Decimal
 
-from app.services.stats import finance as _fm
+from app.repositories._fm import fm as _fm  # 延遲代理：唯一實作仍是 services/stats/finance（避免以 repository 為入口時循環匯入）
 from sqlalchemy import select, func, or_, case as sa_case
 from sqlalchemy.ext.asyncio import AsyncSession
 
