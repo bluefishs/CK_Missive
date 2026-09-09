@@ -3,6 +3,7 @@ from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
+from app.schemas.erp.case_filters import CaseListFilters
 
 from app.schemas.common import BaseQueryParams
 from app.schemas._text_utils import normalize_cjk_compat
@@ -151,8 +152,9 @@ class PMCaseResponse(BaseModel):
     )
 
 
-class PMCaseListRequest(BaseQueryParams):
-    """案件列表查詢"""
+class PMCaseListRequest(BaseQueryParams, CaseListFilters):
+    """【09-09 篩選單一定義】year／category／staff_user_id 繼承自 CaseListFilters，本類不再宣告。
+    案件列表查詢"""
     # 2026-09-01：覆寫 `limit` 上限 100 → 1000。
     #
     # PM 案件已 253 筆，而下拉需要一次拿完 ⇒ 上限 100 讓 153 筆選不到，
@@ -161,12 +163,7 @@ class PMCaseListRequest(BaseQueryParams):
     # ⚠️ **刻意只改這一支，不動共用的 `PaginationParams`** ——
     # 那會一次放寬所有端點，包含不需要、也沒有驗證過的那些。
     limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
-    year: Optional[int] = Field(None, description="年度篩選")
     status: Optional[str] = Field(None, description="狀態篩選")
-    category: Optional[str] = Field(None, description="類別篩選")
-    # 2026-09-07 owner：「讓各承辦同仁完整掌握創案→報價→管理→財務流程」。
-    # 個人儀表板的數字點進來會帶這個參數；不接的話點了等於沒篩（靜默無效）。
-    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
 
     client_name: Optional[str] = Field(None, description="業主篩選")
     include_converted: bool = Field(

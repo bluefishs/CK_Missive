@@ -131,3 +131,26 @@ def case_category_expr(case_code_col):
     from sqlalchemy import func
 
     return func.substring(case_code_col, _CAT_RE)
+
+
+# ── 分組（GROUP BY）版：查詢已經 JOIN 了請款／應付表，要的是聚合表達式不是子查詢 ──
+# 2026-09-09：基線裡 4 處存量正是這個形狀（財務摘要 pay_rows、金流異常判準的逐案聚合）。
+# 口徑與上面的子查詢版**必須一致**（同一組 RECEIVED_STATUSES），差別只在形狀。
+def billed_amount_agg(b: str = "b") -> str:
+    """`SUM(b.billing_amount)`，查詢已 JOIN `erp_billings {b}`。"""
+    return f"COALESCE(SUM({b}.billing_amount), 0)"
+
+
+def received_amount_agg(b: str = "b") -> str:
+    """已收款聚合，**只認 RECEIVED_STATUSES** —— 與 `received_amount` 同口徑。"""
+    return f"COALESCE(SUM(CASE WHEN {b}.payment_status IN ({_RECEIVED_IN}) THEN {b}.payment_amount END), 0)"
+
+
+def payable_amount_agg(p: str = "p") -> str:
+    """`SUM(p.payable_amount)`，查詢已 JOIN `erp_vendor_payables {p}`。"""
+    return f"COALESCE(SUM({p}.payable_amount), 0)"
+
+
+def paid_amount_agg(p: str = "p") -> str:
+    """已付聚合，狀態條件與 `paid_amount` 同一組。"""
+    return f"COALESCE(SUM(CASE WHEN {p}.payment_status IN ({_RECEIVED_IN}) THEN {p}.paid_amount END), 0)"

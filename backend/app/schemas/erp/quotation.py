@@ -3,6 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict, model_validator, field_validator
+from app.schemas.erp.case_filters import CaseListFilters
 
 from app.schemas.common import BaseQueryParams
 from app.schemas._text_utils import normalize_cjk_compat
@@ -266,31 +267,15 @@ class ERPQuotationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class ERPQuotationListRequest(BaseQueryParams):
-    """報價列表查詢"""
-    # 2026-09-04 owner「年度篩選是否失效——還看到 114 年度案件」：這頁是**專案帳款**視角，年度＝**案件年度**
-    # （建案案號 CK{年}_…），不是報價單的 year 欄（舊案在 2026 補建的 0 元錨點報價單 year=2026）。
-    year: Optional[int] = Field(None, description="案件年度（依建案案號 CK{年} 判，西元）")
+class ERPQuotationListRequest(BaseQueryParams, CaseListFilters):
+    """【09-09 篩選單一定義】year／category／staff_user_id 繼承自 CaseListFilters，本類不再宣告。
+    報價列表查詢"""
     status: Optional[str] = Field(None, description="報價單狀態篩選")
     case_code: Optional[str] = Field(None, description="案號篩選")
-    category: Optional[str] = Field(None, description="計畫類別：01 委辦招標／02 承攬報價（依建案案號段判）")
     case_status: Optional[str] = Field(None, description="案件狀態：planning 評估中／contracted 已承攬（執行中）／closed 已結案")
     client_name: Optional[str] = Field(None, description="委託單位（承攬案 client_agency／PM 案 client_name／委託單位主檔名，模糊比對）")
     card: Optional[str] = Field(None, pattern=r"^(revenue|outstanding|payable|cost)$", description="統計卡篩選：outstanding 有未收／payable 有應付／cost 有成本拆解（2026-09-04 §2.6 ②）")
 
-    # ⭐ 2026-08-31 owner：「應改以成案案件為主，未成案承攬案件報價單參考價值低」。
-    #
-    # 實測 257 張報價單裡 **164 已成案、93 未成案**，而未成案那 93 張裡
-    # **90 張狀態是 `confirmed`**（2024–2026）—— 確認了卻從未成案。
-    #
-    # 預設只給成案的。**未成案不是刪除而是收起來**：把 `include_unawarded`
-    # 設為 true 就拿得回來，那是 owner 同日交代的「後續彈性擴充機制」——
-    # 需求改變時是**改一個參數**，不是回來改判準。
-    # 2026-09-07 owner：「也需對應承辦同仁呈現對應資訊，避免資訊爆炸」。
-    # 這一頁本來就有承辦欄，缺的是「只看某一位」——與兩個帳款頁同一個參數名。
-    # ⚠️ 它**不是** RLS：可見範圍仍由 `_quotation_scope` 依身分決定，
-    #    這個參數只能在那個範圍**之內**再縮小。
-    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
 
     # ⭐ 2026-09-08 owner：「異常案件標註機制並增列篩選查詢，以利解除或處理異常費用之案件」。
     # `open`＝只列**還沒有人判讀**的（待處理）；`all`＝連判讀過的一起列。

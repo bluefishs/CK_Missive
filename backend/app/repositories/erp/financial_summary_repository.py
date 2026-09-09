@@ -533,7 +533,7 @@ class FinancialSummaryRepository:
         pay_rows = (await self.db.execute(_t(f"""
             WITH q AS ({base})
             SELECT q.cat, COALESCE(pv.vendor_name, btrim(p.vendor_name)) AS vendor_name, MIN(p.vendor_id) AS vendor_id,
-                   COUNT(DISTINCT q.id) AS n, SUM(p.payable_amount) AS payable, SUM(COALESCE(p.paid_amount, 0)) AS paid
+                   COUNT(DISTINCT q.id) AS n, {_fm.payable_amount_agg()} AS payable, {_fm.paid_amount_agg()} AS paid
             FROM q JOIN erp_vendor_payables p ON p.erp_quotation_id = q.id
             LEFT JOIN partner_vendors pv ON pv.id = p.vendor_id
             WHERE q.cat IS NOT NULL GROUP BY q.cat, COALESCE(pv.vendor_name, btrim(p.vendor_name)) ORDER BY q.cat, payable DESC

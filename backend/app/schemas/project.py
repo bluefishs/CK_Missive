@@ -9,6 +9,7 @@
 from typing import List, Optional
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
+from app.schemas.erp.case_filters import CaseListFilters
 
 from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 from app.schemas._text_utils import normalize_cjk_compat
@@ -207,20 +208,16 @@ class ProjectOption(BaseModel):
 # 查詢參數 Schema
 # ============================================================================
 
-class ProjectListQuery(BaseModel):
-    """專案列表查詢參數（統一格式）"""
+class ProjectListQuery(CaseListFilters):
+    """【09-09 篩選單一定義】year／category／staff_user_id 繼承自 CaseListFilters，本類不再宣告。
+    專案列表查詢參數（統一格式）"""
     page: int = Field(default=1, ge=1, description="頁碼")
     # 2026-09-01 owner 裁示「先擴充限制比數，避免業務無法運作」：100 → 1000。
     # 承攬案件已 226 筆，而下拉需要一次拿完（Select 的搜尋是在拿到的那些上做的）。
     # 上限不是拿掉、是放到目前資料量的數倍 —— 完全不設限會讓誤傳的大 limit 拖垮查詢。
     limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
     search: Optional[str] = Field(None, description="搜尋關鍵字")
-    year: Optional[int] = Field(None, description="年度篩選")
-    category: Optional[str] = Field(None, description="類別篩選")
     status: Optional[str] = Field(None, description="狀態篩選")
-    # 2026-09-07 owner：「讓各承辦同仁完整掌握創案→報價→管理→財務流程」。
-    # 個人儀表板的數字點進來會帶這個參數；不接的話點了等於沒篩（靜默無效）。
-    staff_user_id: Optional[int] = Field(None, description="只看這位承辦同仁名下的案")
 
     sort_by: str = Field(default="id", description="排序欄位")
     sort_order: SortOrder = Field(default=SortOrder.DESC, description="排序方向")

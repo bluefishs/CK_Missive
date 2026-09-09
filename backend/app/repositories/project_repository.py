@@ -856,32 +856,23 @@ class ProjectRepository(BaseRepository[ContractProject]):
         此前全部是全量。year／category／search 是分母（總計、狀態分組、年度分組、合約總額都在裡面算）；
         status 只套在合約總額——狀態卡就是互動篩選，點了「執行中」其他卡不能歸零（§2.6 ②）。
         """
-        scope = []
-        if year:
-            scope.append(ContractProject.year == year)
-        if category:
-            scope.append(ContractProject.category == category)
-        if search:
-            scope.append(
-                ContractProject.project_name.ilike(f"%{search}%")
-                | ContractProject.project_code.ilike(f"%{search}%")
-                | ContractProject.case_code.ilike(f"%{search}%")
-            )
+        # 2026-09-09 owner「案件與經費等統計請整合建構中心服務」：範圍（年度／類別／RLS）
+        # 從 `services/stats/case_scope` 拿，不在這裡自己寫。今早這一支與 PM 那一支的
+        # 「統計卡沒跟上身分」是分開發現、分開修的 —— 因為它們是兩份程式碼。
+        # 搜尋不是範圍維度（它是關鍵字），留在本地。
+        from app.services.stats.case_scope import CaseStatsScope, contract_project_columns
 
-        # 2026-09-09 owner：「列表已配合角色與登入帳號篩選，統計卡卻沒有跟著」。
-        # 實測：staff（承辦 6 案）列表看得到 6 件，而統計卡顯示 2026 全部 123 件。
-        # 列表走 `RLSFilter.apply_project_rls`（endpoint 傳 current_user 進來），統計這一支沒有
-        # ⇒ **同一個畫面上兩個口徑**。這裡沿用同一份規則，不另寫一份判定
-        # （另寫一份就是第二份宣告，那正是本 repo 反覆出事的形狀）。
-        def _rls(q):
-            if current_user is None:
-                return q
-            uid, is_admin, is_su = RLSFilter.get_user_rls_flags(current_user)
-            return RLSFilter.apply_project_rls(q, ContractProject, uid, is_admin, is_su)
+        _scope = CaseStatsScope(year=year or None, category=category or None)
+        _cols = contract_project_columns()
+        _search = (
+            ContractProject.project_name.ilike(f"%{search}%")
+            | ContractProject.project_code.ilike(f"%{search}%")
+            | ContractProject.case_code.ilike(f"%{search}%")
+        ) if search else None
 
         def _scoped(q):
-            q = _rls(q)
-            return q.where(*scope) if scope else q
+            q = _scope.apply_sync(q, _cols, current_user=current_user)
+            return q.where(_search) if _search is not None else q
 
         total = (await self.db.execute(_scoped(select(func.count(ContractProject.id))))).scalar() or 0
         status_result = await self.db.execute(

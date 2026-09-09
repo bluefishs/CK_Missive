@@ -39,6 +39,8 @@
 """
 from __future__ import annotations
 
+from app.services.stats import finance as _fm
+
 import logging
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
@@ -61,11 +63,13 @@ class AnomalyType:
 
 #: 這些聚合在四條判準裡重複出現 —— 抽成一段，避免同一個「已作廢發票要不要算」
 #: 在四個地方各寫一次而其中一個忘了排除（那正是本檔開頭說的形狀）。
-_AGG = """
-    LEFT JOIN (SELECT erp_quotation_id,
-                      SUM(billing_amount) AS billed,
-                      SUM(COALESCE(payment_amount, 0)) AS paid
-                 FROM erp_billings GROUP BY 1) b ON b.erp_quotation_id = q.id
+# 2026-09-09 owner「統計中心服務」：已請款／已收款的聚合從 `services/stats/finance` 拿。
+# 此前這裡的已收款**不看狀態**，而財務彙總只認 paid/partial ——三份實作三種口徑，資料剛好全是 paid 所以同值。
+_AGG = f"""
+    LEFT JOIN (SELECT bb.erp_quotation_id,
+                      {_fm.billed_amount_agg("bb")} AS billed,
+                      {_fm.received_amount_agg("bb")} AS paid
+                 FROM erp_billings bb GROUP BY 1) b ON b.erp_quotation_id = q.id
     LEFT JOIN (SELECT erp_quotation_id, SUM(amount) AS inv
                  FROM erp_invoices WHERE voided_at IS NULL GROUP BY 1) i
               ON i.erp_quotation_id = q.id

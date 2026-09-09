@@ -2,18 +2,12 @@
   "_doc": "經費指標第二份實作的存量基線 —— owner 2026-09-09「統計應建構統一服務端」。唯一實作＝backend/app/services/erp/finance_metrics.py。**新增即紅，存量逐一清**：每清掉一處就從這裡移除一行，稽核會印出「已清掉」提醒你刪。刻意不一次全改：一天全部改完不可能，而『第一天 20 個紅點』的檢核與沒有檢核是同一個下場。",
   "_cleared_20260909": [
     "repositories/erp/financial_summary_repository.py 的承攬金額／已請款／已收款／年度",
-    "repositories/erp/quotation_repository.py 的四個金額（原本是第三份，已收款還少了 partial）"
+    "repositories/erp/quotation_repository.py 的四個金額（原本是第三份，已收款還少了 partial）",
+    "下午：財務摘要 pay_rows 應付／已付（分組版片段）、承攬案／PM／報價單三份 schema 改繼承 CaseListFilters、finance_anomaly 已請款／已收款"
   ],
   "allow": {
-    "repositories/erp/financial_summary_repository.py::應付合計": "pay_rows 是「依廠商分組」的 JOIN 聚合，不是單一報價單的子查詢；換成共用片段會改變語意，需另設計分組版片段",
-    "repositories/erp/financial_summary_repository.py::已付合計": "同上",
     "services/erp/billing_service.py::承攬金額（議價→契約→報價）": "取單一案的議價金額當請款上限檢查，不是統計；要先確認它該不該退回契約額再收斂",
-    "services/erp/finance_anomaly.py::已請款合計": "異常判準的逐案聚合，GROUP BY 形式；與上面同一個原因，待分組版片段",
-    "services/erp/finance_anomaly.py::已收款合計": "同上，且它目前不看狀態 —— 收斂時要確認會不會改變異常筆數",
     "services/erp/quotation_service.py::應付合計": "報價單詳情的單案合計，可收斂，排在下一輪",
-    "services/erp/quotation_service.py::承攬金額（議價→契約→報價）": "兩處（423／685）在 Python 端組值而不是 SQL 取值，形狀不同；要先確認優先序與 SQL 版一致",
-    "schemas/erp/quotation.py::案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "存量：FILTER_MODULARIZATION §7.4 步驟②——改繼承 CaseListFilters 並把 search 改名 keyword（保留 alias 一版），前端三頁呼叫端要跟；不做別名直接改＝漏一頁就靜默不篩",
-    "schemas/pm/case.py::案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "存量：FILTER_MODULARIZATION §7.4 步驟②——改繼承 CaseListFilters 並把 search 改名 keyword（保留 alias 一版），前端三頁呼叫端要跟；不做別名直接改＝漏一頁就靜默不篩",
-    "schemas/project.py::案件類篩選 schema 自行宣告承辦欄位（應繼承 CaseListFilters）": "存量：FILTER_MODULARIZATION §7.4 步驟②——改繼承 CaseListFilters 並把 search 改名 keyword（保留 alias 一版），前端三頁呼叫端要跟；不做別名直接改＝漏一頁就靜默不篩"
+    "services/erp/quotation_service.py::承攬金額（議價→契約→報價）": "兩處（423／685）在 Python 端組值而不是 SQL 取值，形狀不同；要先確認優先序與 SQL 版一致"
   }
 }

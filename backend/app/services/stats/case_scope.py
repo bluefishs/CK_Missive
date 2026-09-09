@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 
 @dataclass(frozen=True)
@@ -35,6 +35,9 @@ class CaseColumns:
     status: Any
     category: Any
     case_code: Any
+    #: 角色決定的可見範圍（RLS）。承攬案有（`RLSFilter.apply_project_rls`），PM 案目前沒有。
+    #: 簽名：`rls(query, current_user) -> query`。沒給就是「這個實體不套 RLS」。
+    rls: Optional[Callable[[Any, Any], Any]] = None
 
 
 @dataclass
@@ -52,12 +55,11 @@ class CaseStatsScope:
     category: Optional[str] = None
     status: Optional[str] = None
 
-    async def case_codes(self, db) -> Optional[set]:
-        """身分範圍展開成 case_code 集合；沒有指定身分時回 None（不限縮）。
+    async def resolve_case_codes(self, db) -> Optional[set]:
+        """身分範圍展開成 case_code 集合；沒有指定承辦時回 None（不限縮）。
 
-        ⚠️ 走 `case_codes_of_user`，那一支**會展開身分合併的 alias 群** ——
-        2026-09-09 owner 從 `/erp/vendor-accounts` 回報的「顯示 (3) 卻 0 家」
-        就是因為某個消費端只認 canonical id。這裡不另寫一份。
+        走 `case_codes_of_user`，那一支**會展開身分合併的 alias 群** ——
+        2026-09-09「顯示 (3) 卻 0 家」就是某個消費端只認 canonical id。這裡不另寫一份。
         """
         if self.staff_user_id is None:
             return None
@@ -65,20 +67,54 @@ class CaseStatsScope:
 
         return await case_codes_of_user(db, self.staff_user_id) or {"__none__"}
 
-    async def apply(self, db, query, cols: CaseColumns, *, with_status: bool = False):
-        """把範圍條件套上查詢。
+    def apply_sync(self, query, cols: CaseColumns, *, case_codes: Optional[set] = None,
+                   current_user=None, with_status: bool = False):
+        """把範圍條件套上查詢（**純 SQL 組裝，不打 DB**）。
 
-        `with_status=False` 是預設，因為**狀態通常不該套在計數上** ——
-        統計卡是分母，點了某張狀態卡其他卡的數字不能跟著歸零（規範 §2.6 ②）。
-        只有金額類的查詢才把狀態帶進去。
+        消費端多半在一個 async 方法裡對三、四個子查詢各套一次範圍 ——
+        承辦的案號集合先用 `resolve_case_codes` 查一次，再拿這支同步套用多次。
+
+        `with_status=False` 是預設：**狀態通常不該套在計數上**——統計卡是分母，
+        點了某張狀態卡其他卡的數字不能跟著歸零（規範 §2.6 ②）。
+
+        `current_user` 給了且 `cols.rls` 有定義 ⇒ 先套角色可見範圍（RLS），再套承辦篩選；
+        後者只能在前者**之內**縮小（覆蓋就等於前端傳什麼給什麼，RLS 形同虛設）。
         """
+        if current_user is not None and cols.rls is not None:
+            query = cols.rls(query, current_user)
         if self.year is not None:
             query = query.where(cols.year == self.year)
         if self.category:
             query = query.where(cols.category == self.category)
         if with_status and self.status:
             query = query.where(cols.status == self.status)
-        codes = await self.case_codes(db)
-        if codes is not None:
-            query = query.where(cols.case_code.in_(codes))
+        if case_codes is not None:
+            query = query.where(cols.case_code.in_(case_codes))
         return query
+
+    async def apply(self, db, query, cols: CaseColumns, *, with_status: bool = False, current_user=None):
+        """`resolve_case_codes` ＋ `apply_sync` 的合成，給只套一次的消費端用。"""
+        codes = await self.resolve_case_codes(db)
+        return self.apply_sync(query, cols, case_codes=codes, current_user=current_user, with_status=with_status)
+
+
+def _contract_rls(query, current_user):
+    from app.core.rls_filter import RLSFilter
+    from app.extended.models import ContractProject
+
+    uid, is_admin, is_su = RLSFilter.get_user_rls_flags(current_user)
+    return RLSFilter.apply_project_rls(query, ContractProject, uid, is_admin, is_su)
+
+
+def contract_project_columns() -> CaseColumns:
+    """承攬案（`contract_projects`）的欄位對映。延遲 import 避免模型層循環引用。"""
+    from app.extended.models import ContractProject as C
+
+    return CaseColumns(year=C.year, status=C.status, category=C.category, case_code=C.case_code, rls=_contract_rls)
+
+
+def pm_case_columns() -> CaseColumns:
+    """PM 案（`pm_cases`）的欄位對映。PM 沒有 RLS，可見範圍只由使用者自選的承辦篩選決定。"""
+    from app.extended.models import PMCase as P
+
+    return CaseColumns(year=P.year, status=P.status, category=P.category, case_code=P.case_code)
