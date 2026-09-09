@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FilterBar } from '../components/common/FilterBar';
+import { CaseFilterBar } from '../components/erp/CaseFilterBar';
 import { MobileCard } from '../components/common/MobileCardList';
 import { fmtMoney } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
@@ -9,7 +9,6 @@ import {
   Card,
   Button,
   Space,
-  Input,
   Row,
   Col,
   Tag,
@@ -23,7 +22,6 @@ import {
   PlusOutlined,
   AppstoreOutlined,
   UnorderedListOutlined,
-  SearchOutlined,
   ReloadOutlined,
   EyeOutlined,
   TeamOutlined,
@@ -34,7 +32,6 @@ import {
 import { useNavigate , useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
-import { CASE_CATEGORY_OPTIONS } from '../constants/projectOptions';
 import { ResponsiveTable, ClickableStatCard } from '../components/common';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
@@ -251,41 +248,25 @@ export const ContractCasePage: React.FC = () => {
       {/* 篩選和操作區 */}
       {/* 2026-09-05 owner：篩選列手機可收合（比照 /erp/quotations）。搜尋框常駐，年度／類別／狀態與操作鈕收進「篩選」鈕 */}
       <Card style={{ marginBottom: 16 }}>
-        <FilterBar
+        {/* 2026-09-09 晚：改為宣告式 CaseFilterBar（年度／類別／關鍵字三個案件維度不再本頁自畫；
+            年度選項用資料裡實際存在的年度、關鍵字即時篩選——這兩點是本頁的既有行為，用 prop 保留）。
+            案件狀態與手機排序是本頁特有，放 children；狀態仍是本頁的 yearFilter／categoryFilter／searchText，與表頭漏斗共用。 */}
+        <CaseFilterBar
           style={{ marginBottom: 0 }}
-          summary={(
-            <Input
-                            placeholder="搜尋專案名稱、編號、委託單位"
-                            prefix={<SearchOutlined />}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            allowClear
-                          />
-          )}
-          activeCount={[yearFilter, categoryFilter, statusFilter].filter(Boolean).length}
+          dims={['keyword', 'year', 'category']}
+          liveKeyword
+          yearOptions={[{ value: 0, label: '全部年度' }, ...availableYears.map((y) => ({ value: y, label: `${y}年` }))]}
+          value={{ keyword: searchText || undefined, year: yearFilter ?? 0, category: categoryFilter || undefined }}
+          onChange={(patch) => {
+            if ('keyword' in patch) setSearchText(patch.keyword ?? '');
+            if ('year' in patch) { setYearFilter(patch.year); setCurrentPage(1); }
+            if ('category' in patch) { setCategoryFilter(patch.category ?? ''); setCurrentPage(1); }
+          }}
+          keywordPlaceholder="搜尋專案名稱、編號、委託單位"
+          extraActiveCount={statusFilter ? 1 : 0}
         >
-          <Row gutter={[16, 8]} style={{ width: '100%' }}>
-            {/* 2026-09-04 晚 owner：「不是將原篩選機制移除，是要完善各表單標頭提供篩選排序」——
-                工具列三個下拉留著，與表頭漏斗**共用同一份狀態**（yearFilter／categoryFilter／statusFilter）：
-                在哪邊改，另一邊同步顯示；查詢一律進後端參數。不是兩套機制，是同一個狀態的兩個入口。 */}
-            <Col xs={12} sm={6} md={4} lg={3}>
-              <Select placeholder="年度" value={yearFilter} onChange={(v) => { setYearFilter(v); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
-                // 2026-09-07 owner：「/contract-cases 年度篩選無『全部年度』？」
-                // 此前只能靠 allowClear 的叉叉清掉——那要先知道叉掉等於全部，
-                // 而其他頁（委託／協力帳款）都有明確的「全部年度」選項。
-                // 值用 0：查詢是 `yearFilter && { year }`，0 是 falsy ⇒ 不帶年度參數＝全部。
-                options={[{ value: 0, label: '全部年度' },
-                          ...availableYears.map((y) => ({ value: y, label: `${y}年` }))]} />
-            </Col>
-            <Col xs={12} sm={6} md={5} lg={4}>
-              <Select placeholder="計畫類別" value={categoryFilter || undefined} onChange={(v) => { setCategoryFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
-                options={[...CASE_CATEGORY_OPTIONS]} />
-            </Col>
-            <Col xs={12} sm={6} md={4} lg={4}>
-              <Select placeholder="案件狀態" value={statusFilter || undefined} onChange={(v) => { setStatusFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: '100%' }}
-                options={availableStatuses.map((st) => ({ value: st, label: getStatusLabel(st) }))} />
-            </Col>
-          </Row>
+          <Select placeholder="案件狀態" value={statusFilter || undefined} onChange={(v) => { setStatusFilter(v ?? ''); setCurrentPage(1); }} allowClear style={{ width: 150 }}
+            options={availableStatuses.map((st) => ({ value: st, label: getStatusLabel(st) }))} aria-label="案件狀態" />
           {/* 2026-09-05 owner「手機無法進行篩選」：手機是卡片模式、沒有表頭可點排序 ⇒ 排序入口放進篩選列（桌面用表頭） */}
           {isMobile && (
             <Select
@@ -335,7 +316,7 @@ export const ContractCasePage: React.FC = () => {
               </Space>
             </Col>
           </Row>
-        </FilterBar>
+        </CaseFilterBar>
       </Card>
 
       {/* 內容區域 */}

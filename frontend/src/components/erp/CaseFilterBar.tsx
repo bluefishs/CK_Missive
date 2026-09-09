@@ -37,6 +37,10 @@ export interface CaseFilterBarProps {
   /** 委託單位選項（只有報價單頁有這個維度，資料由頁面的 hook 供給） */
   clientOptions?: Array<{ name: string; count?: number }>;
   keywordPlaceholder?: string;
+  /** 關鍵字即時（每個按鍵）回 patch；預設是按 Enter／放大鏡才送（Search 語意）。承攬案頁是前端全量列表，用即時。 */
+  liveKeyword?: boolean;
+  /** 年度選項改由頁面供給（例如承攬案頁用資料裡實際存在的年度）；預設近五年＋全部年度 */
+  yearOptions?: Array<{ value: number; label: string }>;
   /** 額外的活動條件數（例如卡片篩選），加進「篩選 (n)」計數 */
   extraActiveCount?: number;
   /** 篩選列裡的其他控制項／按鈕（匯出、匯入…），放在維度之後 */
@@ -47,6 +51,7 @@ export interface CaseFilterBarProps {
 
 export const CaseFilterBar: React.FC<CaseFilterBarProps> = ({
   dims, value, onChange, clientOptions = [], keywordPlaceholder = '搜尋案號／案名', extraActiveCount = 0, children, style, defaultOpen,
+  liveKeyword = false, yearOptions,
 }) => {
   const has = (d: CaseFilterDim) => dims.includes(d);
   const { staffOptions } = useStaffAssigneeOptions();
@@ -65,7 +70,16 @@ export const CaseFilterBar: React.FC<CaseFilterBarProps> = ({
       style={style}
       defaultOpen={defaultOpen}
       activeCount={active}
-      summary={has('keyword') ? (
+      summary={has('keyword') ? (liveKeyword ? (
+        <Input
+          placeholder={keywordPlaceholder}
+          allowClear
+          value={value.keyword ?? ''}
+          onChange={(e) => onChange({ keyword: e.target.value || undefined })}
+          style={{ width: 240 }}
+          aria-label="關鍵字"
+        />
+      ) : (
         <Input.Search
           placeholder={keywordPlaceholder}
           allowClear
@@ -74,13 +88,13 @@ export const CaseFilterBar: React.FC<CaseFilterBarProps> = ({
           style={{ width: 240 }}
           aria-label="關鍵字"
         />
-      ) : undefined}
+      )) : undefined}
     >
       {has('year') && (
         <Select
           value={value.year ?? CURRENT_CASE_YEAR}
           onChange={(v) => onChange({ year: v })}
-          options={caseYearOptions()}
+          options={yearOptions ?? caseYearOptions()}
           style={{ width: 130 }}
           aria-label="年度"
         />
