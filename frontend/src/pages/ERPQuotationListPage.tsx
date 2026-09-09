@@ -6,7 +6,7 @@ import { FilterBar } from '../components/common/FilterBar';
 import { AnomalyTags } from '../components/erp/AnomalyTags';
 import { anomalyTagText, anomalyTagColor, anomalyTagIcon } from '../components/erp/anomalyTag';
 import { MobileCard } from '../components/common/MobileCardList';
-import { fmtMoney } from '../utils/money';
+import { fmtMoney, fmtMoneyOr } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import { Card, Button, Space, Input, Select, Typography, Row, Col, Alert, App, Upload, Tag } from 'antd';
 import { EnhancedTable } from '../components/common/EnhancedTable';
@@ -599,10 +599,10 @@ export const ERPQuotationListPage: React.FC = () => {
                   }] : [])]}
                 amounts={[
                   { label: '承攬（含稅）', value: fmtMoney(awarded) },
-                  { label: '應收帳款', value: billed ? fmtMoney(billed) : '—',
+                  { label: '應收帳款', value: fmtMoneyOr(billed, '未開請款'),
                     sub: billed ? (received >= billed ? '已收齊' : received > 0 ? `已收 ${Math.round(received / billed * 100)}%` : '待收') : undefined,
                     tone: billed ? (received >= billed ? 'good' : 'warn') : 'default' },
-                  { label: '應付款項', value: payable ? fmtMoney(payable) : '—' },
+                  { label: '應付款項', value: fmtMoneyOr(payable, '無應付') },
                 ]}
                 onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.id)))}
               />

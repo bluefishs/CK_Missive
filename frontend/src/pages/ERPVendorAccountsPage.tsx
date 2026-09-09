@@ -11,7 +11,7 @@
 import React, { useState, useMemo } from 'react';
 import { MobileCard } from '../components/common/MobileCardList';
 import { FilterBar } from '../components/common/FilterBar';
-import { fmtMoney } from '../utils/money';
+import { fmtMoney, fmtMoneyOr } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import {
   Alert, Card, Typography, Row, Col, Tag, Select, Input,
@@ -154,7 +154,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       width: 130,
       align: 'right',
       sorter: (a, b) => Number(a.total_payable ?? 0) - Number(b.total_payable ?? 0),
-      render: (v: number) => fmtMoney(v),
+      render: (v: number) => fmtMoneyOr(v, '無應付'),
     },
     {
       title: termTitle('paid_total', '已付總額'),
@@ -164,7 +164,7 @@ const ERPVendorAccountsPage: React.FC = () => {
       align: 'right',
       sorter: (a, b) => Number(a.total_paid ?? 0) - Number(b.total_paid ?? 0),
       render: (v: number) => (
-        <span style={{ color: '#52c41a' }}>{fmtMoney(v)}</span>
+        <span style={{ color: '#52c41a' }}>{fmtMoneyOr(v, '未付款')}</span>
       ),
     },
     {
@@ -334,9 +334,9 @@ const ERPVendorAccountsPage: React.FC = () => {
                 subtitle={r.tax_id ? `統編 ${r.tax_id}` : undefined}
                 tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }, ...caseProfileTags(r)]}
                 amounts={[
-                  { label: '應付', value: fmtMoney(payable) },
-                  { label: '已付', value: fmtMoney(paid) },
-                  { label: '未付', value: fmtMoney(payable - paid), tone: payable - paid > 0 ? 'warn' : 'good' },
+                  { label: '應付', value: fmtMoneyOr(payable, '無應付') },
+                  { label: '已付', value: fmtMoneyOr(paid, '未付款') },
+                  { label: '未付', value: fmtMoneyOr(payable - paid, '已付清'), tone: payable - paid > 0 ? 'warn' : 'good' },
                 ]}
                 onClick={() => navigate(`${ROUTES.ERP_VENDOR_ACCOUNTS}/${r.vendor_id}`)}
               />

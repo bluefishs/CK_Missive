@@ -11,7 +11,7 @@
 import React, { useState, useMemo } from 'react';
 import { MobileCard } from '../components/common/MobileCardList';
 import { FilterBar } from '../components/common/FilterBar';
-import { fmtMoney } from '../utils/money';
+import { fmtMoney, fmtMoneyOr } from '../utils/money';
 import { termTitle } from '../constants/financeTerms';
 import {
   Alert, Card, Typography, Row, Col, Tag, Select, Input,
@@ -153,7 +153,7 @@ const ERPClientAccountsPage: React.FC = () => {
       width: 130,
       align: 'right',
       sorter: (a, b) => Number(a.total_billed ?? 0) - Number(b.total_billed ?? 0),
-      render: (v: number) => fmtMoney(v),
+      render: (v: number) => fmtMoneyOr(v, '未開請款'),
     },
     {
       title: termTitle('received'),
@@ -163,7 +163,7 @@ const ERPClientAccountsPage: React.FC = () => {
       align: 'right',
       sorter: (a, b) => Number(a.total_received ?? 0) - Number(b.total_received ?? 0),
       render: (v: number) => (
-        <span style={{ color: '#52c41a' }}>{fmtMoney(v)}</span>
+        <span style={{ color: '#52c41a' }}>{fmtMoneyOr(v, '未收款')}</span>
       ),
     },
     {
@@ -177,7 +177,7 @@ const ERPClientAccountsPage: React.FC = () => {
         const num = Number(v);
         return (
           <Tag color={num > 0 ? 'orange' : 'green'} style={{ margin: 0 }}>
-            {num.toLocaleString()}
+            {fmtMoneyOr(num, '已收齊')}
           </Tag>
         );
       },
@@ -322,9 +322,9 @@ const ERPClientAccountsPage: React.FC = () => {
                 tags={[{ text: `${r.case_count ?? 0} 案`, color: 'blue' }, ...caseProfileTags(r)]}
                 amounts={[
                   { label: '承攬金額', value: fmtMoney(r.total_contract) },
-                  { label: '已請款', value: fmtMoney(billed) },
+                  { label: '已請款', value: fmtMoneyOr(billed, '未開請款') },
                   // 2026-09-09：應收未收＝承攬金額－已收款（已請款改為只認有請款日期的請款單後，佔位不再算進已請款）
-                  { label: '未收', value: fmtMoney(Number(r.total_contract ?? 0) - received), tone: Number(r.total_contract ?? 0) - received > 0 ? 'warn' : 'good' },
+                  { label: '未收', value: fmtMoneyOr(Number(r.total_contract ?? 0) - received, '已收齊'), tone: Number(r.total_contract ?? 0) - received > 0 ? 'warn' : 'good' },
                 ]}
                 onClick={r.vendor_id != null ? () => navigate(`${ROUTES.ERP_CLIENT_ACCOUNTS}/${r.vendor_id}?year=${year ?? 0}`) : undefined}
               />
