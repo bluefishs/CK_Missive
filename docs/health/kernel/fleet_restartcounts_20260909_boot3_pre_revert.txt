@@ -1,0 +1,6 @@
+/ck_missive_backend 15
+/ck_pilemgmt-backend-1 1
+/ck_missive_frontend 1
+/ck-hermes-gateway 1
+/ck-hermes-web 6
+/sw-worker 1

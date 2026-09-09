@@ -1,0 +1,2455 @@
+# uptime 2500.12 s, captured 2026-09-09T09:54:51Z
+[    0.000000] Linux version 6.6.87.2-microsoft-standard-WSL2 (root@439a258ad544) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025
+[    0.000000] Command line: initrd=\initrd.img WSL_ROOT_INIT=1 panic=-1 nr_cpus=8 hv_utils.timesync_implicit=1 console=hvc0 debug pty.legacy_count=0 WSL_ENABLE_CRASH_DUMP=1
+[    0.000000] KERNEL supported cpus:
+[    0.000000]   Intel GenuineIntel
+[    0.000000]   AMD AuthenticAMD
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+[    0.000000] BIOS-e820: [mem 0x00000000000e0000-0x00000000000e0fff] reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000001fffff] ACPI data
+[    0.000000] BIOS-e820: [mem 0x0000000000200000-0x00000000f7ffffff] usable
+[    0.000000] BIOS-e820: [mem 0x0000000100000000-0x0000000607ffffff] usable
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] DMI not present or invalid.
+[    0.000000] Hypervisor detected: Microsoft Hyper-V
+[    0.000000] Hyper-V: privilege flags low 0xae7f, high 0x3b8030, hints 0x9a4e24, misc 0xe0bed7b2
+[    0.000000] Hyper-V: Nested features: 0x3e0101
+[    0.000000] Hyper-V: LAPIC Timer Frequency: 0xc3500
+[    0.000000] Hyper-V: Using hypercall for remote TLB flush
+[    0.000000] clocksource: hyperv_clocksource_tsc_page: mask: 0xffffffffffffffff max_cycles: 0x24e6a1710, max_idle_ns: 440795202120 ns
+[    0.000000] clocksource: hyperv_clocksource_msr: mask: 0xffffffffffffffff max_cycles: 0x24e6a1710, max_idle_ns: 440795202120 ns
+[    0.000000] tsc: Detected 2112.000 MHz processor
+[    0.000102] e820: update [mem 0x00000000-0x00000fff] usable ==> reserved
+[    0.000107] e820: remove [mem 0x000a0000-0x000fffff] usable
+[    0.000111] last_pfn = 0x608000 max_arch_pfn = 0x400000000
+[    0.000136] MTRR map: 5 entries (4 fixed + 1 variable; max 20), built from 8 variable MTRRs
+[    0.000139] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.000193] last_pfn = 0xf8000 max_arch_pfn = 0x400000000
+[    0.000223] Using GB pages for direct mapping
+[    0.000369] RAMDISK: [mem 0x04be4000-0x04e8bfff]
+[    0.000372] ACPI: Early table checksum verification disabled
+[    0.000378] ACPI: RSDP 0x00000000000E0000 000024 (v02 VRTUAL)
+[    0.000384] ACPI: XSDT 0x0000000000100000 000044 (v01 VRTUAL MICROSFT 00000001 MSFT 00000001)
+[    0.000389] ACPI: FACP 0x0000000000101000 000114 (v06 VRTUAL MICROSFT 00000001 MSFT 00000001)
+[    0.000393] ACPI: DSDT 0x00000000001011B8 01E11C (v02 MSFTVM DSDT01   00000001 INTL 20230628)
+[    0.000395] ACPI: FACS 0x0000000000101114 000040
+[    0.000397] ACPI: OEM0 0x0000000000101154 000064 (v01 VRTUAL MICROSFT 00000001 MSFT 00000001)
+[    0.000400] ACPI: SRAT 0x000000000011F2D4 000330 (v02 VRTUAL MICROSFT 00000001 MSFT 00000001)
+[    0.000402] ACPI: APIC 0x000000000011F604 000088 (v04 VRTUAL MICROSFT 00000001 MSFT 00000001)
+[    0.000404] ACPI: Reserving FACP table memory at [mem 0x101000-0x101113]
+[    0.000405] ACPI: Reserving DSDT table memory at [mem 0x1011b8-0x11f2d3]
+[    0.000405] ACPI: Reserving FACS table memory at [mem 0x101114-0x101153]
+[    0.000406] ACPI: Reserving OEM0 table memory at [mem 0x101154-0x1011b7]
+[    0.000407] ACPI: Reserving SRAT table memory at [mem 0x11f2d4-0x11f603]
+[    0.000407] ACPI: Reserving APIC table memory at [mem 0x11f604-0x11f68b]
+[    0.000446] SRAT: PXM 0 -> APIC 0x00 -> Node 0
+[    0.000447] SRAT: PXM 0 -> APIC 0x01 -> Node 0
+[    0.000448] SRAT: PXM 0 -> APIC 0x02 -> Node 0
+[    0.000448] SRAT: PXM 0 -> APIC 0x03 -> Node 0
+[    0.000449] SRAT: PXM 0 -> APIC 0x04 -> Node 0
+[    0.000449] SRAT: PXM 0 -> APIC 0x05 -> Node 0
+[    0.000450] SRAT: PXM 0 -> APIC 0x06 -> Node 0
+[    0.000450] SRAT: PXM 0 -> APIC 0x07 -> Node 0
+[    0.000452] ACPI: SRAT: Node 0 PXM 0 [mem 0x00000000-0xf7ffffff] hotplug
+[    0.000454] ACPI: SRAT: Node 0 PXM 0 [mem 0x100000000-0x607ffffff] hotplug
+[    0.000455] ACPI: SRAT: Node 0 PXM 0 [mem 0x608000000-0x9ffdfffff] hotplug
+[    0.000456] ACPI: SRAT: Node 0 PXM 0 [mem 0x1000000000-0xffffffffff] hotplug
+[    0.000457] ACPI: SRAT: Node 0 PXM 0 [mem 0x10000000000-0x1ffffffffff] hotplug
+[    0.000458] ACPI: SRAT: Node 0 PXM 0 [mem 0x20000000000-0x3ffffffffff] hotplug
+[    0.000458] ACPI: SRAT: Node 0 PXM 0 [mem 0x40000000000-0x7ffffffffff] hotplug
+[    0.000459] ACPI: SRAT: Node 0 PXM 0 [mem 0x80000000000-0xfffffffffff] hotplug
+[    0.000460] ACPI: SRAT: Node 0 PXM 0 [mem 0x100000000000-0x1fffffffffff] hotplug
+[    0.000461] ACPI: SRAT: Node 0 PXM 0 [mem 0x200000000000-0x3fffffffffff] hotplug
+[    0.000461] ACPI: SRAT: Node 0 PXM 0 [mem 0x400000000000-0x7fffffffffff] hotplug
+[    0.000462] ACPI: SRAT: Node 0 PXM 0 [mem 0x800000000000-0xffffffffffff] hotplug
+[    0.000463] ACPI: SRAT: Node 0 PXM 0 [mem 0x1000000000000-0x1ffffffffffff] hotplug
+[    0.000464] ACPI: SRAT: Node 0 PXM 0 [mem 0x2000000000000-0x3ffffffffffff] hotplug
+[    0.000464] ACPI: SRAT: Node 0 PXM 0 [mem 0x4000000000000-0x7ffffffffffff] hotplug
+[    0.000465] ACPI: SRAT: Node 0 PXM 0 [mem 0x8000000000000-0xfffffffffffff] hotplug
+[    0.000468] NUMA: Node 0 [mem 0x00000000-0xf7ffffff] + [mem 0x100000000-0x607ffffff] -> [mem 0x00000000-0x607ffffff]
+[    0.000475] NODE_DATA(0) allocated [mem 0x607fde000-0x607ffffff]
+[    0.000626] Zone ranges:
+[    0.000628]   DMA32    [mem 0x0000000000001000-0x00000000ffffffff]
+[    0.000631]   Normal   [mem 0x0000000100000000-0x0000000607ffffff]
+[    0.000632]   Device   empty
+[    0.000633] Movable zone start for each node
+[    0.000635] Early memory node ranges
+[    0.000635]   node   0: [mem 0x0000000000001000-0x000000000009ffff]
+[    0.000636]   node   0: [mem 0x0000000000200000-0x00000000f7ffffff]
+[    0.000637]   node   0: [mem 0x0000000100000000-0x0000000607ffffff]
+[    0.000639] Initmem setup node 0 [mem 0x0000000000001000-0x0000000607ffffff]
+[    0.000678] On node 0, zone DMA32: 1 pages in unavailable ranges
+[    0.029617] On node 0, zone DMA32: 352 pages in unavailable ranges
+[    0.030431] ACPI: PM-Timer IO Port: 0x408
+[    0.030451] ACPI: LAPIC_NMI (acpi_id[0x01] dfl dfl lint[0x1])
+[    0.031345] IOAPIC[0]: apic_id 8, version 17, address 0xfec00000, GSI 0-23
+[    0.031363] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.031373] ACPI: Using ACPI (MADT) for SMP configuration information
+[    0.031376] TSC deadline timer available
+[    0.031378] smpboot: Allowing 8 CPUs, 0 hotplug CPUs
+[    0.031404] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.031406] PM: hibernation: Registered nosave memory: [mem 0x000a0000-0x000dffff]
+[    0.031406] PM: hibernation: Registered nosave memory: [mem 0x000e0000-0x000e0fff]
+[    0.031406] PM: hibernation: Registered nosave memory: [mem 0x000e1000-0x000fffff]
+[    0.031407] PM: hibernation: Registered nosave memory: [mem 0x00100000-0x001fffff]
+[    0.031408] PM: hibernation: Registered nosave memory: [mem 0xf8000000-0xffffffff]
+[    0.031410] [mem 0xf8000000-0xffffffff] available for PCI devices
+[    0.031412] Booting paravirtualized kernel on Hyper-V
+[    0.031417] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645519600211568 ns
+[    0.031470] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:8 nr_cpu_ids:8 nr_node_ids:1
+[    0.032141] percpu: Embedded 63 pages/cpu s221184 r8192 d28672 u262144
+[    0.032149] pcpu-alloc: s221184 r8192 d28672 u262144 alloc=1*2097152
+[    0.032153] pcpu-alloc: [0] 0 1 2 3 4 5 6 7 
+[    0.032180] Hyper-V: PV spinlocks enabled
+[    0.032182] PV qspinlock hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.032184] Kernel command line: initrd=\initrd.img WSL_ROOT_INIT=1 panic=-1 nr_cpus=8 hv_utils.timesync_implicit=1 console=hvc0 debug pty.legacy_count=0 WSL_ENABLE_CRASH_DUMP=1
+[    0.032304] Unknown kernel command line parameters "WSL_ROOT_INIT=1 WSL_ENABLE_CRASH_DUMP=1", will be passed to user space.
+[    0.032321] random: crng init done
+[    0.044781] Dentry cache hash table entries: 4194304 (order: 13, 33554432 bytes, linear)
+[    0.049675] Inode-cache hash table entries: 2097152 (order: 12, 16777216 bytes, linear)
+[    0.049948] Fallback order for Node 0: 0 
+[    0.049957] Built 1 zonelists, mobility grouping on.  Total pages: 6192128
+[    0.049960] Policy zone: Normal
+[    0.049983] mem auto-init: stack:off, heap alloc:on, heap free:off
+[    0.049999] software IO TLB: area num 8.
+[    0.098202] Memory: 4123740K/25164412K available (20480K kernel code, 3457K rwdata, 13496K rodata, 4492K init, 6208K bss, 563508K reserved, 0K cma-reserved)
+[    0.098383] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=8, Nodes=1
+[    0.098435] ftrace: allocating 55808 entries in 218 pages
+[    0.107207] ftrace: allocated 218 pages with 5 groups
+[    0.108148] Dynamic Preempt: none
+[    0.108199] rcu: Preemptible hierarchical RCU implementation.
+[    0.108200] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=8.
+[    0.108201] 	Trampoline variant of Tasks RCU enabled.
+[    0.108201] 	Rude variant of Tasks RCU enabled.
+[    0.108202] 	Tracing variant of Tasks RCU enabled.
+[    0.108202] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.108202] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=8
+[    0.110722] Using NULL legacy PIC
+[    0.110723] NR_IRQS: 524544, nr_irqs: 488, preallocated irqs: 0
+[    0.110768] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.111127] Console: colour dummy device 80x25
+[    0.111141] ACPI: Core revision 20230628
+[    0.111212] Failed to register legacy timer interrupt
+[    0.111212] APIC: Switch to symmetric I/O mode setup
+[    0.112143] x2apic enabled
+[    0.113078] APIC: Switched APIC routing to: physical x2apic
+[    0.113080] Hyper-V: Host Build 10.0.26100.9444-9-0
+[    0.113082] Hyper-V: enabling crash_kexec_post_notifiers
+[    0.113138] Hyper-V: Disabling IBT because of Hyper-V bug
+[    0.113139] Hyper-V: Using IPI hypercalls
+[    0.113141] APIC: send_IPI() replaced with hv_send_ipi()
+[    0.113147] APIC: send_IPI_mask() replaced with hv_send_ipi_mask()
+[    0.113148] APIC: send_IPI_mask_allbutself() replaced with hv_send_ipi_mask_allbutself()
+[    0.113149] APIC: send_IPI_allbutself() replaced with hv_send_ipi_allbutself()
+[    0.113150] APIC: send_IPI_all() replaced with hv_send_ipi_all()
+[    0.113151] APIC: send_IPI_self() replaced with hv_send_ipi_self()
+[    0.113209] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x1e71785e5dd, max_idle_ns: 440795244814 ns
+[    0.113219] Calibrating delay loop (skipped), value calculated using timer frequency.. 4224.00 BogoMIPS (lpj=8448000)
+[    0.113283] x86/cpu: User Mode Instruction Prevention (UMIP) activated
+[    0.113302] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[    0.113303] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[    0.113307] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[    0.113310] Spectre V2 : Mitigation: Enhanced / Automatic IBRS
+[    0.113310] Spectre V2 : Spectre v2 / SpectreRSB mitigation: Filling RSB on context switch
+[    0.113311] Spectre V2 : Spectre v2 / PBRSB-eIBRS: Retire a single CALL on VMEXIT
+[    0.113311] RETBleed: Mitigation: Enhanced IBRS
+[    0.113313] Spectre V2 : mitigation: Enabling conditional Indirect Branch Prediction Barrier
+[    0.113314] Speculative Store Bypass: Mitigation: Speculative Store Bypass disabled via prctl
+[    0.113314] Register File Data Sampling: Mitigation: Clear Register File
+[    0.113330] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[    0.113331] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[    0.113331] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[    0.113332] x86/fpu: Supporting XSAVE feature 0x800: 'Control-flow User registers'
+[    0.113332] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[    0.113333] x86/fpu: xstate_offset[11]:  832, xstate_sizes[11]:   16
+[    0.113333] x86/fpu: Enabled xstate features 0x807, context size is 848 bytes, using 'compacted' format.
+[    0.117213] Freeing SMP alternatives memory: 44K
+[    0.117213] pid_max: default: 32768 minimum: 301
+[    0.117213] LSM: initializing lsm=capability,landlock,yama,safesetid,selinux,integrity
+[    0.117213] landlock: Up and running.
+[    0.117213] Yama: becoming mindful.
+[    0.117213] SELinux:  Initializing.
+[    0.117213] Mount-cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.117213] Mountpoint-cache hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.117213] smpboot: CPU0: Intel(R) Core(TM) i7-14700F (family: 0x6, model: 0xb7, stepping: 0x1)
+[    0.117213] RCU Tasks: Setting shift to 3 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=8.
+[    0.117213] RCU Tasks Rude: Setting shift to 3 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=8.
+[    0.117213] RCU Tasks Trace: Setting shift to 3 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=8.
+[    0.117213] Performance Events: unsupported p6 CPU model 183 no PMU driver, software events only.
+[    0.117213] signal: max sigframe size: 1776
+[    0.117213] rcu: Hierarchical SRCU implementation.
+[    0.117213] rcu: 	Max phase no-delay instances is 1000.
+[    0.117213] NMI watchdog: Perf NMI watchdog permanently disabled
+[    0.117213] smp: Bringing up secondary CPUs ...
+[    0.117213] smpboot: x86: Booting SMP configuration:
+[    0.117213] .... node  #0, CPUs:      #2 #4 #6 #1 #3 #5 #7
+[    0.117319] smp: Brought up 1 node, 8 CPUs
+[    0.117321] smpboot: Max logical packages: 1
+[    0.117322] smpboot: Total of 8 processors activated (33792.00 BogoMIPS)
+[    0.163608] node 0 deferred pages initialised in 44ms
+[    0.165870] devtmpfs: initialized
+[    0.165870] x86/mm: Memory block size: 128MB
+[    0.166287] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.166287] futex hash table entries: 2048 (order: 5, 131072 bytes, linear)
+[    0.166287] pinctrl core: initialized pinctrl subsystem
+[    0.166287] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.169470] DMA: preallocated 4096 KiB GFP_KERNEL pool for atomic allocations
+[    0.170864] DMA: preallocated 4096 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[    0.170908] audit: initializing netlink subsys (disabled)
+[    0.170955] audit: type=2000 audit(1788945191.056:1): state=initialized audit_enabled=0 res=1
+[    0.170955] thermal_sys: Registered thermal governor 'step_wise'
+[    0.170955] thermal_sys: Registered thermal governor 'user_space'
+[    0.170955] cpuidle: using governor ladder
+[    0.170955] cpuidle: using governor menu
+[    0.170955] acpiphp: ACPI Hot Plug PCI Controller Driver version: 0.5
+[    0.170955] dca service started, version 1.12.1
+[    0.170955] PCI: Fatal: No config space access function found
+[    0.170955] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[    0.170955] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[    0.170955] HugeTLB: 16380 KiB vmemmap can be freed for a 1.00 GiB page
+[    0.170955] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.170955] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[    0.170955] cryptd: max_cpu_qlen set to 1000
+[    0.170955] ACPI: Added _OSI(Module Device)
+[    0.170955] ACPI: Added _OSI(Processor Device)
+[    0.170955] ACPI: Added _OSI(3.0 _SCP Extensions)
+[    0.170955] ACPI: Added _OSI(Processor Aggregator Device)
+[    0.175460] ACPI: 1 ACPI AML tables successfully acquired and loaded
+[    0.175915] ACPI: _OSC evaluation for CPUs failed, trying _PDC
+[    0.175955] ACPI: Interpreter enabled
+[    0.175963] ACPI: PM: (supports S0 S5)
+[    0.175964] ACPI: Using IOAPIC for interrupt routing
+[    0.175983] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[    0.175984] PCI: Using E820 reservations for host bridge windows
+[    0.176037] ACPI: Enabled 1 GPEs in block 00 to 0F
+[    0.176619] iommu: Default domain type: Translated
+[    0.176619] iommu: DMA domain TLB invalidation policy: lazy mode
+[    0.176619] SCSI subsystem initialized
+[    0.176619] libata version 3.00 loaded.
+[    0.176619] pps_core: LinuxPPS API ver. 1 registered
+[    0.176619] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.176619] PTP clock support registered
+[    0.176619] EDAC MC: Ver: 3.0.0
+[    0.189289] hv_vmbus: Vmbus version:5.3
+[    0.189395] hv_vmbus: Unknown GUID: 6e382d18-3336-4f4b-acc4-2b7703d4df4a
+[    0.189406] hv_vmbus: Unknown GUID: dde9cbc0-5060-4436-9448-ea1254a5d177
+[    0.189589] NetLabel: Initializing
+[    0.189591] NetLabel:  domain hash size = 128
+[    0.189591] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.189599] NetLabel:  unlabeled traffic allowed by default
+[    0.189599] PCI: Using ACPI for IRQ routing
+[    0.189601] PCI: System does not support PCI
+[    0.189623] vgaarb: loaded
+[    0.189623] clocksource: Switched to clocksource tsc-early
+[    0.189826] VFS: Disk quotas dquot_6.6.0
+[    0.189834] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    0.189870] FS-Cache: Loaded
+[    0.189915] pnp: PnP ACPI init
+[    0.189989] pnp: PnP ACPI: found 1 devices
+[    0.197470] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[    0.197570] NET: Registered PF_INET protocol family
+[    0.198316] IP idents hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.199799] tcp_listen_portaddr_hash hash table entries: 16384 (order: 6, 262144 bytes, linear)
+[    0.199916] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.200620] TCP established hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.201376] TCP bind hash table entries: 65536 (order: 9, 2097152 bytes, linear)
+[    0.201479] TCP: Hash tables configured (established 262144 bind 65536)
+[    0.201743] UDP hash table entries: 16384 (order: 7, 524288 bytes, linear)
+[    0.201914] UDP-Lite hash table entries: 16384 (order: 7, 524288 bytes, linear)
+[    0.201991] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.202005] NET: Registered PF_XDP protocol family
+[    0.202011] PCI: CLS 0 bytes, default 64
+[    0.202051] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[    0.202052] software IO TLB: mapped [mem 0x00000000f4000000-0x00000000f8000000] (64MB)
+[    0.202336] Trying to unpack rootfs image as initramfs...
+[    0.202515] RAPL PMU: API unit is 2^-32 Joules, 0 fixed counters, 10737418240 ms ovfl timer
+[    0.202530] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x1e71785e5dd, max_idle_ns: 440795244814 ns
+[    0.202673] clocksource: Switched to clocksource tsc
+[    0.203340] Initialise system trusted keyrings
+[    0.203354] Key type blacklist registered
+[    0.203451] workingset: timestamp_bits=36 max_order=23 bucket_order=0
+[    0.203920] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.203930] fuse: init (API version 7.39)
+[    0.204072] SGI XFS with ACLs, security attributes, realtime, verbose warnings, quota, no debug enabled
+[    0.204395] 9p: Installing v9fs 9p2000 file system support
+[    0.204622] Freeing initrd memory: 2720K
+[    0.207855] Key type asymmetric registered
+[    0.207860] Asymmetric key parser 'x509' registered
+[    0.207976] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 245)
+[    0.208210] io scheduler mq-deadline registered
+[    0.208213] io scheduler kyber registered
+[    0.210057] hv_vmbus: registering driver hv_pci
+[    0.210678] hv_pci c4b741f5-5582-4c98-8f8b-2e082933c396: PCI VMBus probing: Using version 0x10004
+[    0.211168] hv_pci c4b741f5-5582-4c98-8f8b-2e082933c396: PCI host bridge to bus 5582:00
+[    0.211170] pci_bus 5582:00: root bus resource [mem 0x9ffe00000-0x9ffe02fff window]
+[    0.211172] pci_bus 5582:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.211464] pci 5582:00:00.0: [1af4:1043] type 00 class 0x010000
+[    0.211752] pci 5582:00:00.0: reg 0x10: [mem 0x9ffe00000-0x9ffe00fff 64bit]
+[    0.211908] pci 5582:00:00.0: reg 0x18: [mem 0x9ffe01000-0x9ffe01fff 64bit]
+[    0.212060] pci 5582:00:00.0: reg 0x20: [mem 0x9ffe02000-0x9ffe02fff 64bit]
+[    0.213249] pci_bus 5582:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.213258] pci 5582:00:00.0: BAR 0: assigned [mem 0x9ffe00000-0x9ffe00fff 64bit]
+[    0.213383] pci 5582:00:00.0: BAR 2: assigned [mem 0x9ffe01000-0x9ffe01fff 64bit]
+[    0.213502] pci 5582:00:00.0: BAR 4: assigned [mem 0x9ffe02000-0x9ffe02fff 64bit]
+[    0.213876] hv_pci 0c25e74a-36b0-4518-9b54-19be8f0ca61c: PCI VMBus probing: Using version 0x10004
+[    0.214212] hv_pci 0c25e74a-36b0-4518-9b54-19be8f0ca61c: PCI host bridge to bus 36b0:00
+[    0.214213] pci_bus 36b0:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.214357] pci 36b0:00:00.0: [1414:008e] type 00 class 0x030200
+[    0.216090] pci_bus 36b0:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.216517] ioatdma: Intel(R) QuickData Technology Driver 5.00
+[    0.216598] virtio-pci 5582:00:00.0: enabling device (0000 -> 0002)
+[    0.218317] Serial: 8250/16550 driver, 8 ports, IRQ sharing enabled
+[    0.237530] Linux agpgart interface v0.103
+[    0.237558] AMD-Vi: AMD IOMMUv2 functionality not available on this system - This is not a bug.
+[    0.237571] ACPI: bus type drm_connector registered
+[    0.238637] printk: console [hvc0] enabled
+[    0.240872] brd: module loaded
+[    0.242415] loop: module loaded
+[    0.242585] Loading iSCSI transport class v2.0-870.
+[    0.242858] rdac: device handler registered
+[    0.243033] Microchip SmartPQI Driver (v2.1.24-046)
+[    0.243201] VMware PVSCSI driver - version 1.0.7.0-k
+[    0.243327] hv_vmbus: registering driver hv_storvsc
+[    0.243920] PPP generic driver version 2.4.2
+[    0.244109] VMware vmxnet3 virtual NIC driver - version 1.7.0.0-k-NAPI
+[    0.244284] hv_vmbus: registering driver hv_netvsc
+[    0.244410] Fusion MPT base driver 3.04.20
+[    0.244508] Copyright (c) 1999-2008 LSI Corporation
+[    0.244676] scsi host0: storvsc_host_t
+[    0.244696] Fusion MPT SPI Host driver 3.04.20
+[    0.244924] Fusion MPT SAS Host driver 3.04.20
+[    0.245125] Fusion MPT misc device (ioctl) driver 3.04.20
+[    0.245404] mptctl: Registered with Fusion MPT base driver
+[    0.245611] mptctl: /dev/mptctl @ (major,minor=10,220)
+[    0.245782] i8042: PNP: No PS/2 controller found.
+[    0.245918] hv_vmbus: registering driver hyperv_keyboard
+[    0.246065] rtc_cmos 00:00: RTC can wake from S4
+[    0.247341] rtc_cmos 00:00: registered as rtc0
+[    0.247652] rtc_cmos 00:00: setting system clock to 2026-09-09T09:13:11 UTC (1788945191)
+[    0.247943] rtc_cmos 00:00: alarms up to one month, 114 bytes nvram
+[    0.248124] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[    0.248442] device-mapper: uevent: version 1.0.3
+[    0.248638] device-mapper: ioctl: 4.48.0-ioctl (2023-03-01) initialised: dm-devel@redhat.com
+[    0.248972] intel_pstate: CPU model not supported
+[    0.249182] hv_utils: Registering HyperV Utility Driver
+[    0.249325] hv_vmbus: registering driver hv_utils
+[    0.249467] hv_vmbus: registering driver hv_balloon
+[    0.249643] hv_vmbus: registering driver dxgkrnl
+[    0.249863] hv_utils: TimeSync IC version 4.0
+[    0.249869] hv_balloon: Using Dynamic Memory protocol version 2.0
+[    0.250455] drop_monitor: Initializing network drop monitor service
+[    0.251047] Free page reporting enabled
+[    0.251206] hv_balloon: Cold memory discard hint enabled with order 9
+[    0.262090] NET: Registered PF_INET6 protocol family
+[    0.262940] Segment Routing with IPv6
+[    0.263046] In-situ OAM (IOAM) with IPv6
+[    0.263188] NET: Registered PF_PACKET protocol family
+[    0.263395] 9pnet: Installing 9P2000 support
+[    0.263668] NET: Registered PF_VSOCK protocol family
+[    0.263786] hv_vmbus: registering driver hv_sock
+[    0.264365] IPI shorthand broadcast: enabled
+[    0.264529] AVX2 version of gcm_enc/dec engaged.
+[    0.265048] AES CTR mode by8 optimization enabled
+[    0.266200] sched_clock: Marking stable (264004787, 2128761)->(285482406, -19348858)
+[    0.266692] registered taskstats version 1
+[    0.266824] Loading compiled-in X.509 certificates
+[    0.268783] ima: No TPM chip found, activating TPM-bypass!
+[    0.269471] ima: Allocated hash algorithm: sha256
+[    0.269941] ima: No architecture policies found
+[    0.311496] RAS: Correctable Errors collector initialized.
+[    0.311870] clk: Disabling unused clocks
+[    0.313577] Freeing unused decrypted memory: 2028K
+[    0.315276] Freeing unused kernel image (initmem) memory: 4492K
+[    0.315609] Write protecting the kernel read-only data: 34816k
+[    0.316731] Freeing unused kernel image (rodata/data gap) memory: 840K
+[    0.317046] Run /init as init process
+[    0.317213]   with arguments:
+[    0.317344]     /init
+[    0.317697]   with environment:
+[    0.317881]     HOME=/
+[    0.317959]     TERM=linux
+[    0.318072]     WSL_ROOT_INIT=1
+[    0.318266]     WSL_ENABLE_CRASH_DUMP=1
+[    0.371592] scsi 0:0:0:0: Direct-Access     Msft     Virtual Disk     1.0  PQ: 0 ANSI: 5
+[    0.373786] scsi 0:0:0:1: Direct-Access     Msft     Virtual Disk     1.0  PQ: 0 ANSI: 5
+[    0.377400] sd 0:0:0:0: Attached scsi generic sg0 type 0
+[    0.377498] sd 0:0:0:0: [sda] 795880 512-byte logical blocks: (407 MB/389 MiB)
+[    0.377914] sd 0:0:0:1: Attached scsi generic sg1 type 0
+[    0.378069] sd 0:0:0:1: [sdb] 381016 512-byte logical blocks: (195 MB/186 MiB)
+[    0.378157] sd 0:0:0:1: [sdb] Write Protect is on
+[    0.378161] sd 0:0:0:0: [sda] Write Protect is on
+[    0.378164] sd 0:0:0:0: [sda] Mode Sense: 0f 00 80 00
+[    0.378276] sd 0:0:0:0: [sda] Write cache: disabled, read cache: enabled, doesn't support DPO or FUA
+[    0.378559] sd 0:0:0:1: [sdb] Mode Sense: 0f 00 80 00
+[    0.379568] sd 0:0:0:0: [sda] Attached SCSI disk
+[    0.379632] sd 0:0:0:1: [sdb] Write cache: disabled, read cache: enabled, doesn't support DPO or FUA
+[    0.383337] sd 0:0:0:1: [sdb] Attached SCSI disk
+[    0.405658] scsi 0:0:0:2: Direct-Access     Msft     Virtual Disk     1.0  PQ: 0 ANSI: 5
+[    0.408695] sd 0:0:0:2: Attached scsi generic sg2 type 0
+[    0.408781] sd 0:0:0:2: [sdc] 16777224 512-byte logical blocks: (8.59 GB/8.00 GiB)
+[    0.409193] sd 0:0:0:2: [sdc] 4096-byte physical blocks
+[    0.409375] sd 0:0:0:2: [sdc] Write Protect is off
+[    0.409513] sd 0:0:0:2: [sdc] Mode Sense: 0f 00 00 00
+[    0.409726] sd 0:0:0:2: [sdc] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[    0.410616] sd 0:0:0:2: [sdc] Attached SCSI disk
+[    0.440587] EXT4-fs (sda): mounted filesystem 00000000-0000-0000-0000-000000000000 ro without journal. Quota mode: none.
+[    0.442820] EXT4-fs (sdb): mounted filesystem 00000000-0000-0000-0000-000000000000 ro without journal. Quota mode: none.
+[    0.458392] tun: Universal TUN/TAP device driver, 1.6
+[    0.472986] bridge: filtering via arp/ip/ip6tables is no longer available by default. Update your scripts to load br_netfilter if you need this.
+[    0.480500] Bridge firewalling registered
+[    0.490090] Adding 8388608k swap on /dev/sdc.  Priority:-2 extents:1 across:8388608k 
+[    0.975020] hv_pci 178ea968-591c-4aa1-b0d6-cfdb4f7a9d19: PCI VMBus probing: Using version 0x10004
+[    0.975877] hv_pci 178ea968-591c-4aa1-b0d6-cfdb4f7a9d19: PCI host bridge to bus 591c:00
+[    0.976076] pci_bus 591c:00: root bus resource [mem 0xc00000000-0xe00001fff window]
+[    0.976304] pci_bus 591c:00: No busn resource found for root bus, will use [bus 00-ff]
+[    0.977164] pci 591c:00:00.0: [1af4:105a] type 00 class 0x088000
+[    0.977620] pci 591c:00:00.0: reg 0x10: [mem 0xe00000000-0xe00000fff 64bit]
+[    0.977935] pci 591c:00:00.0: reg 0x18: [mem 0xe00001000-0xe00001fff 64bit]
+[    0.978334] pci 591c:00:00.0: reg 0x20: [mem 0xc00000000-0xdffffffff 64bit]
+[    0.979947] pci_bus 591c:00: busn_res: [bus 00-ff] end is updated to 00
+[    0.980156] pci 591c:00:00.0: BAR 4: assigned [mem 0xc00000000-0xdffffffff 64bit]
+[    0.980483] pci 591c:00:00.0: BAR 0: assigned [mem 0xe00000000-0xe00000fff 64bit]
+[    0.980850] pci 591c:00:00.0: BAR 2: assigned [mem 0xe00001000-0xe00001fff 64bit]
+[    0.981387] virtio-pci 591c:00:00.0: enabling device (0000 -> 0002)
+[    0.988990] virtiofs virtio1: Cache len: 0x200000000 @ 0xc00000000
+[    1.105311] scsi 0:0:0:3: Direct-Access     Msft     Virtual Disk     1.0  PQ: 0 ANSI: 5
+[    1.108462] sd 0:0:0:3: Attached scsi generic sg3 type 0
+[    1.108563] sd 0:0:0:3: [sdd] 2147483648 512-byte logical blocks: (1.10 TB/1.00 TiB)
+[    1.108901] sd 0:0:0:3: [sdd] 4096-byte physical blocks
+[    1.109091] sd 0:0:0:3: [sdd] Write Protect is off
+[    1.109245] sd 0:0:0:3: [sdd] Mode Sense: 0f 00 00 00
+[    1.109478] sd 0:0:0:3: [sdd] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[    1.110260] scsi 0:0:0:4: Direct-Access     Msft     Virtual Disk     1.0  PQ: 0 ANSI: 5
+[    1.110590] sd 0:0:0:3: [sdd] Attached SCSI disk
+[    1.112733] sd 0:0:0:4: Attached scsi generic sg4 type 0
+[    1.112937] sd 0:0:0:4: [sde] 289726 512-byte logical blocks: (148 MB/141 MiB)
+[    1.113196] sd 0:0:0:4: [sde] Write Protect is off
+[    1.113336] sd 0:0:0:4: [sde] Mode Sense: 0f 00 00 00
+[    1.113533] sd 0:0:0:4: [sde] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+[    1.114538] sd 0:0:0:4: [sde] Attached SCSI disk
+[    1.150507] EXT4-fs (sde): recovery complete
+[    1.153902] EXT4-fs (sde): mounted filesystem bd6f718b-5510-4329-b86d-80a4738ae88f r/w with ordered data mode. Quota mode: none.
+[    1.324741] WSL (1 - init(docker-desktop)) ERROR: ConfigApplyWindowsLibPath:2092: open /etc/ld.so.conf.d/ld.wsl.conf failed 2
+[    1.334632] WSL (1 - init(docker-desktop)) WARNING: /usr/share/zoneinfo/Asia/Taipei not found. Is the tzdata package installed?
+[    1.455683] misc dxg: dxgk: dxgkio_is_feature_enabled: Ioctl failed: -22
+[    1.457991] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -22
+[    1.458449] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -22
+[    1.458705] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -22
+[    1.458968] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.785404] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.912987] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.913281] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.913513] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.913741] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.914044] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.914315] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.914749] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.915012] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.915228] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.915473] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.915675] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.915947] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.916144] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.916337] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.916546] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    1.916730] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    2.033604] misc dxg: dxgk: dxgkio_query_adapter_info: Ioctl failed: -2
+[    2.157215] weston[244]: memfd_create() called without MFD_EXEC or MFD_NOEXEC_SEAL set
+[    2.492819] EXT4-fs (sdd): recovery complete
+[    2.495925] EXT4-fs (sdd): mounted filesystem 9334535a-db43-426f-adbe-941c0181d3d3 r/w with ordered data mode. Quota mode: none.
+[    2.514861] loop0: detected capacity change from 0 to 1600956
+[    2.518516] ISO 9660 Extensions: Microsoft Joliet Level 3
+[    2.518824] ISO 9660 Extensions: RRIP_1991A
+[    2.535007] loop1: detected capacity change from 0 to 1519788
+[    2.535721] ISO 9660 Extensions: RRIP_1991A
+[    2.778981] netlink: 'initd': attribute type 4 has an invalid length.
+[    2.814112] virtiofs: Unknown parameter 'negative_dentry_timeout'
+[    2.908172] RPC: Registered named UNIX socket transport module.
+[    2.908653] RPC: Registered udp transport module.
+[    2.908919] RPC: Registered tcp transport module.
+[    2.909150] RPC: Registered tcp-with-tls transport module.
+[    2.909377] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    4.056512] BUG: using __this_cpu_add() in preemptible [00000000] code: containerd/448
+[    4.057285] caller is __this_cpu_preempt_check+0x17/0x20
+[    4.057558] CPU: 1 PID: 448 Comm: containerd Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[    4.058012] Call Trace:
+[    4.058256]  <TASK>
+[    4.058364]  dump_stack_lvl+0x4c/0x70
+[    4.058454]  dump_stack+0x14/0x20
+[    4.058520]  check_preemption_disabled+0xd4/0x100
+[    4.058629]  __this_cpu_preempt_check+0x17/0x20
+[    4.058775]  __count_memcg_events+0x37/0xd0
+[    4.058903]  mem_cgroup_charge_statistics+0x21/0x60
+[    4.059032]  charge_memcg+0x56/0xb0
+[    4.059133]  __mem_cgroup_charge+0x31/0x90
+[    4.059303]  do_anonymous_page+0x98/0x420
+[    4.059482]  __handle_mm_fault+0x818/0x840
+[    4.059737]  handle_mm_fault+0xc7/0x2f0
+[    4.060058]  do_user_addr_fault+0x188/0x660
+[    4.060219]  exc_page_fault+0x73/0x160
+[    4.060404]  asm_exc_page_fault+0x2b/0x30
+[    4.060628] RIP: 0033:0x60146be2082b
+[    4.060796] Code: 1f f8 c3 f3 44 0f 7f 3f f3 44 0f 7f 7c 1f f0 c3 f3 44 0f 7f 3f f3 44 0f 7f 7f 10 f3 44 0f 7f 7c 1f e0 f3 44 0f 7f 7c 1f f0 c3 <f3> 44 0f 7f 3f f3 44 0f 7f 7f 10 f3 44 0f 7f 7f 20 f3 44 0f 7f 7f
+[    4.061561] RSP: 002b:0000161da729ef38 EFLAGS: 00010246
+[    4.061759] RAX: 0000000000000000 RBX: 0000000000000080 RCX: 0000000000000010
+[    4.062007] RDX: 0000000000000020 RSI: 0000161da782bf00 RDI: 0000161da782bf00
+[    4.062381] RBP: 0000161da729ef50 R08: 0000000000000001 R09: 0000161da782a000
+[    4.062576] R10: 0000000000000001 R11: 00007c082ad22000 R12: 0000161da6c58008
+[    4.062739] R13: 0000000000000000 R14: 0000161da77c8000 R15: 00000000000000a5
+[    4.062913]  </TASK>
+[    5.249647] Initializing XFRM netlink socket
+[    6.018564] WSL (215) ERROR: CheckConnection: getaddrinfo() failed: -5
+[   14.982661] br-e247f86bde0b: port 1(veth02a1238) entered blocking state
+[   14.983893] br-e247f86bde0b: port 1(veth02a1238) entered disabled state
+[   14.984439] veth02a1238: entered allmulticast mode
+[   14.986103] veth02a1238: entered promiscuous mode
+[   14.987091] br-dfe7460d7979: port 1(veth50eda16) entered blocking state
+[   14.987644] br-dfe7460d7979: port 1(veth50eda16) entered disabled state
+[   14.988253] veth50eda16: entered allmulticast mode
+[   14.991132] veth50eda16: entered promiscuous mode
+[   15.010023] br-e247f86bde0b: port 1(veth02a1238) entered blocking state
+[   15.010927] br-e247f86bde0b: port 1(veth02a1238) entered forwarding state
+[   15.011806] br-3c6d964c8af0: port 1(veth5d0dba6) entered blocking state
+[   15.012229] br-3c6d964c8af0: port 1(veth5d0dba6) entered disabled state
+[   15.012632] veth5d0dba6: entered allmulticast mode
+[   15.013198] veth5d0dba6: entered promiscuous mode
+[   15.013908] br-e247f86bde0b: port 1(veth02a1238) entered disabled state
+[   15.014526] br-9691b836969c: port 1(vethf86c7b7) entered blocking state
+[   15.014974] br-9691b836969c: port 1(vethf86c7b7) entered disabled state
+[   15.015542] vethf86c7b7: entered allmulticast mode
+[   15.016020] vethf86c7b7: entered promiscuous mode
+[   15.017442] br-bb6f9fe57812: port 1(veth8ab3000) entered blocking state
+[   15.017926] br-bb6f9fe57812: port 1(veth8ab3000) entered disabled state
+[   15.018393] veth8ab3000: entered allmulticast mode
+[   15.018797] veth8ab3000: entered promiscuous mode
+[   15.019448] br-3c6d964c8af0: port 1(veth5d0dba6) entered blocking state
+[   15.019955] br-3c6d964c8af0: port 1(veth5d0dba6) entered forwarding state
+[   15.020513] br-3c6d964c8af0: port 1(veth5d0dba6) entered disabled state
+[   15.020996] br-bb6f9fe57812: port 1(veth8ab3000) entered blocking state
+[   15.021579] br-bb6f9fe57812: port 1(veth8ab3000) entered forwarding state
+[   15.022079] br-bb6f9fe57812: port 1(veth8ab3000) entered disabled state
+[   15.022476] br-9691b836969c: port 1(vethf86c7b7) entered blocking state
+[   15.022780] br-9691b836969c: port 1(vethf86c7b7) entered forwarding state
+[   15.023076] br-9691b836969c: port 1(vethf86c7b7) entered disabled state
+[   15.125883] eth0: renamed from veth2f57432
+[   15.155294] br-e247f86bde0b: port 1(veth02a1238) entered blocking state
+[   15.155920] br-e247f86bde0b: port 1(veth02a1238) entered forwarding state
+[   15.156423] br-e247f86bde0b: port 2(vethb2e2a21) entered blocking state
+[   15.156726] br-e247f86bde0b: port 2(vethb2e2a21) entered disabled state
+[   15.157236] vethb2e2a21: entered allmulticast mode
+[   15.157520] vethb2e2a21: entered promiscuous mode
+[   15.158650] br-e247f86bde0b: port 2(vethb2e2a21) entered blocking state
+[   15.158994] br-e247f86bde0b: port 2(vethb2e2a21) entered forwarding state
+[   15.159379] eth0: renamed from veth5b1fe53
+[   15.190573] eth0: renamed from vethb179d17
+[   15.218687] eth0: renamed from veth23f67ce
+[   15.242479] eth0: renamed from veth517826a
+[   15.266539] br-e247f86bde0b: port 2(vethb2e2a21) entered disabled state
+[   15.267113] br-3c6d964c8af0: port 1(veth5d0dba6) entered blocking state
+[   15.267429] br-3c6d964c8af0: port 1(veth5d0dba6) entered forwarding state
+[   15.267670] br-9691b836969c: port 1(vethf86c7b7) entered blocking state
+[   15.268155] br-9691b836969c: port 1(vethf86c7b7) entered forwarding state
+[   15.269444] br-dfe7460d7979: port 1(veth50eda16) entered blocking state
+[   15.269819] br-dfe7460d7979: port 1(veth50eda16) entered forwarding state
+[   15.270560] br-bb6f9fe57812: port 1(veth8ab3000) entered blocking state
+[   15.270894] br-bb6f9fe57812: port 1(veth8ab3000) entered forwarding state
+[   15.274817] eth0: renamed from veth6f4992e
+[   15.302743] br-e247f86bde0b: port 2(vethb2e2a21) entered blocking state
+[   15.303128] br-e247f86bde0b: port 2(vethb2e2a21) entered forwarding state
+[   15.390824] docker0: port 1(veth108bab6) entered blocking state
+[   15.391187] docker0: port 1(veth108bab6) entered disabled state
+[   15.391426] veth108bab6: entered allmulticast mode
+[   15.391638] veth108bab6: entered promiscuous mode
+[   15.391951] br-bb6f9fe57812: port 2(veth72b78c5) entered blocking state
+[   15.392237] br-bb6f9fe57812: port 2(veth72b78c5) entered disabled state
+[   15.392448] veth72b78c5: entered allmulticast mode
+[   15.392695] veth72b78c5: entered promiscuous mode
+[   15.393154] docker0: port 1(veth108bab6) entered blocking state
+[   15.393505] docker0: port 1(veth108bab6) entered forwarding state
+[   15.393895] docker0: port 1(veth108bab6) entered disabled state
+[   15.394291] br-bb6f9fe57812: port 2(veth72b78c5) entered blocking state
+[   15.394585] br-bb6f9fe57812: port 2(veth72b78c5) entered forwarding state
+[   15.501911] eth0: renamed from veth4d42d96
+[   15.519672] eth1: renamed from veth75a7ee5
+[   15.538854] br-dfe7460d7979: port 2(veth9c6e588) entered blocking state
+[   15.539319] br-dfe7460d7979: port 2(veth9c6e588) entered disabled state
+[   15.539586] veth9c6e588: entered allmulticast mode
+[   15.539930] veth9c6e588: entered promiscuous mode
+[   15.540638] docker0: port 1(veth108bab6) entered blocking state
+[   15.540992] docker0: port 1(veth108bab6) entered forwarding state
+[   15.541449] br-837d5f6c5a54: port 1(veth62e592a) entered blocking state
+[   15.541766] br-837d5f6c5a54: port 1(veth62e592a) entered disabled state
+[   15.542087] veth62e592a: entered allmulticast mode
+[   15.542336] veth62e592a: entered promiscuous mode
+[   15.542755] br-dfe7460d7979: port 2(veth9c6e588) entered blocking state
+[   15.543081] br-dfe7460d7979: port 2(veth9c6e588) entered forwarding state
+[   15.543678] br-961fd23e5db5: port 1(veth7061e4e) entered blocking state
+[   15.543991] br-961fd23e5db5: port 1(veth7061e4e) entered disabled state
+[   15.544222] veth7061e4e: entered allmulticast mode
+[   15.544431] veth7061e4e: entered promiscuous mode
+[   15.544908] br-837d5f6c5a54: port 1(veth62e592a) entered blocking state
+[   15.545174] br-837d5f6c5a54: port 1(veth62e592a) entered forwarding state
+[   15.545481] br-dfe7460d7979: port 2(veth9c6e588) entered disabled state
+[   15.545745] br-837d5f6c5a54: port 1(veth62e592a) entered disabled state
+[   15.546389] br-961fd23e5db5: port 1(veth7061e4e) entered blocking state
+[   15.546705] br-961fd23e5db5: port 1(veth7061e4e) entered forwarding state
+[   15.546995] br-961fd23e5db5: port 1(veth7061e4e) entered disabled state
+[   15.547318] br-d426e1d3ee62: port 1(veth7dbdbd5) entered blocking state
+[   15.547570] br-d426e1d3ee62: port 1(veth7dbdbd5) entered disabled state
+[   15.547833] veth7dbdbd5: entered allmulticast mode
+[   15.548043] veth7dbdbd5: entered promiscuous mode
+[   15.549143] br-d426e1d3ee62: port 1(veth7dbdbd5) entered blocking state
+[   15.549431] br-d426e1d3ee62: port 1(veth7dbdbd5) entered forwarding state
+[   15.549747] br-d426e1d3ee62: port 1(veth7dbdbd5) entered disabled state
+[   15.659687] eth1: renamed from veth79c1090
+[   15.674799] br-961fd23e5db5: port 1(veth7061e4e) entered blocking state
+[   15.675289] br-961fd23e5db5: port 1(veth7061e4e) entered forwarding state
+[   15.713376] eth0: renamed from veth068c337
+[   15.743130] br-dfe7460d7979: port 2(veth9c6e588) entered blocking state
+[   15.743712] br-dfe7460d7979: port 2(veth9c6e588) entered forwarding state
+[   15.744077] eth0: renamed from veth0f41797
+[   15.767568] eth0: renamed from vethec5e2a6
+[   15.783970] br-d426e1d3ee62: port 1(veth7dbdbd5) entered blocking state
+[   15.785358] br-d426e1d3ee62: port 1(veth7dbdbd5) entered forwarding state
+[   15.786451] br-837d5f6c5a54: port 1(veth62e592a) entered blocking state
+[   15.787614] br-837d5f6c5a54: port 1(veth62e592a) entered forwarding state
+[   15.791547] br-837d5f6c5a54: port 2(veth0a7bbf2) entered blocking state
+[   15.792261] br-837d5f6c5a54: port 2(veth0a7bbf2) entered disabled state
+[   15.792675] veth0a7bbf2: entered allmulticast mode
+[   15.793001] veth0a7bbf2: entered promiscuous mode
+[   15.794670] br-837d5f6c5a54: port 2(veth0a7bbf2) entered blocking state
+[   15.795279] br-837d5f6c5a54: port 2(veth0a7bbf2) entered forwarding state
+[   15.907436] br-d426e1d3ee62: port 2(vethc2ebb78) entered blocking state
+[   15.907972] br-d426e1d3ee62: port 2(vethc2ebb78) entered disabled state
+[   15.908390] vethc2ebb78: entered allmulticast mode
+[   15.908686] vethc2ebb78: entered promiscuous mode
+[   15.909132] br-837d5f6c5a54: port 3(veth49c5ddd) entered blocking state
+[   15.909472] br-837d5f6c5a54: port 3(veth49c5ddd) entered disabled state
+[   15.909888] veth49c5ddd: entered allmulticast mode
+[   15.910222] veth49c5ddd: entered promiscuous mode
+[   15.910795] br-d426e1d3ee62: port 2(vethc2ebb78) entered blocking state
+[   15.911086] br-d426e1d3ee62: port 2(vethc2ebb78) entered forwarding state
+[   15.911742] br-837d5f6c5a54: port 3(veth49c5ddd) entered blocking state
+[   15.912167] br-837d5f6c5a54: port 3(veth49c5ddd) entered forwarding state
+[   15.919887] br-fac1109a8cf2: port 1(vethf7e44b3) entered blocking state
+[   15.920334] br-fac1109a8cf2: port 1(vethf7e44b3) entered disabled state
+[   15.920791] vethf7e44b3: entered allmulticast mode
+[   15.921028] vethf7e44b3: entered promiscuous mode
+[   15.921600] docker0: port 2(veth558434d) entered blocking state
+[   15.921975] docker0: port 2(veth558434d) entered disabled state
+[   15.922337] veth558434d: entered allmulticast mode
+[   15.922598] veth558434d: entered promiscuous mode
+[   15.922985] br-e247f86bde0b: port 3(veth2d281b7) entered blocking state
+[   15.923309] br-e247f86bde0b: port 3(veth2d281b7) entered disabled state
+[   15.923617] veth2d281b7: entered allmulticast mode
+[   15.923931] veth2d281b7: entered promiscuous mode
+[   15.924268] br-fac1109a8cf2: port 1(vethf7e44b3) entered blocking state
+[   15.924558] br-fac1109a8cf2: port 1(vethf7e44b3) entered forwarding state
+[   15.924959] br-837d5f6c5a54: port 2(veth0a7bbf2) entered disabled state
+[   15.925308] br-837d5f6c5a54: port 3(veth49c5ddd) entered disabled state
+[   15.925756] br-d426e1d3ee62: port 2(vethc2ebb78) entered disabled state
+[   15.926060] br-fac1109a8cf2: port 1(vethf7e44b3) entered disabled state
+[   15.926501] docker0: port 2(veth558434d) entered blocking state
+[   15.926853] docker0: port 2(veth558434d) entered forwarding state
+[   15.927333] br-961fd23e5db5: port 2(veth34c046f) entered blocking state
+[   15.927665] br-961fd23e5db5: port 2(veth34c046f) entered disabled state
+[   15.927935] veth34c046f: entered allmulticast mode
+[   15.928161] veth34c046f: entered promiscuous mode
+[   15.928445] eth0: renamed from vethfc76e8e
+[   15.962575] br-e247f86bde0b: port 3(veth2d281b7) entered blocking state
+[   15.963131] br-e247f86bde0b: port 3(veth2d281b7) entered forwarding state
+[   15.963796] docker0: port 2(veth558434d) entered disabled state
+[   15.964173] br-e247f86bde0b: port 3(veth2d281b7) entered disabled state
+[   15.964534] br-837d5f6c5a54: port 2(veth0a7bbf2) entered blocking state
+[   15.964794] br-837d5f6c5a54: port 2(veth0a7bbf2) entered forwarding state
+[   15.965085] br-961fd23e5db5: port 2(veth34c046f) entered blocking state
+[   15.965384] br-961fd23e5db5: port 2(veth34c046f) entered forwarding state
+[   15.982282] br-961fd23e5db5: port 2(veth34c046f) entered disabled state
+[   16.086197] eth0: renamed from veth8d4047b
+[   16.103502] br-d426e1d3ee62: port 2(vethc2ebb78) entered blocking state
+[   16.104052] br-d426e1d3ee62: port 2(vethc2ebb78) entered forwarding state
+[   16.113407] br-fac1109a8cf2: port 2(veth3bfc9a3) entered blocking state
+[   16.113771] br-fac1109a8cf2: port 2(veth3bfc9a3) entered disabled state
+[   16.114052] veth3bfc9a3: entered allmulticast mode
+[   16.114337] veth3bfc9a3: entered promiscuous mode
+[   16.115511] br-fac1109a8cf2: port 2(veth3bfc9a3) entered blocking state
+[   16.116007] br-fac1109a8cf2: port 2(veth3bfc9a3) entered forwarding state
+[   16.116335] br-fac1109a8cf2: port 2(veth3bfc9a3) entered disabled state
+[   16.126683] eth0: renamed from veth8843821
+[   16.143096] eth2: renamed from veth2f91279
+[   16.162899] br-3c6d964c8af0: port 2(veth064fac5) entered blocking state
+[   16.163515] br-3c6d964c8af0: port 2(veth064fac5) entered disabled state
+[   16.163811] veth064fac5: entered allmulticast mode
+[   16.164118] veth064fac5: entered promiscuous mode
+[   16.164397] docker0: port 2(veth558434d) entered blocking state
+[   16.164683] docker0: port 2(veth558434d) entered forwarding state
+[   16.165710] br-961fd23e5db5: port 2(veth34c046f) entered blocking state
+[   16.166085] br-961fd23e5db5: port 2(veth34c046f) entered forwarding state
+[   16.166624] docker0: port 3(vethd49f9bb) entered blocking state
+[   16.166930] docker0: port 3(vethd49f9bb) entered disabled state
+[   16.167339] vethd49f9bb: entered allmulticast mode
+[   16.167579] vethd49f9bb: entered promiscuous mode
+[   16.197048] docker0: port 3(vethd49f9bb) entered blocking state
+[   16.197890] docker0: port 3(vethd49f9bb) entered forwarding state
+[   16.198845] eth1: renamed from veth3dc5661
+[   16.223470] docker0: port 3(vethd49f9bb) entered disabled state
+[   16.224117] br-fac1109a8cf2: port 2(veth3bfc9a3) entered blocking state
+[   16.224485] br-fac1109a8cf2: port 2(veth3bfc9a3) entered forwarding state
+[   16.224965] eth0: renamed from veth7d04379
+[   16.243946] eth0: renamed from vethb17c715
+[   16.254865] br-fac1109a8cf2: port 1(vethf7e44b3) entered blocking state
+[   16.255383] br-fac1109a8cf2: port 1(vethf7e44b3) entered forwarding state
+[   16.256446] br-3c6d964c8af0: port 2(veth064fac5) entered blocking state
+[   16.256709] br-3c6d964c8af0: port 2(veth064fac5) entered forwarding state
+[   16.257000] br-3c6d964c8af0: port 2(veth064fac5) entered disabled state
+[   16.257410] br-837d5f6c5a54: port 3(veth49c5ddd) entered blocking state
+[   16.257706] br-837d5f6c5a54: port 3(veth49c5ddd) entered forwarding state
+[   16.258047] eth0: renamed from veth3beb9e4
+[   16.287699] br-e247f86bde0b: port 4(veth600e058) entered blocking state
+[   16.288219] br-e247f86bde0b: port 4(veth600e058) entered disabled state
+[   16.288544] veth600e058: entered allmulticast mode
+[   16.288789] veth600e058: entered promiscuous mode
+[   16.291092] br-a477e75c81e6: port 1(veth4f2eaa4) entered blocking state
+[   16.291535] br-a477e75c81e6: port 1(veth4f2eaa4) entered disabled state
+[   16.291906] veth4f2eaa4: entered allmulticast mode
+[   16.292139] veth4f2eaa4: entered promiscuous mode
+[   16.292709] br-837d5f6c5a54: port 4(veth04b9f1e) entered blocking state
+[   16.293079] br-837d5f6c5a54: port 4(veth04b9f1e) entered disabled state
+[   16.293384] veth04b9f1e: entered allmulticast mode
+[   16.293651] veth04b9f1e: entered promiscuous mode
+[   16.295889] br-e247f86bde0b: port 3(veth2d281b7) entered blocking state
+[   16.296242] br-e247f86bde0b: port 3(veth2d281b7) entered forwarding state
+[   16.296637] br-a477e75c81e6: port 1(veth4f2eaa4) entered blocking state
+[   16.296991] br-a477e75c81e6: port 1(veth4f2eaa4) entered forwarding state
+[   16.297366] br-e247f86bde0b: port 4(veth600e058) entered blocking state
+[   16.297656] br-e247f86bde0b: port 4(veth600e058) entered forwarding state
+[   16.299478] br-e247f86bde0b: port 4(veth600e058) entered disabled state
+[   16.300208] br-a477e75c81e6: port 1(veth4f2eaa4) entered disabled state
+[   16.300615] br-837d5f6c5a54: port 4(veth04b9f1e) entered blocking state
+[   16.300928] br-837d5f6c5a54: port 4(veth04b9f1e) entered forwarding state
+[   16.509320] eth0: renamed from vetha737cb6
+[   16.546107] br-837d5f6c5a54: port 4(veth04b9f1e) entered disabled state
+[   16.546795] docker0: port 3(vethd49f9bb) entered blocking state
+[   16.547150] docker0: port 3(vethd49f9bb) entered forwarding state
+[   16.570709] br-9189104c1c7a: port 1(vetha800825) entered blocking state
+[   16.571392] br-9189104c1c7a: port 1(vetha800825) entered disabled state
+[   16.571783] vetha800825: entered allmulticast mode
+[   16.572139] vetha800825: entered promiscuous mode
+[   16.578640] br-4864c3a28d62: port 1(vethfae93d2) entered blocking state
+[   16.579181] br-4864c3a28d62: port 1(vethfae93d2) entered disabled state
+[   16.579482] vethfae93d2: entered allmulticast mode
+[   16.579747] vethfae93d2: entered promiscuous mode
+[   16.594834] br-9189104c1c7a: port 1(vetha800825) entered blocking state
+[   16.595403] br-9189104c1c7a: port 1(vetha800825) entered forwarding state
+[   16.595841] br-9189104c1c7a: port 1(vetha800825) entered disabled state
+[   16.596343] eth0: renamed from veth4e24876
+[   16.620286] eth0: renamed from veth30ce4c3
+[   16.642819] br-a477e75c81e6: port 1(veth4f2eaa4) entered blocking state
+[   16.643314] br-a477e75c81e6: port 1(veth4f2eaa4) entered forwarding state
+[   16.647246] eth0: renamed from veth599ac8f
+[   16.681818] br-4864c3a28d62: port 1(vethfae93d2) entered blocking state
+[   16.682601] br-4864c3a28d62: port 1(vethfae93d2) entered forwarding state
+[   16.685932] eth0: renamed from veth6f97871
+[   16.716653] br-4864c3a28d62: port 1(vethfae93d2) entered disabled state
+[   16.717270] br-3c6d964c8af0: port 2(veth064fac5) entered blocking state
+[   16.717616] br-3c6d964c8af0: port 2(veth064fac5) entered forwarding state
+[   16.718234] br-e247f86bde0b: port 4(veth600e058) entered blocking state
+[   16.718588] br-e247f86bde0b: port 4(veth600e058) entered forwarding state
+[   16.719578] br-a477e75c81e6: port 2(veth74d7ef0) entered blocking state
+[   16.720050] br-a477e75c81e6: port 2(veth74d7ef0) entered disabled state
+[   16.720478] veth74d7ef0: entered allmulticast mode
+[   16.720926] veth74d7ef0: entered promiscuous mode
+[   16.721645] br-837d5f6c5a54: port 5(vethaf5eb62) entered blocking state
+[   16.722087] br-837d5f6c5a54: port 5(vethaf5eb62) entered disabled state
+[   16.722527] vethaf5eb62: entered allmulticast mode
+[   16.722905] vethaf5eb62: entered promiscuous mode
+[   16.730463] br-837d5f6c5a54: port 4(veth04b9f1e) entered blocking state
+[   16.731085] br-837d5f6c5a54: port 4(veth04b9f1e) entered forwarding state
+[   16.731634] br-e247f86bde0b: port 5(veth7187072) entered blocking state
+[   16.732091] br-e247f86bde0b: port 5(veth7187072) entered disabled state
+[   16.732479] veth7187072: entered allmulticast mode
+[   16.732763] veth7187072: entered promiscuous mode
+[   16.733100] eth0: renamed from veth13531ed
+[   16.758357] br-9691b836969c: port 2(vethff9a1c7) entered blocking state
+[   16.758928] br-9691b836969c: port 2(vethff9a1c7) entered disabled state
+[   16.759266] vethff9a1c7: entered allmulticast mode
+[   16.759599] vethff9a1c7: entered promiscuous mode
+[   16.760106] br-fac1109a8cf2: port 3(veth6499055) entered blocking state
+[   16.760448] br-fac1109a8cf2: port 3(veth6499055) entered disabled state
+[   16.760765] veth6499055: entered allmulticast mode
+[   16.761054] veth6499055: entered promiscuous mode
+[   16.761292] eth0: renamed from veth44d4bfc
+[   16.783220] br-dfe7460d7979: port 3(veth3fd84c5) entered blocking state
+[   16.783792] br-dfe7460d7979: port 3(veth3fd84c5) entered disabled state
+[   16.784104] veth3fd84c5: entered allmulticast mode
+[   16.784464] veth3fd84c5: entered promiscuous mode
+[   16.785299] br-4864c3a28d62: port 1(vethfae93d2) entered blocking state
+[   16.785992] br-4864c3a28d62: port 1(vethfae93d2) entered forwarding state
+[   16.786982] br-3c6d964c8af0: port 3(vethf157d27) entered blocking state
+[   16.787386] br-3c6d964c8af0: port 3(vethf157d27) entered disabled state
+[   16.787865] vethf157d27: entered allmulticast mode
+[   16.788217] vethf157d27: entered promiscuous mode
+[   16.788686] br-bb6f9fe57812: port 3(vethac1b041) entered blocking state
+[   16.789079] br-bb6f9fe57812: port 3(vethac1b041) entered disabled state
+[   16.789432] vethac1b041: entered allmulticast mode
+[   16.789769] vethac1b041: entered promiscuous mode
+[   16.790315] br-9189104c1c7a: port 1(vetha800825) entered blocking state
+[   16.790676] br-9189104c1c7a: port 1(vetha800825) entered forwarding state
+[   16.791071] br-837d5f6c5a54: port 5(vethaf5eb62) entered blocking state
+[   16.791407] br-837d5f6c5a54: port 5(vethaf5eb62) entered forwarding state
+[   16.791876] br-837d5f6c5a54: port 5(vethaf5eb62) entered disabled state
+[   16.792521] br-a477e75c81e6: port 2(veth74d7ef0) entered blocking state
+[   16.792909] br-a477e75c81e6: port 2(veth74d7ef0) entered forwarding state
+[   16.794787] br-6661c2e11d12: port 1(veth76babd5) entered blocking state
+[   16.795147] br-6661c2e11d12: port 1(veth76babd5) entered disabled state
+[   16.795412] veth76babd5: entered allmulticast mode
+[   16.795654] veth76babd5: entered promiscuous mode
+[   16.795955] br-f4a1cb40fc46: port 1(veth190f231) entered blocking state
+[   16.796231] br-f4a1cb40fc46: port 1(veth190f231) entered disabled state
+[   16.796512] veth190f231: entered allmulticast mode
+[   16.796724] veth190f231: entered promiscuous mode
+[   16.797142] br-9691b836969c: port 2(vethff9a1c7) entered blocking state
+[   16.797424] br-9691b836969c: port 2(vethff9a1c7) entered forwarding state
+[   16.797721] br-e247f86bde0b: port 5(veth7187072) entered blocking state
+[   16.797944] br-e247f86bde0b: port 5(veth7187072) entered forwarding state
+[   16.798404] br-3c6d964c8af0: port 3(vethf157d27) entered blocking state
+[   16.798680] br-3c6d964c8af0: port 3(vethf157d27) entered forwarding state
+[   16.799017] br-bb6f9fe57812: port 3(vethac1b041) entered blocking state
+[   16.799310] br-bb6f9fe57812: port 3(vethac1b041) entered forwarding state
+[   16.799708] br-fac1109a8cf2: port 3(veth6499055) entered blocking state
+[   16.800096] br-fac1109a8cf2: port 3(veth6499055) entered forwarding state
+[   16.800523] br-dfe7460d7979: port 3(veth3fd84c5) entered blocking state
+[   16.800827] br-dfe7460d7979: port 3(veth3fd84c5) entered forwarding state
+[   16.801188] br-d426e1d3ee62: port 3(veth1e87229) entered blocking state
+[   16.801735] br-d426e1d3ee62: port 3(veth1e87229) entered disabled state
+[   16.802068] veth1e87229: entered allmulticast mode
+[   16.802563] veth1e87229: entered promiscuous mode
+[   16.803000] br-6661c2e11d12: port 1(veth76babd5) entered blocking state
+[   16.803352] br-6661c2e11d12: port 1(veth76babd5) entered forwarding state
+[   16.804708] br-a477e75c81e6: port 2(veth74d7ef0) entered disabled state
+[   16.805149] br-3c6d964c8af0: port 3(vethf157d27) entered disabled state
+[   16.805742] br-bb6f9fe57812: port 3(vethac1b041) entered disabled state
+[   16.806278] br-e247f86bde0b: port 5(veth7187072) entered disabled state
+[   16.806712] br-9691b836969c: port 2(vethff9a1c7) entered disabled state
+[   16.807062] br-fac1109a8cf2: port 3(veth6499055) entered disabled state
+[   16.807398] br-dfe7460d7979: port 3(veth3fd84c5) entered disabled state
+[   16.807731] br-6661c2e11d12: port 1(veth76babd5) entered disabled state
+[   16.808127] br-f4a1cb40fc46: port 1(veth190f231) entered blocking state
+[   16.808425] br-f4a1cb40fc46: port 1(veth190f231) entered forwarding state
+[   16.808833] br-f4a1cb40fc46: port 1(veth190f231) entered disabled state
+[   16.810756] br-d426e1d3ee62: port 3(veth1e87229) entered blocking state
+[   16.811093] br-d426e1d3ee62: port 3(veth1e87229) entered forwarding state
+[   16.990252] br-d426e1d3ee62: port 3(veth1e87229) entered disabled state
+[   17.060365] br-a477e75c81e6: port 3(veth31ff4d2) entered blocking state
+[   17.061148] br-a477e75c81e6: port 3(veth31ff4d2) entered disabled state
+[   17.061655] veth31ff4d2: entered allmulticast mode
+[   17.062006] veth31ff4d2: entered promiscuous mode
+[   17.062639] br-837d5f6c5a54: port 6(vethe5f94d1) entered blocking state
+[   17.063029] br-837d5f6c5a54: port 6(vethe5f94d1) entered disabled state
+[   17.063493] vethe5f94d1: entered allmulticast mode
+[   17.063793] vethe5f94d1: entered promiscuous mode
+[   17.064903] br-a477e75c81e6: port 3(veth31ff4d2) entered blocking state
+[   17.065344] br-a477e75c81e6: port 3(veth31ff4d2) entered forwarding state
+[   17.065770] br-837d5f6c5a54: port 6(vethe5f94d1) entered blocking state
+[   17.066113] br-837d5f6c5a54: port 6(vethe5f94d1) entered forwarding state
+[   17.068589] br-bb6f9fe57812: port 4(veth9d19305) entered blocking state
+[   17.069252] br-bb6f9fe57812: port 4(veth9d19305) entered disabled state
+[   17.069738] veth9d19305: entered allmulticast mode
+[   17.070111] veth9d19305: entered promiscuous mode
+[   17.073763] br-3c6d964c8af0: port 4(vethbd39e85) entered blocking state
+[   17.074432] br-3c6d964c8af0: port 4(vethbd39e85) entered disabled state
+[   17.074832] vethbd39e85: entered allmulticast mode
+[   17.075113] vethbd39e85: entered promiscuous mode
+[   17.075629] br-e247f86bde0b: port 6(vethdb8d2ca) entered blocking state
+[   17.076174] br-e247f86bde0b: port 6(vethdb8d2ca) entered disabled state
+[   17.076949] vethdb8d2ca: entered allmulticast mode
+[   17.077338] vethdb8d2ca: entered promiscuous mode
+[   17.078376] br-bb6f9fe57812: port 4(veth9d19305) entered blocking state
+[   17.078822] br-bb6f9fe57812: port 4(veth9d19305) entered forwarding state
+[   17.079220] br-3c6d964c8af0: port 4(vethbd39e85) entered blocking state
+[   17.079564] br-3c6d964c8af0: port 4(vethbd39e85) entered forwarding state
+[   17.080247] br-9691b836969c: port 3(veth1db3396) entered blocking state
+[   17.080713] br-9691b836969c: port 3(veth1db3396) entered disabled state
+[   17.081100] veth1db3396: entered allmulticast mode
+[   17.081447] veth1db3396: entered promiscuous mode
+[   17.083329] br-9691b836969c: port 3(veth1db3396) entered blocking state
+[   17.083896] br-9691b836969c: port 3(veth1db3396) entered forwarding state
+[   17.084677] br-e247f86bde0b: port 6(vethdb8d2ca) entered blocking state
+[   17.085241] br-e247f86bde0b: port 6(vethdb8d2ca) entered forwarding state
+[   17.123165] br-6661c2e11d12: port 2(vethb183077) entered blocking state
+[   17.123952] br-6661c2e11d12: port 2(vethb183077) entered disabled state
+[   17.124406] vethb183077: entered allmulticast mode
+[   17.124848] vethb183077: entered promiscuous mode
+[   17.127827] br-6661c2e11d12: port 2(vethb183077) entered blocking state
+[   17.128466] br-6661c2e11d12: port 2(vethb183077) entered forwarding state
+[   17.129026] br-a477e75c81e6: port 3(veth31ff4d2) entered disabled state
+[   17.129440] br-837d5f6c5a54: port 6(vethe5f94d1) entered disabled state
+[   17.129812] br-bb6f9fe57812: port 4(veth9d19305) entered disabled state
+[   17.130797] br-e247f86bde0b: port 6(vethdb8d2ca) entered disabled state
+[   17.131266] br-3c6d964c8af0: port 4(vethbd39e85) entered disabled state
+[   17.131724] br-9691b836969c: port 3(veth1db3396) entered disabled state
+[   17.132086] br-6661c2e11d12: port 2(vethb183077) entered disabled state
+[   17.144126] eth0: renamed from veth24e247d
+[   17.166637] eth0: renamed from vethb480c27
+[   17.199070] br-a477e75c81e6: port 2(veth74d7ef0) entered blocking state
+[   17.199715] br-a477e75c81e6: port 2(veth74d7ef0) entered forwarding state
+[   17.211688] br-837d5f6c5a54: port 5(vethaf5eb62) entered blocking state
+[   17.212214] br-837d5f6c5a54: port 5(vethaf5eb62) entered forwarding state
+[   17.214089] br-fac1109a8cf2: port 4(veth1c26673) entered blocking state
+[   17.214442] br-fac1109a8cf2: port 4(veth1c26673) entered disabled state
+[   17.214763] veth1c26673: entered allmulticast mode
+[   17.215108] veth1c26673: entered promiscuous mode
+[   17.218873] br-fac1109a8cf2: port 4(veth1c26673) entered blocking state
+[   17.219536] br-fac1109a8cf2: port 4(veth1c26673) entered forwarding state
+[   17.220107] eth0: renamed from veth6aba845
+[   17.239060] eth0: renamed from veth7b75624
+[   17.268409] eth0: renamed from veth5466393
+[   17.287464] br-fac1109a8cf2: port 4(veth1c26673) entered disabled state
+[   17.288199] br-9691b836969c: port 2(vethff9a1c7) entered blocking state
+[   17.288567] br-9691b836969c: port 2(vethff9a1c7) entered forwarding state
+[   17.289099] eth0: renamed from veth7df7899
+[   17.309338] br-e247f86bde0b: port 5(veth7187072) entered blocking state
+[   17.310021] br-e247f86bde0b: port 5(veth7187072) entered forwarding state
+[   17.313487] eth0: renamed from veth3398b5b
+[   17.340351] br-bb6f9fe57812: port 3(vethac1b041) entered blocking state
+[   17.340766] br-bb6f9fe57812: port 3(vethac1b041) entered forwarding state
+[   17.341173] br-3c6d964c8af0: port 3(vethf157d27) entered blocking state
+[   17.341444] br-3c6d964c8af0: port 3(vethf157d27) entered forwarding state
+[   17.341945] eth0: renamed from veth462965a
+[   17.367636] br-d426e1d3ee62: port 3(veth1e87229) entered blocking state
+[   17.368726] br-d426e1d3ee62: port 3(veth1e87229) entered forwarding state
+[   17.371320] eth0: renamed from vethe7752b3
+[   17.395210] br-6661c2e11d12: port 1(veth76babd5) entered blocking state
+[   17.395806] br-6661c2e11d12: port 1(veth76babd5) entered forwarding state
+[   17.396175] eth0: renamed from veth67cbb39
+[   17.423452] br-fac1109a8cf2: port 3(veth6499055) entered blocking state
+[   17.423944] br-fac1109a8cf2: port 3(veth6499055) entered forwarding state
+[   17.424359] eth0: renamed from veth09cbd92
+[   17.448987] br-bb6f9fe57812: port 5(vethbdbfd81) entered blocking state
+[   17.449492] br-bb6f9fe57812: port 5(vethbdbfd81) entered disabled state
+[   17.449766] vethbdbfd81: entered allmulticast mode
+[   17.450043] vethbdbfd81: entered promiscuous mode
+[   17.450522] eth0: renamed from veth3469948
+[   17.478654] eth0: renamed from vethbcf8fc4
+[   17.500870] br-dfe7460d7979: port 3(veth3fd84c5) entered blocking state
+[   17.502038] br-dfe7460d7979: port 3(veth3fd84c5) entered forwarding state
+[   17.503518] br-f4a1cb40fc46: port 1(veth190f231) entered blocking state
+[   17.504065] br-f4a1cb40fc46: port 1(veth190f231) entered forwarding state
+[   17.506622] eth0: renamed from veth512e819
+[   17.531032] eth0: renamed from veth51638e7
+[   17.557756] br-e247f86bde0b: port 6(vethdb8d2ca) entered blocking state
+[   17.558616] br-e247f86bde0b: port 6(vethdb8d2ca) entered forwarding state
+[   17.562084] br-3c6d964c8af0: port 4(vethbd39e85) entered blocking state
+[   17.562883] br-3c6d964c8af0: port 4(vethbd39e85) entered forwarding state
+[   17.588332] eth0: renamed from vethc20f226
+[   17.612039] br-837d5f6c5a54: port 6(vethe5f94d1) entered blocking state
+[   17.612850] br-837d5f6c5a54: port 6(vethe5f94d1) entered forwarding state
+[   17.613607] br-9691b836969c: port 3(veth1db3396) entered blocking state
+[   17.614044] br-9691b836969c: port 3(veth1db3396) entered forwarding state
+[   17.614919] eth0: renamed from veth4936a15
+[   17.642031] br-a477e75c81e6: port 3(veth31ff4d2) entered blocking state
+[   17.642926] br-a477e75c81e6: port 3(veth31ff4d2) entered forwarding state
+[   17.644398] eth0: renamed from vethbe2ea39
+[   17.674904] eth0: renamed from veth7f42e4f
+[   17.721089] br-bb6f9fe57812: port 4(veth9d19305) entered blocking state
+[   17.722207] br-bb6f9fe57812: port 4(veth9d19305) entered forwarding state
+[   17.723034] br-6661c2e11d12: port 2(vethb183077) entered blocking state
+[   17.723473] br-6661c2e11d12: port 2(vethb183077) entered forwarding state
+[   17.741250] br-bb6f9fe57812: port 5(vethbdbfd81) entered blocking state
+[   17.741836] br-bb6f9fe57812: port 5(vethbdbfd81) entered forwarding state
+[   17.743575] br-bb6f9fe57812: port 5(vethbdbfd81) entered disabled state
+[   17.744386] br-fac1109a8cf2: port 4(veth1c26673) entered blocking state
+[   17.744742] br-fac1109a8cf2: port 4(veth1c26673) entered forwarding state
+[   17.751243] br-a477e75c81e6: port 4(veth9aa8cf0) entered blocking state
+[   17.751982] br-a477e75c81e6: port 4(veth9aa8cf0) entered disabled state
+[   17.752427] veth9aa8cf0: entered allmulticast mode
+[   17.752952] veth9aa8cf0: entered promiscuous mode
+[   17.767095] br-fac1109a8cf2: port 5(vethfa23d40) entered blocking state
+[   17.768950] br-fac1109a8cf2: port 5(vethfa23d40) entered disabled state
+[   17.770312] vethfa23d40: entered allmulticast mode
+[   17.771244] vethfa23d40: entered promiscuous mode
+[   17.774782] br-a477e75c81e6: port 4(veth9aa8cf0) entered blocking state
+[   17.775610] br-a477e75c81e6: port 4(veth9aa8cf0) entered forwarding state
+[   17.776076] br-837d5f6c5a54: port 7(veth91f7b01) entered blocking state
+[   17.776530] br-837d5f6c5a54: port 7(veth91f7b01) entered disabled state
+[   17.777191] veth91f7b01: entered allmulticast mode
+[   17.777574] veth91f7b01: entered promiscuous mode
+[   17.777928] br-9691b836969c: port 4(vethea1e1ed) entered blocking state
+[   17.778404] br-9691b836969c: port 4(vethea1e1ed) entered disabled state
+[   17.778769] vethea1e1ed: entered allmulticast mode
+[   17.779151] vethea1e1ed: entered promiscuous mode
+[   17.779801] br-6661c2e11d12: port 3(veth5aa060d) entered blocking state
+[   17.780355] br-6661c2e11d12: port 3(veth5aa060d) entered disabled state
+[   17.780776] veth5aa060d: entered allmulticast mode
+[   17.781038] veth5aa060d: entered promiscuous mode
+[   17.781477] br-e247f86bde0b: port 7(vethfa99757) entered blocking state
+[   17.781754] br-e247f86bde0b: port 7(vethfa99757) entered disabled state
+[   17.782058] vethfa99757: entered allmulticast mode
+[   17.782454] vethfa99757: entered promiscuous mode
+[   17.783376] br-9189104c1c7a: port 2(vetheb3a48a) entered blocking state
+[   17.783799] br-9189104c1c7a: port 2(vetheb3a48a) entered disabled state
+[   17.784239] vetheb3a48a: entered allmulticast mode
+[   17.784639] vetheb3a48a: entered promiscuous mode
+[   17.785540] br-837d5f6c5a54: port 7(veth91f7b01) entered blocking state
+[   17.786024] br-837d5f6c5a54: port 7(veth91f7b01) entered forwarding state
+[   17.788250] br-fac1109a8cf2: port 5(vethfa23d40) entered blocking state
+[   17.788830] br-fac1109a8cf2: port 5(vethfa23d40) entered forwarding state
+[   17.790762] br-6661c2e11d12: port 3(veth5aa060d) entered blocking state
+[   17.791367] br-6661c2e11d12: port 3(veth5aa060d) entered forwarding state
+[   17.792500] br-9691b836969c: port 4(vethea1e1ed) entered blocking state
+[   17.793039] br-9691b836969c: port 4(vethea1e1ed) entered forwarding state
+[   17.794545] br-e247f86bde0b: port 7(vethfa99757) entered blocking state
+[   17.795035] br-e247f86bde0b: port 7(vethfa99757) entered forwarding state
+[   17.821251] br-9189104c1c7a: port 2(vetheb3a48a) entered blocking state
+[   17.822097] br-9189104c1c7a: port 2(vetheb3a48a) entered forwarding state
+[   17.994508] br-a477e75c81e6: port 4(veth9aa8cf0) entered disabled state
+[   17.995597] br-837d5f6c5a54: port 7(veth91f7b01) entered disabled state
+[   17.996123] br-e247f86bde0b: port 7(vethfa99757) entered disabled state
+[   17.996621] br-6661c2e11d12: port 3(veth5aa060d) entered disabled state
+[   17.997080] br-fac1109a8cf2: port 5(vethfa23d40) entered disabled state
+[   17.997562] br-9691b836969c: port 4(vethea1e1ed) entered disabled state
+[   17.998045] br-9189104c1c7a: port 2(vetheb3a48a) entered disabled state
+[   18.095711] br-bb6f9fe57812: port 6(vethda9e7bd) entered blocking state
+[   18.096414] br-bb6f9fe57812: port 6(vethda9e7bd) entered disabled state
+[   18.096736] vethda9e7bd: entered allmulticast mode
+[   18.097120] vethda9e7bd: entered promiscuous mode
+[   18.099839] br-bb6f9fe57812: port 6(vethda9e7bd) entered blocking state
+[   18.100512] br-bb6f9fe57812: port 6(vethda9e7bd) entered forwarding state
+[   18.118541] br-6661c2e11d12: port 4(veth115740d) entered blocking state
+[   18.119587] br-6661c2e11d12: port 4(veth115740d) entered disabled state
+[   18.120162] veth115740d: entered allmulticast mode
+[   18.120689] veth115740d: entered promiscuous mode
+[   18.122544] br-fac1109a8cf2: port 6(vethcc4fa00) entered blocking state
+[   18.123218] br-fac1109a8cf2: port 6(vethcc4fa00) entered disabled state
+[   18.123958] vethcc4fa00: entered allmulticast mode
+[   18.124448] vethcc4fa00: entered promiscuous mode
+[   18.125085] br-837d5f6c5a54: port 8(veth14b61c1) entered blocking state
+[   18.125537] br-837d5f6c5a54: port 8(veth14b61c1) entered disabled state
+[   18.126031] veth14b61c1: entered allmulticast mode
+[   18.126664] veth14b61c1: entered promiscuous mode
+[   18.127452] br-6661c2e11d12: port 4(veth115740d) entered blocking state
+[   18.127913] br-6661c2e11d12: port 4(veth115740d) entered forwarding state
+[   18.134682] br-fac1109a8cf2: port 6(vethcc4fa00) entered blocking state
+[   18.135434] br-fac1109a8cf2: port 6(vethcc4fa00) entered forwarding state
+[   18.136973] br-837d5f6c5a54: port 8(veth14b61c1) entered blocking state
+[   18.137451] br-837d5f6c5a54: port 8(veth14b61c1) entered forwarding state
+[   18.177800] eth0: renamed from veth36bdbb6
+[   18.213073] br-bb6f9fe57812: port 6(vethda9e7bd) entered disabled state
+[   18.214243] br-837d5f6c5a54: port 8(veth14b61c1) entered disabled state
+[   18.215082] br-6661c2e11d12: port 4(veth115740d) entered disabled state
+[   18.215748] br-fac1109a8cf2: port 6(vethcc4fa00) entered disabled state
+[   18.216423] br-bb6f9fe57812: port 5(vethbdbfd81) entered blocking state
+[   18.217100] br-bb6f9fe57812: port 5(vethbdbfd81) entered forwarding state
+[   18.219192] eth0: renamed from vethbe0039e
+[   18.277454] eth0: renamed from veth2fff994
+[   18.299665] eth0: renamed from veth3adc008
+[   18.314988] eth0: renamed from veth181da80
+[   18.352453] eth0: renamed from veth941657c
+[   18.375143] eth0: renamed from veth25c43d7
+[   18.415810] br-a477e75c81e6: port 4(veth9aa8cf0) entered blocking state
+[   18.416649] br-a477e75c81e6: port 4(veth9aa8cf0) entered forwarding state
+[   18.417335] br-6661c2e11d12: port 3(veth5aa060d) entered blocking state
+[   18.417724] br-6661c2e11d12: port 3(veth5aa060d) entered forwarding state
+[   18.418498] br-837d5f6c5a54: port 7(veth91f7b01) entered blocking state
+[   18.418947] br-837d5f6c5a54: port 7(veth91f7b01) entered forwarding state
+[   18.419631] br-9691b836969c: port 4(vethea1e1ed) entered blocking state
+[   18.419957] br-9691b836969c: port 4(vethea1e1ed) entered forwarding state
+[   18.421905] br-fac1109a8cf2: port 5(vethfa23d40) entered blocking state
+[   18.422481] br-fac1109a8cf2: port 5(vethfa23d40) entered forwarding state
+[   18.423114] eth0: renamed from veth32a332d
+[   18.450199] eth1: renamed from veth737cd70
+[   18.476972] br-9189104c1c7a: port 2(vetheb3a48a) entered blocking state
+[   18.477829] br-9189104c1c7a: port 2(vetheb3a48a) entered forwarding state
+[   18.478769] eth0: renamed from vethc3d6ed8
+[   18.514801] br-bb6f9fe57812: port 6(vethda9e7bd) entered blocking state
+[   18.516565] br-bb6f9fe57812: port 6(vethda9e7bd) entered forwarding state
+[   18.523663] br-e247f86bde0b: port 7(vethfa99757) entered blocking state
+[   18.525218] br-e247f86bde0b: port 7(vethfa99757) entered forwarding state
+[   18.533545] br-6661c2e11d12: port 4(veth115740d) entered blocking state
+[   18.534358] br-6661c2e11d12: port 4(veth115740d) entered forwarding state
+[   18.535632] eth0: renamed from veth9bbb048
+[   18.563770] eth0: renamed from veth19123cd
+[   18.598197] br-837d5f6c5a54: port 8(veth14b61c1) entered blocking state
+[   18.599055] br-837d5f6c5a54: port 8(veth14b61c1) entered forwarding state
+[   18.599604] br-bb6f9fe57812: port 7(vethbd03505) entered blocking state
+[   18.599986] br-bb6f9fe57812: port 7(vethbd03505) entered disabled state
+[   18.600379] vethbd03505: entered allmulticast mode
+[   18.600828] vethbd03505: entered promiscuous mode
+[   18.606346] br-f4a1cb40fc46: port 2(vethcaab799) entered blocking state
+[   18.607111] br-f4a1cb40fc46: port 2(vethcaab799) entered disabled state
+[   18.607583] vethcaab799: entered allmulticast mode
+[   18.608465] vethcaab799: entered promiscuous mode
+[   18.614014] br-fac1109a8cf2: port 6(vethcc4fa00) entered blocking state
+[   18.614741] br-fac1109a8cf2: port 6(vethcc4fa00) entered forwarding state
+[   18.618114] br-837d5f6c5a54: port 9(vethef2f1d6) entered blocking state
+[   18.621147] br-837d5f6c5a54: port 9(vethef2f1d6) entered disabled state
+[   18.621707] vethef2f1d6: entered allmulticast mode
+[   18.622799] vethef2f1d6: entered promiscuous mode
+[   18.626722] br-dfe7460d7979: port 4(veth6c4cb2c) entered blocking state
+[   18.627491] br-dfe7460d7979: port 4(veth6c4cb2c) entered disabled state
+[   18.628000] veth6c4cb2c: entered allmulticast mode
+[   18.628742] veth6c4cb2c: entered promiscuous mode
+[   18.633643] br-bb6f9fe57812: port 7(vethbd03505) entered blocking state
+[   18.648154] br-bb6f9fe57812: port 7(vethbd03505) entered forwarding state
+[   18.652023] br-f4a1cb40fc46: port 2(vethcaab799) entered blocking state
+[   18.653062] br-f4a1cb40fc46: port 2(vethcaab799) entered forwarding state
+[   18.654747] br-fac1109a8cf2: port 7(vethd7218a1) entered blocking state
+[   18.655465] br-fac1109a8cf2: port 7(vethd7218a1) entered disabled state
+[   18.656023] vethd7218a1: entered allmulticast mode
+[   18.656701] vethd7218a1: entered promiscuous mode
+[   18.658058] br-3c6d964c8af0: port 5(veth709c917) entered blocking state
+[   18.658612] br-3c6d964c8af0: port 5(veth709c917) entered disabled state
+[   18.658965] veth709c917: entered allmulticast mode
+[   18.659463] veth709c917: entered promiscuous mode
+[   18.660312] br-9189104c1c7a: port 3(vethe54b358) entered blocking state
+[   18.660805] br-9189104c1c7a: port 3(vethe54b358) entered disabled state
+[   18.661179] vethe54b358: entered allmulticast mode
+[   18.661649] vethe54b358: entered promiscuous mode
+[   18.662948] br-837d5f6c5a54: port 9(vethef2f1d6) entered blocking state
+[   18.663474] br-837d5f6c5a54: port 9(vethef2f1d6) entered forwarding state
+[   18.664241] br-dfe7460d7979: port 4(veth6c4cb2c) entered blocking state
+[   18.664725] br-dfe7460d7979: port 4(veth6c4cb2c) entered forwarding state
+[   18.667374] br-fac1109a8cf2: port 7(vethd7218a1) entered blocking state
+[   18.668212] br-fac1109a8cf2: port 7(vethd7218a1) entered forwarding state
+[   18.668954] br-9189104c1c7a: port 3(vethe54b358) entered blocking state
+[   18.669563] br-9189104c1c7a: port 3(vethe54b358) entered forwarding state
+[   18.670598] br-3c6d964c8af0: port 5(veth709c917) entered blocking state
+[   18.671044] br-3c6d964c8af0: port 5(veth709c917) entered forwarding state
+[   19.024585] br-bb6f9fe57812: port 7(vethbd03505) entered disabled state
+[   19.025913] br-837d5f6c5a54: port 9(vethef2f1d6) entered disabled state
+[   19.026799] br-dfe7460d7979: port 4(veth6c4cb2c) entered disabled state
+[   19.027191] br-f4a1cb40fc46: port 2(vethcaab799) entered disabled state
+[   19.027640] br-fac1109a8cf2: port 7(vethd7218a1) entered disabled state
+[   19.028079] br-3c6d964c8af0: port 5(veth709c917) entered disabled state
+[   19.031393] br-9189104c1c7a: port 3(vethe54b358) entered disabled state
+[   19.227766] eth1: renamed from vetha4ab257
+[   19.277329] br-bb6f9fe57812: port 7(vethbd03505) entered blocking state
+[   19.280244] br-bb6f9fe57812: port 7(vethbd03505) entered forwarding state
+[   19.282436] eth1: renamed from veth108518e
+[   19.311768] br-dfe7460d7979: port 5(veth3bd7075) entered blocking state
+[   19.312786] br-dfe7460d7979: port 5(veth3bd7075) entered disabled state
+[   19.313404] veth3bd7075: entered allmulticast mode
+[   19.313962] veth3bd7075: entered promiscuous mode
+[   19.315949] eth1: renamed from vethfd95f97
+[   19.347264] eth1: renamed from veth9d9127c
+[   19.369824] eth1: renamed from veth2dd9602
+[   19.385645] br-f4a1cb40fc46: port 3(vethf560af3) entered blocking state
+[   19.386360] br-f4a1cb40fc46: port 3(vethf560af3) entered disabled state
+[   19.388717] vethf560af3: entered allmulticast mode
+[   19.389865] vethf560af3: entered promiscuous mode
+[   19.394280] br-f4a1cb40fc46: port 2(vethcaab799) entered blocking state
+[   19.395090] br-f4a1cb40fc46: port 2(vethcaab799) entered forwarding state
+[   19.396434] br-3c6d964c8af0: port 5(veth709c917) entered blocking state
+[   19.396904] br-3c6d964c8af0: port 5(veth709c917) entered forwarding state
+[   19.403851] br-f4a1cb40fc46: port 3(vethf560af3) entered blocking state
+[   19.404906] br-f4a1cb40fc46: port 3(vethf560af3) entered forwarding state
+[   19.413584] br-f4a1cb40fc46: port 3(vethf560af3) entered disabled state
+[   19.416410] br-dfe7460d7979: port 4(veth6c4cb2c) entered blocking state
+[   19.416784] br-dfe7460d7979: port 4(veth6c4cb2c) entered forwarding state
+[   19.426915] br-9189104c1c7a: port 3(vethe54b358) entered blocking state
+[   19.427855] br-9189104c1c7a: port 3(vethe54b358) entered forwarding state
+[   19.429829] br-dfe7460d7979: port 5(veth3bd7075) entered blocking state
+[   19.430577] br-dfe7460d7979: port 5(veth3bd7075) entered forwarding state
+[   19.431355] eth0: renamed from vethc466d76
+[   19.477588] br-dfe7460d7979: port 5(veth3bd7075) entered disabled state
+[   19.478958] br-fac1109a8cf2: port 7(vethd7218a1) entered blocking state
+[   19.480564] br-fac1109a8cf2: port 7(vethd7218a1) entered forwarding state
+[   19.482428] eth0: renamed from veth6f3f4a9
+[   19.521418] br-837d5f6c5a54: port 9(vethef2f1d6) entered blocking state
+[   19.525549] br-837d5f6c5a54: port 9(vethef2f1d6) entered forwarding state
+[   19.746968] eth1: renamed from vethf116cb5
+[   19.781186] br-dfe7460d7979: port 5(veth3bd7075) entered blocking state
+[   19.782268] br-dfe7460d7979: port 5(veth3bd7075) entered forwarding state
+[   19.782961] eth1: renamed from veth723202e
+[   19.810894] br-f4a1cb40fc46: port 3(vethf560af3) entered blocking state
+[   19.811678] br-f4a1cb40fc46: port 3(vethf560af3) entered forwarding state
+[   20.011489] br-9189104c1c7a: port 4(vethab92cd6) entered blocking state
+[   20.015203] br-9189104c1c7a: port 4(vethab92cd6) entered disabled state
+[   20.016227] vethab92cd6: entered allmulticast mode
+[   20.020108] vethab92cd6: entered promiscuous mode
+[   20.142280] eth1: renamed from veth88762ef
+[   20.191310] br-9189104c1c7a: port 4(vethab92cd6) entered blocking state
+[   20.195638] br-9189104c1c7a: port 4(vethab92cd6) entered forwarding state
+[   20.895493] br-f4a1cb40fc46: port 4(veth8ebda1e) entered blocking state
+[   20.896995] br-f4a1cb40fc46: port 4(veth8ebda1e) entered disabled state
+[   20.897585] veth8ebda1e: entered allmulticast mode
+[   20.899094] veth8ebda1e: entered promiscuous mode
+[   20.905391] br-f4a1cb40fc46: port 4(veth8ebda1e) entered blocking state
+[   20.907038] br-f4a1cb40fc46: port 4(veth8ebda1e) entered forwarding state
+[   21.042967] br-f4a1cb40fc46: port 4(veth8ebda1e) entered disabled state
+[   21.051781] eth1: renamed from veth59edfd8
+[   21.069022] br-f4a1cb40fc46: port 4(veth8ebda1e) entered blocking state
+[   21.070295] br-f4a1cb40fc46: port 4(veth8ebda1e) entered forwarding state
+[   21.239351] br-dfe7460d7979: port 6(vethd2734ac) entered blocking state
+[   21.240238] br-dfe7460d7979: port 6(vethd2734ac) entered disabled state
+[   21.240770] vethd2734ac: entered allmulticast mode
+[   21.241247] vethd2734ac: entered promiscuous mode
+[   21.251375] br-dfe7460d7979: port 6(vethd2734ac) entered blocking state
+[   21.252254] br-dfe7460d7979: port 6(vethd2734ac) entered forwarding state
+[   21.311857] eth1: renamed from veth8b06a17
+[   21.654822] br-dfe7460d7979: port 7(veth4781fd0) entered blocking state
+[   21.655643] br-dfe7460d7979: port 7(veth4781fd0) entered disabled state
+[   21.656035] veth4781fd0: entered allmulticast mode
+[   21.656368] veth4781fd0: entered promiscuous mode
+[   21.693771] br-dfe7460d7979: port 7(veth4781fd0) entered blocking state
+[   21.694768] br-dfe7460d7979: port 7(veth4781fd0) entered forwarding state
+[   21.779899] eth2: renamed from veth82795b3
+[   22.205853] br-3c6d964c8af0: port 1(veth5d0dba6) entered disabled state
+[   22.207440] veth23f67ce: renamed from eth0
+[   22.405854] br-3c6d964c8af0: port 1(veth5d0dba6) entered disabled state
+[   22.410311] veth5d0dba6 (unregistering): left allmulticast mode
+[   22.411213] veth5d0dba6 (unregistering): left promiscuous mode
+[   22.411648] br-3c6d964c8af0: port 1(veth5d0dba6) entered disabled state
+[   22.593526] br-bb6f9fe57812: port 8(veth32902d8) entered blocking state
+[   22.594467] br-bb6f9fe57812: port 8(veth32902d8) entered disabled state
+[   22.594900] veth32902d8: entered allmulticast mode
+[   22.595387] veth32902d8: entered promiscuous mode
+[   22.605746] br-bb6f9fe57812: port 8(veth32902d8) entered blocking state
+[   22.606712] br-bb6f9fe57812: port 8(veth32902d8) entered forwarding state
+[   22.842540] eth2: renamed from veth83e411f
+[   23.773081] br-3c6d964c8af0: port 1(veth203bae0) entered blocking state
+[   23.773891] br-3c6d964c8af0: port 1(veth203bae0) entered disabled state
+[   23.774757] veth203bae0: entered allmulticast mode
+[   23.775221] veth203bae0: entered promiscuous mode
+[   23.864034] eth0: renamed from veth6444c0e
+[   23.895583] br-3c6d964c8af0: port 1(veth203bae0) entered blocking state
+[   23.896251] br-3c6d964c8af0: port 1(veth203bae0) entered forwarding state
+[   32.362079] br-837d5f6c5a54: port 7(veth91f7b01) entered disabled state
+[   32.363018] veth941657c: renamed from eth0
+[   32.460578] br-837d5f6c5a54: port 7(veth91f7b01) entered disabled state
+[   32.463416] veth91f7b01 (unregistering): left allmulticast mode
+[   32.464099] veth91f7b01 (unregistering): left promiscuous mode
+[   32.464473] br-837d5f6c5a54: port 7(veth91f7b01) entered disabled state
+[   33.048215] br-837d5f6c5a54: port 7(veth6665fce) entered blocking state
+[   33.048886] br-837d5f6c5a54: port 7(veth6665fce) entered disabled state
+[   33.049591] veth6665fce: entered allmulticast mode
+[   33.049932] veth6665fce: entered promiscuous mode
+[   33.075937] br-837d5f6c5a54: port 7(veth6665fce) entered blocking state
+[   33.076793] br-837d5f6c5a54: port 7(veth6665fce) entered forwarding state
+[   33.236380] eth0: renamed from veth1586327
+[   48.352825] hv_balloon: Max. dynamic memory size: 24576 MB
+[   86.364548] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/tmp/docker-desktop-root/mnt/host/e) failed 22
+[   86.365353] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/tmp/docker-desktop-root/mnt/host/d) failed 22
+[   86.366025] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/tmp/docker-desktop-root/mnt/host/c) failed 22
+[   86.366691] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/mnt/host/e) failed 22
+[   86.367255] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/mnt/host/d) failed 22
+[   86.367835] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/mnt/host/c) failed 22
+[   86.368388] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/mnt/host/e) failed 22
+[   86.368914] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/mnt/host/d) failed 22
+[   86.369509] WSL (1 - init(docker-desktop)) ERROR: ConfigRemountDrvFsImpl:2368: umount2(/mnt/host/c) failed 22
+[  312.336202] hermes[26405]: segfault at ab ip 00000000005625fb sp 00007ffcf4f54c70 error 4 in python3.13[420000+31b000] likely on CPU 3 (core 1, socket 0)
+[  312.336657] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  312.337409] python3.13: hermes: potentially unexpected fatal signal 11.
+[  312.337904] CPU: 3 PID: 26405 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  312.338297] RIP: 0033:0x5625fb
+[  312.338448] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  312.338970] RSP: 002b:00007ffcf4f54c70 EFLAGS: 00010246
+[  312.339501] RAX: 0000000000000000 RBX: 00007022d4f424d0 RCX: 00007022d4f42538
+[  312.339793] RDX: 0000000020bb3220 RSI: 000000001ffaa410 RDI: 000000001fe007e0
+[  312.340320] RBP: 000000001fe008d2 R08: 00007022d40faaf0 R09: 00007022d4f42540
+[  312.340537] R10: 00000000fffffffe R11: 0000000000000001 R12: 00000000009f7c7c
+[  312.340904] R13: 00000000000001a5 R14: 0000000000a7f5b0 R15: 00007022d4f42548
+[  312.341201] FS:  00007022d4c0a780 GS:  0000000000000000
+[  312.341693] WSL (26426 - CaptureCrash): Capturing crash for pid: 32, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  312.783002] traps: hermes[5580] general protection fault ip:5836b5 sp:7ffc42618c30 error:0 in python3.13[420000+31b000]
+[  312.783352] python3.13: hermes: potentially unexpected fatal signal 11.
+[  312.783502] CPU: 2 PID: 5580 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  312.783670] RIP: 0033:0x5836b5
+[  312.783751] Code: 00 0f 85 96 00 00 00 4d 8b b1 c0 4a 01 00 4d 85 f6 0f 84 de 02 00 00 41 8b 06 83 c0 01 0f 84 81 c2 eb ff 41 89 06 49 8b 46 08 <4c> 8b 80 10 01 00 00 4d 85 c0 0f 84 2b 01 00 00 48 83 b8 18 01 00
+[  312.784154] RSP: 002b:00007ffc42618c30 EFLAGS: 00010206
+[  312.784257] RAX: fc9adf441fd24d4d RBX: 00007fd3fd5c1370 RCX: 0000000000002d00
+[  312.784422] RDX: 000000000002038e RSI: 00007fd3fd5c1370 RDI: 00007fd3faf4e5d0
+[  312.784594] RBP: 0000000000000000 R08: 0000000000a4fd70 R09: 0000000000a52a70
+[  312.784764] R10: 00000000fffffffd R11: 0000000000000000 R12: 0000000000000000
+[  312.784935] R13: 00007fd3faf4e5d0 R14: 00007fd3fd5c2080 R15: 000000001df86cf0
+[  312.785108] FS:  00007fd3fe10a780 GS:  0000000000000000
+[  312.785555] WSL (26492 - CaptureCrash): Capturing crash for pid: 7, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  313.376017] br-6661c2e11d12: port 1(veth76babd5) entered disabled state
+[  313.376380] vethe7752b3: renamed from eth0
+[  313.443234] br-6661c2e11d12: port 1(veth76babd5) entered disabled state
+[  313.444156] veth76babd5 (unregistering): left allmulticast mode
+[  313.444349] veth76babd5 (unregistering): left promiscuous mode
+[  313.444510] br-6661c2e11d12: port 1(veth76babd5) entered disabled state
+[  313.675013] br-6661c2e11d12: port 1(veth0f424ab) entered blocking state
+[  313.675282] br-6661c2e11d12: port 1(veth0f424ab) entered disabled state
+[  313.675466] veth0f424ab: entered allmulticast mode
+[  313.675620] veth0f424ab: entered promiscuous mode
+[  313.676853] br-6661c2e11d12: port 1(veth0f424ab) entered blocking state
+[  313.677012] br-6661c2e11d12: port 1(veth0f424ab) entered forwarding state
+[  313.699723] eth0: renamed from veth7abc6d5
+[  315.142758] celery[26728]: segfault at 0 ip 0000796811003de6 sp 00007ffdcb503348 error 6 in libpython3.11.so.1.0[796810ffd000+1da000] likely on CPU 6 (core 3, socket 0)
+[  315.143857] Code: 48 89 54 c7 20 e9 64 43 0b 00 e8 35 f7 0a 00 48 89 df 5b e9 0c 44 0b 00 48 8b 4a 08 48 8b 7f f8 83 e1 03 48 83 e7 fc 48 09 f9 <48> 89 17 48 89 4a 08 31 d2 48 89 56 f0 48 8b 15 46 bf 2e 00 48 8b
+[  315.144964] python3.11: celery: potentially unexpected fatal signal 11.
+[  315.145740] CPU: 6 PID: 26728 Comm: celery Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  315.146114] RIP: 0033:0x796811003de6
+[  315.146332] Code: 48 89 54 c7 20 e9 64 43 0b 00 e8 35 f7 0a 00 48 89 df 5b e9 0c 44 0b 00 48 8b 4a 08 48 8b 7f f8 83 e1 03 48 83 e7 fc 48 09 f9 <48> 89 17 48 89 4a 08 31 d2 48 89 56 f0 48 8b 15 46 bf 2e 00 48 8b
+[  315.147274] RSP: 002b:00007ffdcb503348 EFLAGS: 00010246
+[  315.147548] RAX: 0000000000000010 RBX: 00007968102ffe80 RCX: 0000000000000000
+[  315.147905] RDX: 00007968102ffed0 RSI: 00007968102ffeb0 RDI: 0000000000000000
+[  315.148316] RBP: 0000000000000000 R08: 00007968110b8f50 R09: 0000000000000007
+[  315.148596] R10: 0000000000000000 R11: 0000000000000000 R12: 0000796811407878
+[  315.148846] R13: 0000000000000000 R14: 00007968107b65c0 R15: 00007968107b4070
+[  315.149152] FS:  0000796810c22340 GS:  0000000000000000
+[  315.149630] WSL (26730 - CaptureCrash): Capturing crash for pid: 98, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  316.306496] traps: hermes[26634] general protection fault ip:544f30 sp:7ffe0fa697b0 error:0 in python3.13[420000+31b000]
+[  316.306941] python3.13: hermes: potentially unexpected fatal signal 11.
+[  316.307117] CPU: 6 PID: 26634 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  316.307273] RIP: 0033:0x544f30
+[  316.307361] Code: 8b 3c 25 e8 ff ff ff 48 8b 47 10 48 83 fd 14 0f 8f 90 03 00 00 48 8d 55 01 48 8b 9c d0 c8 2a 00 00 48 85 db 0f 84 c0 02 00 00 <48> 8b 73 18 48 89 b4 d0 c8 2a 00 00 83 ac a8 74 2b 00 00 01 48 8b
+[  316.307754] RSP: 002b:00007ffe0fa697b0 EFLAGS: 00010286
+[  316.307899] RAX: 0000000000a4fd70 RBX: fdb9257790367948 RCX: 0000000000545580
+[  316.308085] RDX: 0000000000000002 RSI: 0000000000a0a120 RDI: 0000000000a7f5b0
+[  316.308269] RBP: 0000000000000001 R08: 0000000000000000 R09: 00007a00cccfed48
+[  316.308493] R10: 00000000fffffffe R11: 0000000000000001 R12: 0000000000a7f5b0
+[  316.308817] R13: 0000000000a0a120 R14: 0000000000000000 R15: 00007a00cccfed58
+[  316.309067] FS:  00007a00cc9c7780 GS:  0000000000000000
+[  316.309496] WSL (26807 - CaptureCrash): Capturing crash for pid: 7, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  316.660097] br-6661c2e11d12: port 1(veth0f424ab) entered disabled state
+[  316.660569] veth7abc6d5: renamed from eth0
+[  316.744276] br-6661c2e11d12: port 1(veth0f424ab) entered disabled state
+[  316.745366] veth0f424ab (unregistering): left allmulticast mode
+[  316.745562] veth0f424ab (unregistering): left promiscuous mode
+[  316.745709] br-6661c2e11d12: port 1(veth0f424ab) entered disabled state
+[  316.967682] br-6661c2e11d12: port 1(veth4f92eb8) entered blocking state
+[  316.967963] br-6661c2e11d12: port 1(veth4f92eb8) entered disabled state
+[  316.968263] veth4f92eb8: entered allmulticast mode
+[  316.968430] veth4f92eb8: entered promiscuous mode
+[  316.969770] br-6661c2e11d12: port 1(veth4f92eb8) entered blocking state
+[  316.969953] br-6661c2e11d12: port 1(veth4f92eb8) entered forwarding state
+[  316.991230] eth0: renamed from vethcc4cfc6
+[  322.167608] hermes[26925]: segfault at ab ip 00000000005625fb sp 00007fff1b5193d0 error 4 in python3.13[420000+31b000] likely on CPU 3 (core 1, socket 0)
+[  322.168103] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  322.168693] python3.13: hermes: potentially unexpected fatal signal 11.
+[  322.168922] CPU: 3 PID: 26925 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  322.169315] RIP: 0033:0x5625fb
+[  322.169513] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  322.170034] RSP: 002b:00007fff1b5193d0 EFLAGS: 00010246
+[  322.170133] RAX: 0000000000000000 RBX: 000076cd5e7a58b0 RCX: 000076cd5e7a5918
+[  322.170296] RDX: 0000000037680600 RSI: 0000000036c15cf0 RDI: 0000000036b390d0
+[  322.170453] RBP: 0000000036b391c2 R08: 000076cd5d956ab0 R09: 000076cd5e7a5920
+[  322.170630] R10: 00000000fffffffe R11: 0000000000000001 R12: 00000000009f7c7c
+[  322.170819] R13: 00000000000001a5 R14: 0000000000a7f5b0 R15: 000076cd5e7a5928
+[  322.170984] FS:  000076cd5e46d780 GS:  0000000000000000
+[  322.171415] WSL (27331 - CaptureCrash): Capturing crash for pid: 7, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  322.810021] br-6661c2e11d12: port 1(veth4f92eb8) entered disabled state
+[  322.810647] vethcc4cfc6: renamed from eth0
+[  322.881557] br-6661c2e11d12: port 1(veth4f92eb8) entered disabled state
+[  322.882681] veth4f92eb8 (unregistering): left allmulticast mode
+[  322.882851] veth4f92eb8 (unregistering): left promiscuous mode
+[  322.882988] br-6661c2e11d12: port 1(veth4f92eb8) entered disabled state
+[  323.187509] br-6661c2e11d12: port 1(veth8f46e7a) entered blocking state
+[  323.187897] br-6661c2e11d12: port 1(veth8f46e7a) entered disabled state
+[  323.188191] veth8f46e7a: entered allmulticast mode
+[  323.188468] veth8f46e7a: entered promiscuous mode
+[  323.189827] br-6661c2e11d12: port 1(veth8f46e7a) entered blocking state
+[  323.190012] br-6661c2e11d12: port 1(veth8f46e7a) entered forwarding state
+[  323.212003] eth0: renamed from veth706b6a3
+[  324.788379] python3[27523]: segfault at a8 ip 000000000054a7ca sp 00007ffe243e60e0 error 4 in python3.13[420000+31b000] likely on CPU 2 (core 1, socket 0)
+[  324.788835] Code: 8b 44 24 08 e9 c7 fe ff ff 0f 1f 80 00 00 00 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 47 08 64 48 8b 2c 25 e8 ff ff ff <f6> 80 a9 00 00 00 08 74 2d 48 8b 40 38 48 8b 04 07 48 85 c0 74 20
+[  324.789346] python3.13: python3: potentially unexpected fatal signal 11.
+[  324.789576] CPU: 2 PID: 27523 Comm: python3 Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  324.790169] RIP: 0033:0x54a7ca
+[  324.790267] Code: 8b 44 24 08 e9 c7 fe ff ff 0f 1f 80 00 00 00 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 47 08 64 48 8b 2c 25 e8 ff ff ff <f6> 80 a9 00 00 00 08 74 2d 48 8b 40 38 48 8b 04 07 48 85 c0 74 20
+[  324.790928] RSP: 002b:00007ffe243e60e0 EFLAGS: 00010202
+[  324.791032] RAX: ffffffffffffffff RBX: 00007a88282a2020 RCX: 0000000000000000
+[  324.791196] RDX: 8000000000000002 RSI: 00007a882869a1f8 RDI: 00007a88282a2020
+[  324.791364] RBP: 0000000000a7f5b0 R08: 0000000039e5ad60 R09: 0006f12b02e4f733
+[  324.791523] R10: 00000000fffffffd R11: 0000000000000002 R12: 00007a88282a2020
+[  324.791699] R13: 0000000000000235 R14: 0000000000a7f5b0 R15: 00007a882869a208
+[  324.791868] FS:  00007a8828363780 GS:  0000000000000000
+[  324.792272] WSL (27688 - CaptureCrash): Capturing crash for pid: 23, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  325.001453] br-6661c2e11d12: port 1(veth8f46e7a) entered disabled state
+[  325.001890] veth706b6a3: renamed from eth0
+[  325.077190] br-6661c2e11d12: port 1(veth8f46e7a) entered disabled state
+[  325.078306] veth8f46e7a (unregistering): left allmulticast mode
+[  325.078552] veth8f46e7a (unregistering): left promiscuous mode
+[  325.078708] br-6661c2e11d12: port 1(veth8f46e7a) entered disabled state
+[  325.754438] br-6661c2e11d12: port 1(veth073ddcd) entered blocking state
+[  325.754705] br-6661c2e11d12: port 1(veth073ddcd) entered disabled state
+[  325.754874] veth073ddcd: entered allmulticast mode
+[  325.755014] veth073ddcd: entered promiscuous mode
+[  325.756244] br-6661c2e11d12: port 1(veth073ddcd) entered blocking state
+[  325.756449] br-6661c2e11d12: port 1(veth073ddcd) entered forwarding state
+[  325.778196] eth0: renamed from veth9eeea62
+[  330.962016] hermes[27803]: segfault at ab ip 00000000005625fb sp 00007fff5c96fab0 error 4 in python3.13[420000+31b000] likely on CPU 3 (core 1, socket 0)
+[  330.962469] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  330.962902] python3.13: hermes: potentially unexpected fatal signal 11.
+[  330.963587] CPU: 3 PID: 27803 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  330.964067] RIP: 0033:0x5625fb
+[  330.964295] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  330.965296] RSP: 002b:00007fff5c96fab0 EFLAGS: 00010246
+[  330.965702] RAX: 0000000000000000 RBX: 0000764188fb7de8 RCX: 0000764188fb7e50
+[  330.965998] RDX: 0000000009685f70 RSI: 0000000009507cf0 RDI: 000000000942b0d0
+[  330.966182] RBP: 000000000942b1c2 R08: 000076418816ecb0 R09: 0000764188fb7e58
+[  330.966357] R10: 00000000fffffffe R11: 0000000000000001 R12: 00000000009f7c7c
+[  330.966574] R13: 00000000000001a5 R14: 0000000000a7f5b0 R15: 0000764188fb7e60
+[  330.966878] FS:  0000764188c7f780 GS:  0000000000000000
+[  330.967397] WSL (28089 - CaptureCrash): Capturing crash for pid: 7, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  331.601492] br-6661c2e11d12: port 1(veth073ddcd) entered disabled state
+[  331.601735] veth9eeea62: renamed from eth0
+[  331.674651] br-6661c2e11d12: port 1(veth073ddcd) entered disabled state
+[  331.675977] veth073ddcd (unregistering): left allmulticast mode
+[  331.677015] veth073ddcd (unregistering): left promiscuous mode
+[  331.677535] br-6661c2e11d12: port 1(veth073ddcd) entered disabled state
+[  333.136892] br-6661c2e11d12: port 1(veth613ca3b) entered blocking state
+[  333.137596] br-6661c2e11d12: port 1(veth613ca3b) entered disabled state
+[  333.138192] veth613ca3b: entered allmulticast mode
+[  333.138755] veth613ca3b: entered promiscuous mode
+[  333.161616] eth0: renamed from veth232dd1f
+[  333.189223] br-6661c2e11d12: port 1(veth613ca3b) entered blocking state
+[  333.189590] br-6661c2e11d12: port 1(veth613ca3b) entered forwarding state
+[  335.693115] hermes[28283]: segfault at ab ip 00000000005625fb sp 00007ffe8bc61520 error 4 in python3.13[420000+31b000] likely on CPU 3 (core 1, socket 0)
+[  335.693544] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  335.694398] python3.13: hermes: potentially unexpected fatal signal 11.
+[  335.694553] CPU: 3 PID: 28283 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  335.694733] RIP: 0033:0x5625fb
+[  335.694822] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  335.695196] RSP: 002b:00007ffe8bc61520 EFLAGS: 00010246
+[  335.695298] RAX: 0000000000000000 RBX: 000078d86d1f6f08 RCX: 000078d86d1f6f70
+[  335.695447] RDX: 0000000034584a80 RSI: 0000000034549cf0 RDI: 000000003446d0d0
+[  335.695599] RBP: 000000003446d1c2 R08: 000078d86c3aecb0 R09: 000078d86d1f6f78
+[  335.695750] R10: 00000000fffffffe R11: 0000000000000001 R12: 00000000009f7c7c
+[  335.695920] R13: 00000000000001a5 R14: 0000000000a7f5b0 R15: 000078d86d1f6f80
+[  335.696102] FS:  000078d86cebf780 GS:  0000000000000000
+[  335.696560] WSL (28456 - CaptureCrash): Capturing crash for pid: 7, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  335.992878] br-6661c2e11d12: port 1(veth613ca3b) entered disabled state
+[  335.993407] veth232dd1f: renamed from eth0
+[  336.055608] br-6661c2e11d12: port 1(veth613ca3b) entered disabled state
+[  336.056766] veth613ca3b (unregistering): left allmulticast mode
+[  336.056957] veth613ca3b (unregistering): left promiscuous mode
+[  336.057150] br-6661c2e11d12: port 1(veth613ca3b) entered disabled state
+[  339.142436] br-6661c2e11d12: port 1(veth741262d) entered blocking state
+[  339.142705] br-6661c2e11d12: port 1(veth741262d) entered disabled state
+[  339.142875] veth741262d: entered allmulticast mode
+[  339.143481] veth741262d: entered promiscuous mode
+[  339.164163] eth0: renamed from veth4e78689
+[  339.193272] br-6661c2e11d12: port 1(veth741262d) entered blocking state
+[  339.193935] br-6661c2e11d12: port 1(veth741262d) entered forwarding state
+[  352.243897] traps: python3.11[5289] general protection fault ip:7610f30c3f5c sp:7fff86b2d300 error:0 in libpython3.11.so.1.0[7610f3012000+1da000]
+[  352.245048] python3.11: python3.11: potentially unexpected fatal signal 11.
+[  352.245599] CPU: 4 PID: 5289 Comm: python3.11 Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  352.246084] RIP: 0033:0x7610f30c3f5c
+[  352.246254] Code: 77 7c 8d 7e ff 48 8d 15 c2 43 25 00 c1 ef 04 8d 04 3f 48 8b 14 c2 4c 8b 42 10 4c 39 c2 0f 84 96 00 00 00 48 8b 42 08 83 02 01 <48> 8b 08 48 89 4a 08 48 85 c9 74 08 48 83 c4 18 c3 0f 1f 00 8b 4a
+[  352.247157] RSP: 002b:00007fff86b2d300 EFLAGS: 00010216
+[  352.247401] RAX: 007610ece909c000 RBX: 00007610f3436bf8 RCX: 00007610f1362980
+[  352.247649] RDX: 00007610e4a20000 RSI: 0000000000000038 RDI: 0000000000000003
+[  352.247924] RBP: 0000000000000010 R08: 00007610e4a44000 R09: 00007610f180b0f0
+[  352.248168] R10: 000061e70acad58e R11: 0000000000000000 R12: 00007610f3401860
+[  352.248547] R13: 00007610f340e240 R14: 0000000000000174 R15: 00007610f340e240
+[  352.248783] FS:  00007610f2c3b340 GS:  0000000000000000
+[  352.249572] WSL (29546 - CaptureCrash): Capturing crash for pid: 8, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  372.728490] hermes[30676]: segfault at ab ip 00000000005625fb sp 00007ffe412cfcb0 error 4 in python3.13[420000+31b000] likely on CPU 4 (core 2, socket 0)
+[  372.729470] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  372.730590] python3.13: hermes: potentially unexpected fatal signal 11.
+[  372.730859] CPU: 4 PID: 30676 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  372.731290] RIP: 0033:0x5625fb
+[  372.731539] Code: ff 44 29 d8 48 83 39 00 48 89 0c 24 48 98 49 8d 04 c7 48 89 44 24 18 4c 8b 20 0f 85 10 47 ed ff 49 8b 44 24 08 44 89 5c 24 20 <f6> 80 ab 00 00 00 80 0f 84 d5 a2 00 00 49 8b 84 24 90 01 00 00 48
+[  372.732832] RSP: 002b:00007ffe412cfcb0 EFLAGS: 00010246
+[  372.733126] RAX: 0000000000000000 RBX: 0000736ac9e03c20 RCX: 0000736ac9e03c88
+[  372.733459] RDX: 0000000036f187f0 RSI: 0000000037111410 RDI: 0000000036f677e0
+[  372.733823] RBP: 0000000036f678d2 R08: 0000736ac8fc67b0 R09: 0000736ac9e03c90
+[  372.734140] R10: 00000000fffffffe R11: 0000000000000001 R12: 00000000009f7c7c
+[  372.734442] R13: 00000000000001a5 R14: 0000000000a7f5b0 R15: 0000736ac9e03c98
+[  372.734750] FS:  0000736ac9acc780 GS:  0000000000000000
+[  372.735367] WSL (30695 - CaptureCrash): Capturing crash for pid: 40, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  435.623711] traps: uvicorn[3692] general protection fault ip:75743257bf5c sp:7fff4e317930 error:0 in libpython3.11.so.1.0[7574324ca000+1da000]
+[  435.624250] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  435.624460] CPU: 2 PID: 3692 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  435.624653] RIP: 0033:0x75743257bf5c
+[  435.624762] Code: 77 7c 8d 7e ff 48 8d 15 c2 43 25 00 c1 ef 04 8d 04 3f 48 8b 14 c2 4c 8b 42 10 4c 39 c2 0f 84 96 00 00 00 48 8b 42 08 83 02 01 <48> 8b 08 48 89 4a 08 48 85 c9 74 08 48 83 c4 18 c3 0f 1f 00 8b 4a
+[  435.625306] RSP: 002b:00007fff4e317930 EFLAGS: 00010212
+[  435.625522] RAX: 007574044b8fd000 RBX: 0000000000000150 RCX: 0000000000000005
+[  435.625803] RDX: 00007574044b8000 RSI: 0000000000000190 RDI: 0000000000000018
+[  435.626044] RBP: 0000000000000005 R08: 00007573f7538000 R09: 0000000000000019
+[  435.626242] R10: 000058b33703981c R11: 0000000000000020 R12: 0000000000000001
+[  435.626445] R13: 0000757430c020d8 R14: 0000000000000015 R15: 0000000000000005
+[  435.626629] FS:  00007574320ee340 GS:  0000000000000000
+[  435.627226] WSL (34391 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  440.958669] br-3c6d964c8af0: port 5(veth709c917) entered disabled state
+[  440.959401] veth108518e: renamed from eth1
+[  441.050068] br-3c6d964c8af0: port 5(veth709c917) entered disabled state
+[  441.053217] veth709c917 (unregistering): left allmulticast mode
+[  441.053639] veth709c917 (unregistering): left promiscuous mode
+[  441.053929] br-3c6d964c8af0: port 5(veth709c917) entered disabled state
+[  441.125820] br-dfe7460d7979: port 3(veth3fd84c5) entered disabled state
+[  441.126346] veth67cbb39: renamed from eth0
+[  441.217469] br-dfe7460d7979: port 3(veth3fd84c5) entered disabled state
+[  441.218705] veth3fd84c5 (unregistering): left allmulticast mode
+[  441.218974] veth3fd84c5 (unregistering): left promiscuous mode
+[  441.219222] br-dfe7460d7979: port 3(veth3fd84c5) entered disabled state
+[  441.497764] br-3c6d964c8af0: port 5(veth25f53e7) entered blocking state
+[  441.498196] br-3c6d964c8af0: port 5(veth25f53e7) entered disabled state
+[  441.498958] veth25f53e7: entered allmulticast mode
+[  441.499355] veth25f53e7: entered promiscuous mode
+[  441.501186] br-3c6d964c8af0: port 5(veth25f53e7) entered blocking state
+[  441.501677] br-3c6d964c8af0: port 5(veth25f53e7) entered forwarding state
+[  441.523704] eth0: renamed from vethcd68c8e
+[  441.580932] br-dfe7460d7979: port 3(veth60625ef) entered blocking state
+[  441.581403] br-dfe7460d7979: port 3(veth60625ef) entered disabled state
+[  441.581858] veth60625ef: entered allmulticast mode
+[  441.582164] veth60625ef: entered promiscuous mode
+[  441.583700] br-dfe7460d7979: port 3(veth60625ef) entered blocking state
+[  441.584041] br-dfe7460d7979: port 3(veth60625ef) entered forwarding state
+[  441.596922] eth1: renamed from vethe405231
+[  449.895359] uvicorn[34940]: segfault at 755a6f462a30 ip 0000755a6f462a30 sp 00007ffe0d06dd88 error 15 likely on CPU 2 (core 1, socket 0)
+[  449.896373] Code: 00 00 00 00 00 00 00 00 00 00 60 24 50 6f 5a 75 00 00 e0 a9 4f 6f 5a 75 00 00 d0 89 41 6f 5a 75 00 00 c0 27 40 6f 5a 00 00 00 <30> 50 3f 6f 5a 75 00 00 50 ae 4f 6f 5a 75 00 00 02 00 00 00 00 00
+[  449.897352] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  449.897716] CPU: 2 PID: 34940 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  449.898001] RIP: 0033:0x755a6f462a30
+[  449.898273] Code: 00 00 00 00 00 00 00 00 00 00 60 24 50 6f 5a 75 00 00 e0 a9 4f 6f 5a 75 00 00 d0 89 41 6f 5a 75 00 00 c0 27 40 6f 5a 00 00 00 <30> 50 3f 6f 5a 75 00 00 50 ae 4f 6f 5a 75 00 00 02 00 00 00 00 00
+[  449.898978] RSP: 002b:00007ffe0d06dd88 EFLAGS: 00010202
+[  449.899174] RAX: 0000755a6f4fad40 RBX: 0000755a97119340 RCX: 000000000000612d
+[  449.899451] RDX: 0000605bd832af40 RSI: 0000755a9712c990 RDI: 0000755a97113810
+[  449.899710] RBP: 0000755a97113810 R08: 0000755a70e05980 R09: 0000000000000000
+[  449.899942] R10: 0000605bdc8df020 R11: 0000000000000002 R12: 0000755a9712c990
+[  449.900167] R13: 0000000000000000 R14: 0000605bd832af40 R15: 0000755a6f462a30
+[  449.900425] FS:  0000755a99bdc340 GS:  0000000000000000
+[  449.900965] WSL (35828 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  452.928067] br-3c6d964c8af0: port 5(veth25f53e7) entered disabled state
+[  452.928669] vethcd68c8e: renamed from eth0
+[  453.007774] br-3c6d964c8af0: port 5(veth25f53e7) entered disabled state
+[  453.009005] veth25f53e7 (unregistering): left allmulticast mode
+[  453.009338] veth25f53e7 (unregistering): left promiscuous mode
+[  453.009660] br-3c6d964c8af0: port 5(veth25f53e7) entered disabled state
+[  453.084944] br-dfe7460d7979: port 3(veth60625ef) entered disabled state
+[  453.085486] vethe405231: renamed from eth1
+[  453.147445] br-dfe7460d7979: port 3(veth60625ef) entered disabled state
+[  453.149021] veth60625ef (unregistering): left allmulticast mode
+[  453.149621] veth60625ef (unregistering): left promiscuous mode
+[  453.149962] br-dfe7460d7979: port 3(veth60625ef) entered disabled state
+[  453.395056] br-dfe7460d7979: port 3(veth0531684) entered blocking state
+[  453.395290] br-dfe7460d7979: port 3(veth0531684) entered disabled state
+[  453.395483] veth0531684: entered allmulticast mode
+[  453.395682] veth0531684: entered promiscuous mode
+[  453.397174] br-dfe7460d7979: port 3(veth0531684) entered blocking state
+[  453.397400] br-dfe7460d7979: port 3(veth0531684) entered forwarding state
+[  453.418201] eth0: renamed from veth42aea66
+[  453.477489] br-3c6d964c8af0: port 5(veth7e8b551) entered blocking state
+[  453.478064] br-3c6d964c8af0: port 5(veth7e8b551) entered disabled state
+[  453.478586] veth7e8b551: entered allmulticast mode
+[  453.478759] veth7e8b551: entered promiscuous mode
+[  453.480225] br-3c6d964c8af0: port 5(veth7e8b551) entered blocking state
+[  453.480479] br-3c6d964c8af0: port 5(veth7e8b551) entered forwarding state
+[  453.493315] eth1: renamed from veth82dcf4d
+[  471.926325] BUG: using smp_processor_id() in preemptible [00000000] code: notify-rs poll /7991
+[  471.927141] caller is debug_smp_processor_id+0x1b/0x30
+[  471.927606] CPU: 6 PID: 7991 Comm: notify-rs poll  Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  471.927903] Call Trace:
+[  471.928162]  <TASK>
+[  471.928344]  dump_stack_lvl+0x4c/0x70
+[  471.928479]  dump_stack+0x14/0x20
+[  471.928592]  check_preemption_disabled+0xd4/0x100
+[  471.928747]  debug_smp_processor_id+0x1b/0x30
+[  471.929019]  obj_cgroup_charge+0x33/0x1e0
+[  471.929144]  kmem_cache_alloc_lru+0xf5/0x3e0
+[  471.929325]  ? __d_alloc+0x2e/0x200
+[  471.929732]  ? __enqueue_entity+0x102/0x130
+[  471.929974]  __d_alloc+0x2e/0x200
+[  471.930133]  d_alloc+0x26/0xb0
+[  471.930256]  d_alloc_parallel+0x5d/0x430
+[  471.930667]  ? selinux_inode_permission+0x11b/0x1e0
+[  471.930828]  __lookup_slow+0x5b/0x130
+[  471.931041]  walk_component+0x113/0x180
+[  471.931169]  path_lookupat+0x6e/0x1c0
+[  471.931291]  filename_lookup+0xd3/0x1e0
+[  471.931426]  ? p9_req_put+0xaf/0x100
+[  471.931544]  ? p9_client_readdir+0x10f/0x220
+[  471.931706]  vfs_statx+0x90/0x170
+[  471.931818]  ? preempt_count_add+0x58/0xd0
+[  471.932084]  do_statx+0x4f/0x90
+[  471.932403]  ? strncpy_from_user+0x52/0x140
+[  471.932516]  ? getname_flags.part.0+0x4c/0x1b0
+[  471.932666]  ? getname_flags+0x45/0x70
+[  471.932829]  __x64_sys_statx+0x6d/0x90
+[  471.933003]  x64_sys_call+0x1412/0x2020
+[  471.933176]  do_syscall_64+0x5a/0xb0
+[  471.933392]  ? preempt_count_add+0x58/0xd0
+[  471.933711]  ? __rseq_handle_notify_resume+0xa9/0x4c0
+[  471.933868]  ? up_read+0x41/0x90
+[  471.933988]  ? debug_smp_processor_id+0x1b/0x30
+[  471.934173]  ? fpregs_restore_userregs+0x17/0xf0
+[  471.934331]  ? switch_fpu_return+0x12/0x20
+[  471.934449]  ? exit_to_user_mode_prepare+0x128/0x140
+[  471.934628]  ? syscall_exit_to_user_mode+0x2f/0x50
+[  471.934904]  ? x64_sys_call+0x19d7/0x2020
+[  471.935024]  ? do_syscall_64+0x67/0xb0
+[  471.935135]  ? syscall_exit_to_user_mode+0x2f/0x50
+[  471.935301]  ? x64_sys_call+0x1412/0x2020
+[  471.935544]  ? do_syscall_64+0x67/0xb0
+[  471.935715]  ? do_syscall_64+0x67/0xb0
+[  471.935844]  ? do_syscall_64+0x67/0xb0
+[  471.936143]  ? do_syscall_64+0x67/0xb0
+[  471.936350]  entry_SYSCALL_64_after_hwframe+0x78/0xe2
+[  471.936554] RIP: 0033:0x77556338335a
+[  471.936664] Code: 48 8b 05 b9 0a 0e 00 be ff ff ff ff 64 c7 00 16 00 00 00 e9 53 fd ff ff e8 93 88 01 00 0f 1f 00 41 89 ca b8 4c 01 00 00 0f 05 <48> 3d 00 f0 ff ff 77 2e 89 c1 85 c0 74 0f 48 8b 05 81 0a 0e 00 64
+[  471.937228] RSP: 002b:0000775547af7398 EFLAGS: 00000206 ORIG_RAX: 000000000000014c
+[  471.937456] RAX: ffffffffffffffda RBX: 0000775547af7660 RCX: 000077556338335a
+[  471.937678] RDX: 0000000000000100 RSI: 0000775547af74e0 RDI: 00000000ffffff9c
+[  471.937882] RBP: 0000775547af74d0 R08: 0000775547af73a0 R09: 0101010101010100
+[  471.938130] R10: 0000000000000fff R11: 0000000000000206 R12: 0000000000000051
+[  471.938666] R13: 0000775547af7ba0 R14: 0000000000000001 R15: 0000000000000052
+[  471.938946]  </TASK>
+[  488.117706] uvicorn[36060]: segfault at 20000738d ip 000072e40774cd9f sp 00007ffc8a7346d0 error 4 in libpython3.11.so.1.0[72e407675000+1da000] likely on CPU 6 (core 3, socket 0)
+[  488.119233] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[  488.119818] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  488.120350] CPU: 6 PID: 36060 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  488.120819] RIP: 0033:0x72e40774cd9f
+[  488.120957] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[  488.121675] RSP: 002b:00007ffc8a7346d0 EFLAGS: 00010202
+[  488.121897] RAX: 00000002000072e4 RBX: 000072e3d7f14444 RCX: 0000000000000000
+[  488.122167] RDX: 8000000000000007 RSI: 000072e402e61cd0 RDI: 000072e3d7f14444
+[  488.122507] RBP: 000072e407a99bf8 R08: 0000000000000007 R09: 0000000000000029
+[  488.122818] R10: 00006475c5b2af84 R11: 0000000000000009 R12: 000072e407a99bf8
+[  488.123500] R13: 000072e402e61d08 R14: 0000000000000000 R15: 0000000000000007
+[  488.124120] FS:  000072e407299340 GS:  0000000000000000
+[  488.125057] WSL (38096 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  490.624029] br-3c6d964c8af0: port 5(veth7e8b551) entered disabled state
+[  490.624860] veth82dcf4d: renamed from eth1
+[  490.691515] br-3c6d964c8af0: port 5(veth7e8b551) entered disabled state
+[  490.692855] veth7e8b551 (unregistering): left allmulticast mode
+[  490.693748] veth7e8b551 (unregistering): left promiscuous mode
+[  490.694187] br-3c6d964c8af0: port 5(veth7e8b551) entered disabled state
+[  490.748189] br-dfe7460d7979: port 3(veth0531684) entered disabled state
+[  490.748969] veth42aea66: renamed from eth0
+[  490.819994] br-dfe7460d7979: port 3(veth0531684) entered disabled state
+[  490.821463] veth0531684 (unregistering): left allmulticast mode
+[  490.821918] veth0531684 (unregistering): left promiscuous mode
+[  490.822425] br-dfe7460d7979: port 3(veth0531684) entered disabled state
+[  491.063646] br-3c6d964c8af0: port 5(veth04d128a) entered blocking state
+[  491.063916] br-3c6d964c8af0: port 5(veth04d128a) entered disabled state
+[  491.064076] veth04d128a: entered allmulticast mode
+[  491.064209] veth04d128a: entered promiscuous mode
+[  491.065463] br-3c6d964c8af0: port 5(veth04d128a) entered blocking state
+[  491.065729] br-3c6d964c8af0: port 5(veth04d128a) entered forwarding state
+[  491.086126] eth0: renamed from veth4ce4d9b
+[  491.130640] br-dfe7460d7979: port 3(vethc15e7bc) entered blocking state
+[  491.131119] br-dfe7460d7979: port 3(vethc15e7bc) entered disabled state
+[  491.132202] vethc15e7bc: entered allmulticast mode
+[  491.133038] vethc15e7bc: entered promiscuous mode
+[  491.134472] br-dfe7460d7979: port 3(vethc15e7bc) entered blocking state
+[  491.134701] br-dfe7460d7979: port 3(vethc15e7bc) entered forwarding state
+[  491.147159] eth1: renamed from veth7d32004
+[  492.164890] br-3c6d964c8af0: port 5(veth04d128a) entered disabled state
+[  492.165533] veth4ce4d9b: renamed from eth0
+[  492.252953] br-3c6d964c8af0: port 5(veth04d128a) entered disabled state
+[  492.254222] veth04d128a (unregistering): left allmulticast mode
+[  492.254534] veth04d128a (unregistering): left promiscuous mode
+[  492.254858] br-3c6d964c8af0: port 5(veth04d128a) entered disabled state
+[  492.314134] br-dfe7460d7979: port 3(vethc15e7bc) entered disabled state
+[  492.314686] veth7d32004: renamed from eth1
+[  492.381110] br-dfe7460d7979: port 3(vethc15e7bc) entered disabled state
+[  492.382164] vethc15e7bc (unregistering): left allmulticast mode
+[  492.382355] vethc15e7bc (unregistering): left promiscuous mode
+[  492.382570] br-dfe7460d7979: port 3(vethc15e7bc) entered disabled state
+[  492.574966] br-3c6d964c8af0: port 5(veth7842f3d) entered blocking state
+[  492.575216] br-3c6d964c8af0: port 5(veth7842f3d) entered disabled state
+[  492.575455] veth7842f3d: entered allmulticast mode
+[  492.575611] veth7842f3d: entered promiscuous mode
+[  492.576803] br-3c6d964c8af0: port 5(veth7842f3d) entered blocking state
+[  492.576990] br-3c6d964c8af0: port 5(veth7842f3d) entered forwarding state
+[  492.596626] eth0: renamed from veth1dde400
+[  492.646121] br-dfe7460d7979: port 3(veth5826c2f) entered blocking state
+[  492.646611] br-dfe7460d7979: port 3(veth5826c2f) entered disabled state
+[  492.646829] veth5826c2f: entered allmulticast mode
+[  492.647347] veth5826c2f: entered promiscuous mode
+[  492.648627] br-dfe7460d7979: port 3(veth5826c2f) entered blocking state
+[  492.648818] br-dfe7460d7979: port 3(veth5826c2f) entered forwarding state
+[  492.665635] eth1: renamed from vethf0e441e
+[  557.667757] docker0: port 4(veth7706de5) entered blocking state
+[  557.668230] docker0: port 4(veth7706de5) entered disabled state
+[  557.668604] veth7706de5: entered allmulticast mode
+[  557.668915] veth7706de5: entered promiscuous mode
+[  557.684266] eth0: renamed from vethf0afca9
+[  557.721470] docker0: port 4(veth7706de5) entered blocking state
+[  557.722055] docker0: port 4(veth7706de5) entered forwarding state
+[  557.830248] docker0: port 4(veth7706de5) entered disabled state
+[  557.830689] vethf0afca9: renamed from eth0
+[  557.899421] docker0: port 4(veth7706de5) entered disabled state
+[  557.900721] veth7706de5 (unregistering): left allmulticast mode
+[  557.900898] veth7706de5 (unregistering): left promiscuous mode
+[  557.901092] docker0: port 4(veth7706de5) entered disabled state
+[  558.387771] docker0: port 4(veth930934a) entered blocking state
+[  558.388194] docker0: port 4(veth930934a) entered disabled state
+[  558.388531] veth930934a: entered allmulticast mode
+[  558.388803] veth930934a: entered promiscuous mode
+[  558.390287] docker0: port 4(veth930934a) entered blocking state
+[  558.390577] docker0: port 4(veth930934a) entered forwarding state
+[  558.403977] eth0: renamed from vethf70f3b7
+[  558.528480] docker0: port 4(veth930934a) entered disabled state
+[  558.528903] vethf70f3b7: renamed from eth0
+[  558.583941] docker0: port 4(veth930934a) entered disabled state
+[  558.585084] veth930934a (unregistering): left allmulticast mode
+[  558.585264] veth930934a (unregistering): left promiscuous mode
+[  558.585399] docker0: port 4(veth930934a) entered disabled state
+[  575.975380] docker0: port 4(vethfa10bbb) entered blocking state
+[  575.975833] docker0: port 4(vethfa10bbb) entered disabled state
+[  575.976177] vethfa10bbb: entered allmulticast mode
+[  575.976463] vethfa10bbb: entered promiscuous mode
+[  575.997078] eth0: renamed from veth98ac7a1
+[  576.020837] docker0: port 4(vethfa10bbb) entered blocking state
+[  576.021424] docker0: port 4(vethfa10bbb) entered forwarding state
+[  576.158535] docker0: port 4(vethfa10bbb) entered disabled state
+[  576.159156] veth98ac7a1: renamed from eth0
+[  576.238643] docker0: port 4(vethfa10bbb) entered disabled state
+[  576.239988] vethfa10bbb (unregistering): left allmulticast mode
+[  576.240353] vethfa10bbb (unregistering): left promiscuous mode
+[  576.240729] docker0: port 4(vethfa10bbb) entered disabled state
+[  586.951000] br-bb6f9fe57812: port 9(veth497c488) entered blocking state
+[  586.951436] br-bb6f9fe57812: port 9(veth497c488) entered disabled state
+[  586.951752] veth497c488: entered allmulticast mode
+[  586.952044] veth497c488: entered promiscuous mode
+[  586.977511] eth0: renamed from veth9b02b90
+[  587.004835] br-bb6f9fe57812: port 9(veth497c488) entered blocking state
+[  587.005349] br-bb6f9fe57812: port 9(veth497c488) entered forwarding state
+[  587.265974] br-bb6f9fe57812: port 9(veth497c488) entered disabled state
+[  587.266510] veth9b02b90: renamed from eth0
+[  587.338878] br-bb6f9fe57812: port 9(veth497c488) entered disabled state
+[  587.340639] veth497c488 (unregistering): left allmulticast mode
+[  587.341050] veth497c488 (unregistering): left promiscuous mode
+[  587.341355] br-bb6f9fe57812: port 9(veth497c488) entered disabled state
+[  587.794441] br-bb6f9fe57812: port 9(veth67d3307) entered blocking state
+[  587.794936] br-bb6f9fe57812: port 9(veth67d3307) entered disabled state
+[  587.795303] veth67d3307: entered allmulticast mode
+[  587.795601] veth67d3307: entered promiscuous mode
+[  587.797549] br-bb6f9fe57812: port 9(veth67d3307) entered blocking state
+[  587.797998] br-bb6f9fe57812: port 9(veth67d3307) entered forwarding state
+[  587.826259] eth0: renamed from vetheee4428
+[  590.200423] br-bb6f9fe57812: port 9(veth67d3307) entered disabled state
+[  590.200777] vetheee4428: renamed from eth0
+[  590.261652] br-bb6f9fe57812: port 9(veth67d3307) entered disabled state
+[  590.263339] veth67d3307 (unregistering): left allmulticast mode
+[  590.263651] veth67d3307 (unregistering): left promiscuous mode
+[  590.264017] br-bb6f9fe57812: port 9(veth67d3307) entered disabled state
+[  605.402386] docker0: port 4(vetha01e811) entered blocking state
+[  605.402828] docker0: port 4(vetha01e811) entered disabled state
+[  605.403214] vetha01e811: entered allmulticast mode
+[  605.403571] vetha01e811: entered promiscuous mode
+[  605.423449] eth0: renamed from veth2197523
+[  605.455940] docker0: port 4(vetha01e811) entered blocking state
+[  605.456402] docker0: port 4(vetha01e811) entered forwarding state
+[  605.572143] docker0: port 4(vetha01e811) entered disabled state
+[  605.572621] veth2197523: renamed from eth0
+[  605.637160] docker0: port 4(vetha01e811) entered disabled state
+[  605.638710] vetha01e811 (unregistering): left allmulticast mode
+[  605.639054] vetha01e811 (unregistering): left promiscuous mode
+[  605.639335] docker0: port 4(vetha01e811) entered disabled state
+[  612.550249] uvicorn[38488]: segfault at 60 ip 00007cf9fb3474cc sp 00007ffee5901de0 error 4 in libpython3.11.so.1.0[7cf9fb1e6000+1da000] likely on CPU 6 (core 3, socket 0)
+[  612.550744] Code: 84 65 43 ec ff 89 c6 48 89 df e8 9f 01 ff ff 89 e8 5a 5b 5d c3 66 0f 1f 84 00 00 00 00 00 53 48 89 fb 48 83 ec 10 48 8b 47 08 <48> 8b 40 60 48 85 c0 74 0c 48 63 d2 48 8b 04 10 48 85 c0 75 0f 48
+[  612.551394] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  612.551681] CPU: 6 PID: 38488 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  612.551924] RIP: 0033:0x7cf9fb3474cc
+[  612.552128] Code: 84 65 43 ec ff 89 c6 48 89 df e8 9f 01 ff ff 89 e8 5a 5b 5d c3 66 0f 1f 84 00 00 00 00 00 53 48 89 fb 48 83 ec 10 48 8b 47 08 <48> 8b 40 60 48 85 c0 74 0c 48 63 d2 48 8b 04 10 48 85 c0 75 0f 48
+[  612.552576] RSP: 002b:00007ffee5901de0 EFLAGS: 00010202
+[  612.552687] RAX: 0000000000000000 RBX: 00007cf9c9427a90 RCX: 0000000000000000
+[  612.552894] RDX: 0000000000000098 RSI: 00007cf9d7b1f530 RDI: 00007cf9c9427a90
+[  612.553082] RBP: 00007cf9d7b1f530 R08: 00007cf9fb5d8b40 R09: 0000000000000000
+[  612.553288] R10: 00005d10c29de1b4 R11: 00007ffee5951080 R12: 00007cf9fb60abf8
+[  612.553466] R13: 00007cf9fac49e50 R14: 00007cf9d7b1f530 R15: 000000000000000d
+[  612.553660] FS:  00007cf9fae0a340 GS:  0000000000000000
+[  612.554239] WSL (46489 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  615.812388] br-3c6d964c8af0: port 5(veth7842f3d) entered disabled state
+[  615.812784] veth1dde400: renamed from eth0
+[  615.886233] br-3c6d964c8af0: port 5(veth7842f3d) entered disabled state
+[  615.888839] veth7842f3d (unregistering): left allmulticast mode
+[  615.889230] veth7842f3d (unregistering): left promiscuous mode
+[  615.889463] br-3c6d964c8af0: port 5(veth7842f3d) entered disabled state
+[  615.961877] br-dfe7460d7979: port 3(veth5826c2f) entered disabled state
+[  615.962314] vethf0e441e: renamed from eth1
+[  616.025173] br-dfe7460d7979: port 3(veth5826c2f) entered disabled state
+[  616.026905] veth5826c2f (unregistering): left allmulticast mode
+[  616.027372] veth5826c2f (unregistering): left promiscuous mode
+[  616.027664] br-dfe7460d7979: port 3(veth5826c2f) entered disabled state
+[  616.269011] br-3c6d964c8af0: port 5(veth300389f) entered blocking state
+[  616.269311] br-3c6d964c8af0: port 5(veth300389f) entered disabled state
+[  616.269523] veth300389f: entered allmulticast mode
+[  616.269721] veth300389f: entered promiscuous mode
+[  616.271145] br-3c6d964c8af0: port 5(veth300389f) entered blocking state
+[  616.271375] br-3c6d964c8af0: port 5(veth300389f) entered forwarding state
+[  616.296775] eth0: renamed from veth5e52406
+[  616.362842] br-dfe7460d7979: port 3(veth73ba349) entered blocking state
+[  616.363487] br-dfe7460d7979: port 3(veth73ba349) entered disabled state
+[  616.363829] veth73ba349: entered allmulticast mode
+[  616.364061] veth73ba349: entered promiscuous mode
+[  616.365427] br-dfe7460d7979: port 3(veth73ba349) entered blocking state
+[  616.365747] br-dfe7460d7979: port 3(veth73ba349) entered forwarding state
+[  616.378865] eth1: renamed from veth9dc3091
+[  620.235594] traps: uvicorn[46749] general protection fault ip:72f438a19d80 sp:7ffdfd3951c8 error:0 in libpython3.11.so.1.0[72f4388cd000+1da000]
+[  620.236272] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  620.236616] CPU: 2 PID: 46749 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  620.236985] RIP: 0033:0x72f438a19d80
+[  620.237137] Code: 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 66 2e 0f 1f 84 00 00 00 00 00 66 0f 1f 84 00 00 00 00 00 <48> 8b 42 08 48 8b 7a 10 83 e0 01 48 8d 0c bd 00 00 00 00 48 09 c8
+[  620.237809] RSP: 002b:00007ffdfd3951c8 EFLAGS: 00010283
+[  620.238079] RAX: 3101800000000002 RBX: 000072f438cd7878 RCX: 3101800000000000
+[  620.238439] RDX: 3254c0000072f410 RSI: 000072f438cd7b48 RDI: cc40600000000000
+[  620.238792] RBP: 000072f438cd7b48 R08: 000072f4371994d0 R09: 0000000000000000
+[  620.239127] R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000003
+[  620.239517] R13: 0000000000000030 R14: 00007ffdfd395240 R15: 000072f438cd7b48
+[  620.239783] FS:  000072f4384f1340 GS:  0000000000000000
+[  620.240400] WSL (47072 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  622.615671] br-3c6d964c8af0: port 5(veth300389f) entered disabled state
+[  622.616097] veth5e52406: renamed from eth0
+[  622.698945] br-3c6d964c8af0: port 5(veth300389f) entered disabled state
+[  622.700075] veth300389f (unregistering): left allmulticast mode
+[  622.700262] veth300389f (unregistering): left promiscuous mode
+[  622.700461] br-3c6d964c8af0: port 5(veth300389f) entered disabled state
+[  622.752002] br-dfe7460d7979: port 3(veth73ba349) entered disabled state
+[  622.752380] veth9dc3091: renamed from eth1
+[  622.817695] br-dfe7460d7979: port 3(veth73ba349) entered disabled state
+[  622.818886] veth73ba349 (unregistering): left allmulticast mode
+[  622.819069] veth73ba349 (unregistering): left promiscuous mode
+[  622.819200] br-dfe7460d7979: port 3(veth73ba349) entered disabled state
+[  623.028955] br-3c6d964c8af0: port 5(veth11f5816) entered blocking state
+[  623.029238] br-3c6d964c8af0: port 5(veth11f5816) entered disabled state
+[  623.029449] veth11f5816: entered allmulticast mode
+[  623.029604] veth11f5816: entered promiscuous mode
+[  623.030900] br-3c6d964c8af0: port 5(veth11f5816) entered blocking state
+[  623.031128] br-3c6d964c8af0: port 5(veth11f5816) entered forwarding state
+[  623.050703] eth0: renamed from vethbf6fbf1
+[  623.111135] br-dfe7460d7979: port 3(veth77552cf) entered blocking state
+[  623.111573] br-dfe7460d7979: port 3(veth77552cf) entered disabled state
+[  623.111789] veth77552cf: entered allmulticast mode
+[  623.112088] veth77552cf: entered promiscuous mode
+[  623.113440] br-dfe7460d7979: port 3(veth77552cf) entered blocking state
+[  623.113663] br-dfe7460d7979: port 3(veth77552cf) entered forwarding state
+[  623.126139] eth1: renamed from veth770c12b
+[  651.317793] BUG: using __this_cpu_add() in preemptible [00000000] code: runc/49101
+[  651.318136] caller is __this_cpu_preempt_check+0x17/0x20
+[  651.318245] CPU: 3 PID: 49101 Comm: runc Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  651.318433] Call Trace:
+[  651.318491]  <TASK>
+[  651.318565]  dump_stack_lvl+0x4c/0x70
+[  651.318644]  dump_stack+0x14/0x20
+[  651.318738]  check_preemption_disabled+0xd4/0x100
+[  651.318872]  __this_cpu_preempt_check+0x17/0x20
+[  651.318977]  mem_cgroup_charge_statistics+0x30/0x60
+[  651.319097]  charge_memcg+0x56/0xb0
+[  651.319187]  __mem_cgroup_charge+0x31/0x90
+[  651.319267]  do_anonymous_page+0x98/0x420
+[  651.319364]  __handle_mm_fault+0x818/0x840
+[  651.319466]  handle_mm_fault+0xc7/0x2f0
+[  651.319547]  do_user_addr_fault+0x188/0x660
+[  651.319619]  exc_page_fault+0x73/0x160
+[  651.319703]  asm_exc_page_fault+0x2b/0x30
+[  651.319784] RIP: 0033:0x5d7eaad4a7ab
+[  651.319876] Code: 1f f8 c3 f3 44 0f 7f 3f f3 44 0f 7f 7c 1f f0 c3 f3 44 0f 7f 3f f3 44 0f 7f 7f 10 f3 44 0f 7f 7c 1f e0 f3 44 0f 7f 7c 1f f0 c3 <f3> 44 0f 7f 3f f3 44 0f 7f 7f 10 f3 44 0f 7f 7f 20 f3 44 0f 7f 7f
+[  651.320275] RSP: 002b:000028b73674c7f0 EFLAGS: 00010246
+[  651.320383] RAX: 0000000000000000 RBX: 0000000000000080 RCX: 0000000000000010
+[  651.320545] RDX: 00000000000000f0 RSI: 000028b73676bf00 RDI: 000028b73676bf00
+[  651.320700] RBP: 000028b73674c808 R08: 0000000000000001 R09: 000028b73676a000
+[  651.320870] R10: 0000000000000001 R11: 00007b3d4abd7000 R12: 000028b736624008
+[  651.321050] R13: 0000000000000000 R14: 000028b7365dc1e0 R15: 00005d7eab52e948
+[  651.321228]  </TASK>
+[  663.942576] docker0: port 4(veth2385f57) entered blocking state
+[  663.943104] docker0: port 4(veth2385f57) entered disabled state
+[  663.943459] veth2385f57: entered allmulticast mode
+[  663.943713] veth2385f57: entered promiscuous mode
+[  663.960178] eth0: renamed from veth93b586c
+[  664.001996] docker0: port 4(veth2385f57) entered blocking state
+[  664.002494] docker0: port 4(veth2385f57) entered forwarding state
+[  664.125522] docker0: port 4(veth2385f57) entered disabled state
+[  664.125919] veth93b586c: renamed from eth0
+[  664.209305] docker0: port 4(veth2385f57) entered disabled state
+[  664.210469] veth2385f57 (unregistering): left allmulticast mode
+[  664.210652] veth2385f57 (unregistering): left promiscuous mode
+[  664.210822] docker0: port 4(veth2385f57) entered disabled state
+[  672.549735] python3.11: uvicorn: potentially unexpected fatal signal 8.
+[  672.550280] CPU: 3 PID: 47288 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  672.550619] RIP: 0033:0x7010f8f070d9
+[  672.550799] Code: f1 ff 66 89 44 24 40 d9 6c 24 40 48 8d 4c 24 38 48 8d 54 24 3c 89 de 4c 8d 44 24 40 e8 00 05 00 00 66 44 89 6c 24 36 49 89 c4 <d9> 6c 24 36 48 63 54 24 3c 48 89 d1 49 89 d2 48 85 c0 0f 84 dc ae
+[  672.551691] RSP: 002b:00007ffc5e28b4b0 EFLAGS: 00010206
+[  672.551912] RAX: 00007010f91fa79c RBX: 0000000000000000 RCX: 00007010f91fa79d
+[  672.552260] RDX: 0000000000000001 RSI: 00007010f91fa5c0 RDI: 00000000ffffffff
+[  672.552628] RBP: 0000000000000072 R08: 00007ffc5e28b4f0 R09: 0000000000000000
+[  672.552979] R10: 0000000000000001 R11: 00007010f909a4e0 R12: 00007010f91fa79c
+[  672.553345] R13: 000000000000037f R14: 0000000000000000 R15: 0000000000000002
+[  672.553707] FS:  00007010f89f9340 GS:  0000000000000000
+[  672.554408] WSL (50401 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 8, port: 50005
+[  675.297074] br-3c6d964c8af0: port 5(veth11f5816) entered disabled state
+[  675.297476] vethbf6fbf1: renamed from eth0
+[  675.389093] br-3c6d964c8af0: port 5(veth11f5816) entered disabled state
+[  675.390241] veth11f5816 (unregistering): left allmulticast mode
+[  675.390382] veth11f5816 (unregistering): left promiscuous mode
+[  675.390491] br-3c6d964c8af0: port 5(veth11f5816) entered disabled state
+[  675.469114] br-dfe7460d7979: port 3(veth77552cf) entered disabled state
+[  675.469616] veth770c12b: renamed from eth1
+[  675.545502] br-dfe7460d7979: port 3(veth77552cf) entered disabled state
+[  675.546649] veth77552cf (unregistering): left allmulticast mode
+[  675.546812] veth77552cf (unregistering): left promiscuous mode
+[  675.546967] br-dfe7460d7979: port 3(veth77552cf) entered disabled state
+[  675.783132] br-3c6d964c8af0: port 5(veth081b2a1) entered blocking state
+[  675.784034] br-3c6d964c8af0: port 5(veth081b2a1) entered disabled state
+[  675.784596] veth081b2a1: entered allmulticast mode
+[  675.784792] veth081b2a1: entered promiscuous mode
+[  675.786220] br-3c6d964c8af0: port 5(veth081b2a1) entered blocking state
+[  675.786488] br-3c6d964c8af0: port 5(veth081b2a1) entered forwarding state
+[  675.807373] eth0: renamed from veth85b569d
+[  675.869533] br-dfe7460d7979: port 3(veth47ac3d3) entered blocking state
+[  675.869815] br-dfe7460d7979: port 3(veth47ac3d3) entered disabled state
+[  675.870108] veth47ac3d3: entered allmulticast mode
+[  675.870340] veth47ac3d3: entered promiscuous mode
+[  675.871675] br-dfe7460d7979: port 3(veth47ac3d3) entered blocking state
+[  675.871883] br-dfe7460d7979: port 3(veth47ac3d3) entered forwarding state
+[  675.883196] eth1: renamed from veth3a3b1dd
+[  678.394370] uvicorn[50544]: segfault at 0 ip 0000749164730cfc sp 00007ffd684fc770 error 6 in libpython3.11.so.1.0[74916466a000+1da000] likely on CPU 1 (core 0, socket 0)
+[  678.394944] Code: 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 57 f0 48 85 d2 0f 84 f6 00 00 00 48 8b 42 08 48 8b 4f f8 83 e0 03 48 83 e1 fc 48 09 c8 <48> 89 11 48 89 42 08 48 8b 57 08 48 8d 05 c2 ff ff ff 48 83 67 f8
+[  678.395719] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  678.395893] CPU: 1 PID: 50544 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  678.396092] RIP: 0033:0x749164730cfc
+[  678.396196] Code: 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 57 f0 48 85 d2 0f 84 f6 00 00 00 48 8b 42 08 48 8b 4f f8 83 e0 03 48 83 e1 fc 48 09 c8 <48> 89 11 48 89 42 08 48 8b 57 08 48 8d 05 c2 ff ff ff 48 83 67 f8
+[  678.396775] RSP: 002b:00007ffd684fc770 EFLAGS: 00010246
+[  678.396947] RAX: 0000000000000000 RBX: 00007491641bd260 RCX: 0000000000000000
+[  678.397140] RDX: 00007491641bd250 RSI: 0000749164a66688 RDI: 00007491641bd260
+[  678.397465] RBP: 0000749163f48744 R08: 00007491640cf698 R09: 0000000000000000
+[  678.397698] R10: 0000749163f48752 R11: 0000000000000001 R12: 0000749164a8ebf8
+[  678.397904] R13: 00007491640cf688 R14: 0000000000000000 R15: 0000749164a5ce80
+[  678.398107] FS:  000074916428e340 GS:  0000000000000000
+[  678.398771] WSL (50815 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  680.557517] br-3c6d964c8af0: port 5(veth081b2a1) entered disabled state
+[  680.557812] veth85b569d: renamed from eth0
+[  680.626642] br-3c6d964c8af0: port 5(veth081b2a1) entered disabled state
+[  680.628032] veth081b2a1 (unregistering): left allmulticast mode
+[  680.628475] veth081b2a1 (unregistering): left promiscuous mode
+[  680.628828] br-3c6d964c8af0: port 5(veth081b2a1) entered disabled state
+[  680.699617] br-dfe7460d7979: port 3(veth47ac3d3) entered disabled state
+[  680.700080] veth3a3b1dd: renamed from eth1
+[  680.771176] br-dfe7460d7979: port 3(veth47ac3d3) entered disabled state
+[  680.772311] veth47ac3d3 (unregistering): left allmulticast mode
+[  680.772461] veth47ac3d3 (unregistering): left promiscuous mode
+[  680.772596] br-dfe7460d7979: port 3(veth47ac3d3) entered disabled state
+[  680.977666] br-3c6d964c8af0: port 5(veth64d847c) entered blocking state
+[  680.977927] br-3c6d964c8af0: port 5(veth64d847c) entered disabled state
+[  680.978102] veth64d847c: entered allmulticast mode
+[  680.978274] veth64d847c: entered promiscuous mode
+[  680.979595] br-3c6d964c8af0: port 5(veth64d847c) entered blocking state
+[  680.979808] br-3c6d964c8af0: port 5(veth64d847c) entered forwarding state
+[  680.999939] eth0: renamed from veth95b3663
+[  681.050169] br-dfe7460d7979: port 3(vethfbb308e) entered blocking state
+[  681.050524] br-dfe7460d7979: port 3(vethfbb308e) entered disabled state
+[  681.050725] vethfbb308e: entered allmulticast mode
+[  681.050925] vethfbb308e: entered promiscuous mode
+[  681.052265] br-dfe7460d7979: port 3(vethfbb308e) entered blocking state
+[  681.052483] br-dfe7460d7979: port 3(vethfbb308e) entered forwarding state
+[  681.064858] eth1: renamed from veth083c545
+[  682.934804] uvicorn[51013]: segfault at 0 ip 000072ca7ddeccfc sp 00007ffce10eada0 error 6 in libpython3.11.so.1.0[72ca7dd26000+1da000] likely on CPU 3 (core 1, socket 0)
+[  682.935473] Code: 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 57 f0 48 85 d2 0f 84 f6 00 00 00 48 8b 42 08 48 8b 4f f8 83 e0 03 48 83 e1 fc 48 09 c8 <48> 89 11 48 89 42 08 48 8b 57 08 48 8d 05 c2 ff ff ff 48 83 67 f8
+[  682.935972] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  682.936094] CPU: 3 PID: 51013 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  682.936233] RIP: 0033:0x72ca7ddeccfc
+[  682.936403] Code: 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 57 f0 48 85 d2 0f 84 f6 00 00 00 48 8b 42 08 48 8b 4f f8 83 e0 03 48 83 e1 fc 48 09 c8 <48> 89 11 48 89 42 08 48 8b 57 08 48 8d 05 c2 ff ff ff 48 83 67 f8
+[  682.936964] RSP: 002b:00007ffce10eada0 EFLAGS: 00010246
+[  682.937234] RAX: 0000000000000000 RBX: 000072ca7d879260 RCX: 0000000000000000
+[  682.937696] RDX: 000072ca7d879250 RSI: 00000000000003b7 RDI: 000072ca7d879260
+[  682.937906] RBP: 000072ca7d4efce2 R08: 000072ca7e118b40 R09: 000072ca7b602130
+[  682.938089] R10: 000072ca7d4efcf0 R11: 0000000000000004 R12: 000072ca7e14abf8
+[  682.938388] R13: 000072ca7d78b238 R14: 0000000000000000 R15: 000072ca59a90d10
+[  682.938623] FS:  000072ca7d94a340 GS:  0000000000000000
+[  682.939276] WSL (51182 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  684.710736] br-3c6d964c8af0: port 5(veth64d847c) entered disabled state
+[  684.711178] veth95b3663: renamed from eth0
+[  684.775965] br-3c6d964c8af0: port 5(veth64d847c) entered disabled state
+[  684.777182] veth64d847c (unregistering): left allmulticast mode
+[  684.777372] veth64d847c (unregistering): left promiscuous mode
+[  684.777551] br-3c6d964c8af0: port 5(veth64d847c) entered disabled state
+[  684.851728] br-dfe7460d7979: port 3(vethfbb308e) entered disabled state
+[  684.852010] veth083c545: renamed from eth1
+[  684.916624] br-dfe7460d7979: port 3(vethfbb308e) entered disabled state
+[  684.917741] vethfbb308e (unregistering): left allmulticast mode
+[  684.917967] vethfbb308e (unregistering): left promiscuous mode
+[  684.918127] br-dfe7460d7979: port 3(vethfbb308e) entered disabled state
+[  685.164510] br-3c6d964c8af0: port 5(vetha398723) entered blocking state
+[  685.164800] br-3c6d964c8af0: port 5(vetha398723) entered disabled state
+[  685.164980] vetha398723: entered allmulticast mode
+[  685.165135] vetha398723: entered promiscuous mode
+[  685.166479] br-3c6d964c8af0: port 5(vetha398723) entered blocking state
+[  685.166671] br-3c6d964c8af0: port 5(vetha398723) entered forwarding state
+[  685.195250] eth0: renamed from veth63a0799
+[  685.249943] br-dfe7460d7979: port 3(vethc9cc17e) entered blocking state
+[  685.250655] br-dfe7460d7979: port 3(vethc9cc17e) entered disabled state
+[  685.250881] vethc9cc17e: entered allmulticast mode
+[  685.251126] vethc9cc17e: entered promiscuous mode
+[  685.252662] br-dfe7460d7979: port 3(vethc9cc17e) entered blocking state
+[  685.252822] br-dfe7460d7979: port 3(vethc9cc17e) entered forwarding state
+[  685.274862] eth1: renamed from vethf5b74a3
+[  707.262306] traps: hermes[52678] general protection fault ip:572b0c sp:7ffc69d403b0 error:0 in python3.13[420000+31b000]
+[  707.262747] python3.13: hermes: potentially unexpected fatal signal 11.
+[  707.262942] CPU: 4 PID: 52678 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  707.263175] RIP: 0033:0x572b0c
+[  707.263275] Code: 44 24 f8 a8 02 74 09 48 83 e8 04 49 89 44 24 f8 48 83 c5 01 48 83 c3 10 49 39 ed 74 b0 4c 8b 23 4d 85 e4 74 eb 49 8b 44 24 08 <f6> 80 a9 00 00 00 40 74 dd 48 8b 80 48 01 00 00 48 85 c0 74 bf eb
+[  707.263697] RSP: 002b:00007ffc69d403b0 EFLAGS: 00010202
+[  707.264021] RAX: 214bbdfda8725ab9 RBX: 000076cc3036e668 RCX: 0000000000000005
+[  707.264453] RDX: 0000000000000020 RSI: 00000000005729a0 RDI: 000076cc3031a000
+[  707.264694] RBP: 0000000000000007 R08: 000076cc3033e5d0 R09: 000076cc2da40730
+[  707.264883] R10: 0000000000000002 R11: 0000000000a51a98 R12: 000076cc30319c40
+[  707.265073] R13: 0000000000000013 R14: 000076cc3031a000 R15: 0000000000a51a9c
+[  707.265262] FS:  000076cc30e65780 GS:  0000000000000000
+[  707.265727] WSL (52743 - CaptureCrash): Capturing crash for pid: 348, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[  728.641450] uvicorn[51430]: segfault at aa ip 00007b6ff7ca1d9f sp 00007ffdc394c800 error 4 in libpython3.11.so.1.0[7b6ff7bca000+1da000] likely on CPU 3 (core 1, socket 0)
+[  728.641982] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[  728.642490] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  728.642650] CPU: 3 PID: 51430 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  728.642827] RIP: 0033:0x7b6ff7ca1d9f
+[  728.642930] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[  728.643559] RSP: 002b:00007ffdc394c800 EFLAGS: 00010206
+[  728.643711] RAX: 0000000000000001 RBX: 00007b6fc6b62828 RCX: 0000000000000000
+[  728.643960] RDX: 8000000000000001 RSI: 00007b6fc6bc9b48 RDI: 00007b6fc6b62828
+[  728.644167] RBP: 00007b6ff7feebf8 R08: 0000000000000001 R09: 0000000000000056
+[  728.644443] R10: 00007b6ff4af1a16 R11: 0000000000000003 R12: 00007b6ff7feebf8
+[  728.644632] R13: 00007b6fc6bc9b50 R14: 0000000000000000 R15: 0000000000000001
+[  728.644818] FS:  00007b6ff77ee340 GS:  0000000000000000
+[  728.645387] WSL (53983 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  731.336862] br-3c6d964c8af0: port 5(vetha398723) entered disabled state
+[  731.337613] veth63a0799: renamed from eth0
+[  731.409472] br-3c6d964c8af0: port 5(vetha398723) entered disabled state
+[  731.410618] vetha398723 (unregistering): left allmulticast mode
+[  731.410942] vetha398723 (unregistering): left promiscuous mode
+[  731.411240] br-3c6d964c8af0: port 5(vetha398723) entered disabled state
+[  731.464676] br-dfe7460d7979: port 3(vethc9cc17e) entered disabled state
+[  731.465015] vethf5b74a3: renamed from eth1
+[  731.534286] br-dfe7460d7979: port 3(vethc9cc17e) entered disabled state
+[  731.535358] vethc9cc17e (unregistering): left allmulticast mode
+[  731.535541] vethc9cc17e (unregistering): left promiscuous mode
+[  731.535696] br-dfe7460d7979: port 3(vethc9cc17e) entered disabled state
+[  731.794885] br-3c6d964c8af0: port 5(vethc012df9) entered blocking state
+[  731.795154] br-3c6d964c8af0: port 5(vethc012df9) entered disabled state
+[  731.795317] vethc012df9: entered allmulticast mode
+[  731.795478] vethc012df9: entered promiscuous mode
+[  731.796757] br-3c6d964c8af0: port 5(vethc012df9) entered blocking state
+[  731.796951] br-3c6d964c8af0: port 5(vethc012df9) entered forwarding state
+[  731.818234] eth0: renamed from veth266e022
+[  731.880089] br-dfe7460d7979: port 3(veth5f86189) entered blocking state
+[  731.880626] br-dfe7460d7979: port 3(veth5f86189) entered disabled state
+[  731.881090] veth5f86189: entered allmulticast mode
+[  731.881573] veth5f86189: entered promiscuous mode
+[  731.883150] br-dfe7460d7979: port 3(veth5f86189) entered blocking state
+[  731.883529] br-dfe7460d7979: port 3(veth5f86189) entered forwarding state
+[  731.901876] eth1: renamed from vethd261509
+[  735.434483] docker0: port 4(veth70a3f5c) entered blocking state
+[  735.435340] docker0: port 4(veth70a3f5c) entered disabled state
+[  735.435663] veth70a3f5c: entered allmulticast mode
+[  735.435897] veth70a3f5c: entered promiscuous mode
+[  735.458231] eth0: renamed from veth327c686
+[  735.479449] docker0: port 4(veth70a3f5c) entered blocking state
+[  735.480086] docker0: port 4(veth70a3f5c) entered forwarding state
+[  735.596444] docker0: port 4(veth70a3f5c) entered disabled state
+[  735.596980] veth327c686: renamed from eth0
+[  735.660645] docker0: port 4(veth70a3f5c) entered disabled state
+[  735.662089] veth70a3f5c (unregistering): left allmulticast mode
+[  735.662338] veth70a3f5c (unregistering): left promiscuous mode
+[  735.662549] docker0: port 4(veth70a3f5c) entered disabled state
+[  745.874085] uvicorn[54265]: segfault at a ip 00007ac8c735bf5c sp 00007ffdadcd6b60 error 4 in libpython3.11.so.1.0[7ac8c72aa000+1da000] likely on CPU 4 (core 2, socket 0)
+[  745.875076] Code: 77 7c 8d 7e ff 48 8d 15 c2 43 25 00 c1 ef 04 8d 04 3f 48 8b 14 c2 4c 8b 42 10 4c 39 c2 0f 84 96 00 00 00 48 8b 42 08 83 02 01 <48> 8b 08 48 89 4a 08 48 85 c9 74 08 48 83 c4 18 c3 0f 1f 00 8b 4a
+[  745.876127] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  745.876561] CPU: 4 PID: 54265 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  745.876939] RIP: 0033:0x7ac8c735bf5c
+[  745.877178] Code: 77 7c 8d 7e ff 48 8d 15 c2 43 25 00 c1 ef 04 8d 04 3f 48 8b 14 c2 4c 8b 42 10 4c 39 c2 0f 84 96 00 00 00 48 8b 42 08 83 02 01 <48> 8b 08 48 89 4a 08 48 85 c9 74 08 48 83 c4 18 c3 0f 1f 00 8b 4a
+[  745.877896] RSP: 002b:00007ffdadcd6b60 EFLAGS: 00010202
+[  745.878113] RAX: 000000000000000a RBX: 00007ac8c76cebf8 RCX: 000000000000002d
+[  745.878702] RDX: 00007ac89c1f0000 RSI: 0000000000000028 RDI: 0000000000000002
+[  745.879110] RBP: 0000000000000010 R08: 00007ac89c8dc000 R09: 00007ac8c3c51120
+[  745.879520] R10: 00006442ae9c08e6 R11: 0000000000000003 R12: 00007ac8c76a5640
+[  745.880024] R13: 00007ac8c76a6240 R14: 00006442ae87629e R15: 000000000000002d
+[  745.880314] FS:  00007ac8c6ece340 GS:  0000000000000000
+[  745.881127] WSL (55276 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  749.141240] br-3c6d964c8af0: port 5(vethc012df9) entered disabled state
+[  749.141518] veth266e022: renamed from eth0
+[  749.228194] br-3c6d964c8af0: port 5(vethc012df9) entered disabled state
+[  749.229208] vethc012df9 (unregistering): left allmulticast mode
+[  749.229385] vethc012df9 (unregistering): left promiscuous mode
+[  749.230026] br-3c6d964c8af0: port 5(vethc012df9) entered disabled state
+[  749.297475] br-dfe7460d7979: port 3(veth5f86189) entered disabled state
+[  749.298418] vethd261509: renamed from eth1
+[  749.365515] br-dfe7460d7979: port 3(veth5f86189) entered disabled state
+[  749.367118] veth5f86189 (unregistering): left allmulticast mode
+[  749.367324] veth5f86189 (unregistering): left promiscuous mode
+[  749.367499] br-dfe7460d7979: port 3(veth5f86189) entered disabled state
+[  749.580726] br-3c6d964c8af0: port 5(veth85871ef) entered blocking state
+[  749.580970] br-3c6d964c8af0: port 5(veth85871ef) entered disabled state
+[  749.581142] veth85871ef: entered allmulticast mode
+[  749.581292] veth85871ef: entered promiscuous mode
+[  749.582518] br-3c6d964c8af0: port 5(veth85871ef) entered blocking state
+[  749.582734] br-3c6d964c8af0: port 5(veth85871ef) entered forwarding state
+[  749.604123] eth0: renamed from vethddb9f38
+[  749.676920] br-dfe7460d7979: port 3(veth259f7e1) entered blocking state
+[  749.677344] br-dfe7460d7979: port 3(veth259f7e1) entered disabled state
+[  749.677591] veth259f7e1: entered allmulticast mode
+[  749.677876] veth259f7e1: entered promiscuous mode
+[  749.679141] br-dfe7460d7979: port 3(veth259f7e1) entered blocking state
+[  749.679343] br-dfe7460d7979: port 3(veth259f7e1) entered forwarding state
+[  749.693272] eth1: renamed from vetha458815
+[  762.165636] traps: uvicorn[55501] general protection fault ip:78c2cc42cd9f sp:7ffdccc20c90 error:0 in libpython3.11.so.1.0[78c2cc355000+1da000]
+[  762.166861] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[  762.167092] CPU: 3 PID: 55501 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[  762.167342] RIP: 0033:0x78c2cc42cd9f
+[  762.167458] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[  762.167989] RSP: 002b:00007ffdccc20c90 EFLAGS: 00010206
+[  762.168152] RAX: 6060000000363636 RBX: 000078c2a0fe1a1a RCX: 0000000000000000
+[  762.168378] RDX: 8000000000000007 RSI: 000078c2c7b42958 RDI: 000078c2a0fe1a1a
+[  762.168598] RBP: 000078c2cc779bf8 R08: 0000000000000007 R09: 0000000000000006
+[  762.168818] R10: 00006485fb1ce3d4 R11: 00006485fb21e100 R12: 000078c2cc779bf8
+[  762.169039] R13: 000078c2c7b42990 R14: 0000000000000000 R15: 0000000000000007
+[  762.169255] FS:  000078c2cbf79340 GS:  0000000000000000
+[  762.169886] WSL (56330 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[  764.725145] br-3c6d964c8af0: port 5(veth85871ef) entered disabled state
+[  764.725424] vethddb9f38: renamed from eth0
+[  764.797540] br-3c6d964c8af0: port 5(veth85871ef) entered disabled state
+[  764.798757] veth85871ef (unregistering): left allmulticast mode
+[  764.799013] veth85871ef (unregistering): left promiscuous mode
+[  764.799228] br-3c6d964c8af0: port 5(veth85871ef) entered disabled state
+[  764.861250] br-dfe7460d7979: port 3(veth259f7e1) entered disabled state
+[  764.861701] vetha458815: renamed from eth1
+[  764.926122] br-dfe7460d7979: port 3(veth259f7e1) entered disabled state
+[  764.927225] veth259f7e1 (unregistering): left allmulticast mode
+[  764.927720] veth259f7e1 (unregistering): left promiscuous mode
+[  764.928014] br-dfe7460d7979: port 3(veth259f7e1) entered disabled state
+[  765.157772] br-dfe7460d7979: port 3(vethf046388) entered blocking state
+[  765.158091] br-dfe7460d7979: port 3(vethf046388) entered disabled state
+[  765.158253] vethf046388: entered allmulticast mode
+[  765.158412] vethf046388: entered promiscuous mode
+[  765.159654] br-dfe7460d7979: port 3(vethf046388) entered blocking state
+[  765.159841] br-dfe7460d7979: port 3(vethf046388) entered forwarding state
+[  765.179434] eth0: renamed from veth21c09d4
+[  765.241208] br-3c6d964c8af0: port 5(vethefd973d) entered blocking state
+[  765.241659] br-3c6d964c8af0: port 5(vethefd973d) entered disabled state
+[  765.242081] vethefd973d: entered allmulticast mode
+[  765.242426] vethefd973d: entered promiscuous mode
+[  765.243826] br-3c6d964c8af0: port 5(vethefd973d) entered blocking state
+[  765.244043] br-3c6d964c8af0: port 5(vethefd973d) entered forwarding state
+[  765.256252] eth1: renamed from veth9042862
+[  896.872334] docker0: port 4(vethc6775aa) entered blocking state
+[  896.872847] docker0: port 4(vethc6775aa) entered disabled state
+[  896.873192] vethc6775aa: entered allmulticast mode
+[  896.873493] vethc6775aa: entered promiscuous mode
+[  896.894757] eth0: renamed from vethf9fd6b2
+[  896.917378] docker0: port 4(vethc6775aa) entered blocking state
+[  896.917814] docker0: port 4(vethc6775aa) entered forwarding state
+[  897.031287] docker0: port 4(vethc6775aa) entered disabled state
+[  897.031776] vethf9fd6b2: renamed from eth0
+[  897.102734] docker0: port 4(vethc6775aa) entered disabled state
+[  897.104019] vethc6775aa (unregistering): left allmulticast mode
+[  897.104248] vethc6775aa (unregistering): left promiscuous mode
+[  897.104404] docker0: port 4(vethc6775aa) entered disabled state
+[  919.038935] docker0: port 4(vethf0e6c7a) entered blocking state
+[  919.039708] docker0: port 4(vethf0e6c7a) entered disabled state
+[  919.040280] vethf0e6c7a: entered allmulticast mode
+[  919.040697] vethf0e6c7a: entered promiscuous mode
+[  919.058861] eth0: renamed from veth48f99d9
+[  919.080592] docker0: port 4(vethf0e6c7a) entered blocking state
+[  919.081106] docker0: port 4(vethf0e6c7a) entered forwarding state
+[  919.233991] docker0: port 4(vethf0e6c7a) entered disabled state
+[  919.234529] veth48f99d9: renamed from eth0
+[  919.307864] docker0: port 4(vethf0e6c7a) entered disabled state
+[  919.310580] vethf0e6c7a (unregistering): left allmulticast mode
+[  919.311121] vethf0e6c7a (unregistering): left promiscuous mode
+[  919.311519] docker0: port 4(vethf0e6c7a) entered disabled state
+[ 1009.832667] docker0: port 4(veth33e2142) entered blocking state
+[ 1009.833423] docker0: port 4(veth33e2142) entered disabled state
+[ 1009.833853] veth33e2142: entered allmulticast mode
+[ 1009.834265] veth33e2142: entered promiscuous mode
+[ 1009.859919] eth0: renamed from veth13b4a57
+[ 1009.893694] docker0: port 4(veth33e2142) entered blocking state
+[ 1009.894207] docker0: port 4(veth33e2142) entered forwarding state
+[ 1010.021480] docker0: port 4(veth33e2142) entered disabled state
+[ 1010.022019] veth13b4a57: renamed from eth0
+[ 1010.119123] docker0: port 4(veth33e2142) entered disabled state
+[ 1010.121379] veth33e2142 (unregistering): left allmulticast mode
+[ 1010.121785] veth33e2142 (unregistering): left promiscuous mode
+[ 1010.122162] docker0: port 4(veth33e2142) entered disabled state
+[ 1089.775120] docker0: port 4(veth2f6fcce) entered blocking state
+[ 1089.775672] docker0: port 4(veth2f6fcce) entered disabled state
+[ 1089.776098] veth2f6fcce: entered allmulticast mode
+[ 1089.776481] veth2f6fcce: entered promiscuous mode
+[ 1089.799904] eth0: renamed from vetha165228
+[ 1089.821564] docker0: port 4(veth2f6fcce) entered blocking state
+[ 1089.822154] docker0: port 4(veth2f6fcce) entered forwarding state
+[ 1089.959776] docker0: port 4(veth2f6fcce) entered disabled state
+[ 1089.960365] vetha165228: renamed from eth0
+[ 1090.021720] docker0: port 4(veth2f6fcce) entered disabled state
+[ 1090.024147] veth2f6fcce (unregistering): left allmulticast mode
+[ 1090.024567] veth2f6fcce (unregistering): left promiscuous mode
+[ 1090.024956] docker0: port 4(veth2f6fcce) entered disabled state
+[ 1392.517363] python3.11: uvicorn: potentially unexpected fatal signal 8.
+[ 1392.517804] CPU: 7 PID: 56512 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 1392.518149] RIP: 0033:0x7fafff5550d9
+[ 1392.518272] Code: f1 ff 66 89 44 24 40 d9 6c 24 40 48 8d 4c 24 38 48 8d 54 24 3c 89 de 4c 8d 44 24 40 e8 00 05 00 00 66 44 89 6c 24 36 49 89 c4 <d9> 6c 24 36 48 63 54 24 3c 48 89 d1 49 89 d2 48 85 c0 0f 84 dc ae
+[ 1392.519269] RSP: 002b:00007fffd02ac9f0 EFLAGS: 00010206
+[ 1392.519401] RAX: 00007fafff84879c RBX: 0000000000000000 RCX: 00007fafff84879d
+[ 1392.519747] RDX: 0000000000000002 RSI: 00007fafff848708 RDI: 00007fafff848768
+[ 1392.520056] RBP: 0000000000000072 R08: 00007fafff848bb8 R09: 0000000000000000
+[ 1392.520296] R10: 00007fafff848720 R11: 0000000000000002 R12: 00007fafff84879c
+[ 1392.520618] R13: 000000000000037f R14: 0000000000000000 R15: 0000000000000002
+[ 1392.520923] FS:  00007fafff047340 GS:  0000000000000000
+[ 1392.521622] WSL (94227 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 8, port: 50005
+[ 1398.189302] br-3c6d964c8af0: port 5(vethefd973d) entered disabled state
+[ 1398.189839] veth9042862: renamed from eth1
+[ 1398.269536] br-3c6d964c8af0: port 5(vethefd973d) entered disabled state
+[ 1398.271026] vethefd973d (unregistering): left allmulticast mode
+[ 1398.271398] vethefd973d (unregistering): left promiscuous mode
+[ 1398.271742] br-3c6d964c8af0: port 5(vethefd973d) entered disabled state
+[ 1398.365158] br-dfe7460d7979: port 3(vethf046388) entered disabled state
+[ 1398.365728] veth21c09d4: renamed from eth0
+[ 1398.467130] br-dfe7460d7979: port 3(vethf046388) entered disabled state
+[ 1398.468863] vethf046388 (unregistering): left allmulticast mode
+[ 1398.469419] vethf046388 (unregistering): left promiscuous mode
+[ 1398.469871] br-dfe7460d7979: port 3(vethf046388) entered disabled state
+[ 1398.705018] br-3c6d964c8af0: port 5(vethe144f3f) entered blocking state
+[ 1398.705662] br-3c6d964c8af0: port 5(vethe144f3f) entered disabled state
+[ 1398.705977] vethe144f3f: entered allmulticast mode
+[ 1398.706224] vethe144f3f: entered promiscuous mode
+[ 1398.708174] br-3c6d964c8af0: port 5(vethe144f3f) entered blocking state
+[ 1398.708558] br-3c6d964c8af0: port 5(vethe144f3f) entered forwarding state
+[ 1398.732192] eth0: renamed from veth77d4813
+[ 1398.795612] br-dfe7460d7979: port 3(vethaa12dec) entered blocking state
+[ 1398.796137] br-dfe7460d7979: port 3(vethaa12dec) entered disabled state
+[ 1398.796518] vethaa12dec: entered allmulticast mode
+[ 1398.796851] vethaa12dec: entered promiscuous mode
+[ 1398.798587] br-dfe7460d7979: port 3(vethaa12dec) entered blocking state
+[ 1398.798910] br-dfe7460d7979: port 3(vethaa12dec) entered forwarding state
+[ 1398.812953] eth1: renamed from vethc7bae73
+[ 1413.585635] BUG: using __this_cpu_read() in preemptible [00000000] code: runc/95617
+[ 1413.585894] caller is __this_cpu_preempt_check+0x17/0x20
+[ 1413.586053] CPU: 2 PID: 95617 Comm: runc Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 1413.586229] Call Trace:
+[ 1413.586292]  <TASK>
+[ 1413.586353]  dump_stack_lvl+0x4c/0x70
+[ 1413.586428]  dump_stack+0x14/0x20
+[ 1413.586499]  check_preemption_disabled+0xd4/0x100
+[ 1413.586676]  __this_cpu_preempt_check+0x17/0x20
+[ 1413.586796]  memcg_check_events+0x28/0x220
+[ 1413.586890]  charge_memcg+0x65/0xb0
+[ 1413.586973]  __mem_cgroup_charge+0x31/0x90
+[ 1413.587062]  do_wp_page+0x295/0xb00
+[ 1413.587157]  ? _raw_spin_unlock+0x1d/0x40
+[ 1413.587254]  ? __pte_offset_map+0x20/0x190
+[ 1413.587476]  __handle_mm_fault+0x80b/0x840
+[ 1413.587626]  handle_mm_fault+0xc7/0x2f0
+[ 1413.587737]  do_user_addr_fault+0x188/0x660
+[ 1413.588273]  exc_page_fault+0x73/0x160
+[ 1413.588517]  asm_exc_page_fault+0x2b/0x30
+[ 1413.588639] RIP: 0033:0x762e33f422bc
+[ 1413.588757] Code: 1f 80 00 00 00 00 48 8b 08 8b 50 08 4c 01 f9 48 83 fa 26 74 0a 48 83 fa 08 0f 85 93 1a 00 00 48 8b 50 10 48 83 c0 18 4c 01 fa <48> 89 11 48 39 d8 72 d4 4d 8b 93 e8 01 00 00 4d 85 d2 0f 84 ac 0a
+[ 1413.589418] RSP: 002b:00007fff4921d4b0 EFLAGS: 00010206
+[ 1413.589527] RAX: 000064752b367e40 RBX: 000064752b396e80 RCX: 000064752bd20000
+[ 1413.589698] RDX: 000064752b6312ed RSI: 0000762e33f67ad0 RDI: 000064752b27c470
+[ 1413.589878] RBP: 00007fff4921d5b0 R08: 000064752b396f10 R09: 000064752b397a68
+[ 1413.590049] R10: 0000000000000001 R11: 0000762e33f682e0 R12: 0000000000000000
+[ 1413.590211] R13: 00007fff4921d540 R14: 000064752b27c000 R15: 000064752b27c000
+[ 1413.590377]  </TASK>
+[ 1426.926243] hermes[3334]: segfault at 0 ip 000000000055f0f4 sp 00007fff153e9d30 error 4 in python3.13[420000+31b000] likely on CPU 2 (core 1, socket 0)
+[ 1426.926835] Code: 45 00 0f b6 cc 41 89 c5 0f b6 c0 4c 63 d9 ff 24 c5 60 09 86 00 90 f3 0f 1e fa 49 63 c3 48 89 6b 38 48 83 c5 02 48 8b 54 c3 48 <8b> 02 83 c0 01 0f 84 e9 7e 00 00 89 02 0f b7 45 00 49 83 c7 08 49
+[ 1426.927939] python3.13: hermes: potentially unexpected fatal signal 11.
+[ 1426.928240] CPU: 2 PID: 3334 Comm: hermes Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 1426.928520] RIP: 0033:0x55f0f4
+[ 1426.928736] Code: 45 00 0f b6 cc 41 89 c5 0f b6 c0 4c 63 d9 ff 24 c5 60 09 86 00 90 f3 0f 1e fa 49 63 c3 48 89 6b 38 48 83 c5 02 48 8b 54 c3 48 <8b> 02 83 c0 01 0f 84 e9 7e 00 00 89 02 0f b7 45 00 49 83 c7 08 49
+[ 1426.929263] RSP: 002b:00007fff153e9d30 EFLAGS: 00010202
+[ 1426.929440] RAX: 0000000000000006 RBX: 0000798922dc3520 RCX: 0000000000000006
+[ 1426.929713] RDX: 0000000000000000 RSI: 00007fff153e9cf8 RDI: 000079891cfa49b0
+[ 1426.930076] RBP: 000000000955204c R08: 0000000000000002 R09: 0000000008663760
+[ 1426.930585] R10: 0000000000000000 R11: 0000000000000006 R12: 0000798922964d60
+[ 1426.930950] R13: 0000000000000655 R14: 0000000000a7f5b0 R15: 0000798922dc35b0
+[ 1426.931250] FS:  0000798922a8b780 GS:  0000000000000000
+[ 1426.931801] WSL (96288 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!bin!python3.13, signal: 11, port: 50005
+[ 1428.592489] br-6661c2e11d12: port 4(veth115740d) entered disabled state
+[ 1428.593022] veth737cd70: renamed from eth1
+[ 1428.656660] br-6661c2e11d12: port 4(veth115740d) entered disabled state
+[ 1428.658202] veth115740d (unregistering): left allmulticast mode
+[ 1428.658494] veth115740d (unregistering): left promiscuous mode
+[ 1428.658785] br-6661c2e11d12: port 4(veth115740d) entered disabled state
+[ 1428.727797] br-9189104c1c7a: port 1(vetha800825) entered disabled state
+[ 1428.728200] veth13531ed: renamed from eth0
+[ 1428.803850] br-9189104c1c7a: port 1(vetha800825) entered disabled state
+[ 1428.805206] vetha800825 (unregistering): left allmulticast mode
+[ 1428.805719] vetha800825 (unregistering): left promiscuous mode
+[ 1428.806355] br-9189104c1c7a: port 1(vetha800825) entered disabled state
+[ 1428.993730] br-6661c2e11d12: port 4(veth58a4963) entered blocking state
+[ 1428.994370] br-6661c2e11d12: port 4(veth58a4963) entered disabled state
+[ 1428.994717] veth58a4963: entered allmulticast mode
+[ 1428.995138] veth58a4963: entered promiscuous mode
+[ 1428.996925] br-6661c2e11d12: port 4(veth58a4963) entered blocking state
+[ 1428.997368] br-6661c2e11d12: port 4(veth58a4963) entered forwarding state
+[ 1429.019252] eth0: renamed from veth9d28a07
+[ 1429.079787] br-9189104c1c7a: port 1(vethf921150) entered blocking state
+[ 1429.080261] br-9189104c1c7a: port 1(vethf921150) entered disabled state
+[ 1429.080605] vethf921150: entered allmulticast mode
+[ 1429.080942] vethf921150: entered promiscuous mode
+[ 1429.082527] br-9189104c1c7a: port 1(vethf921150) entered blocking state
+[ 1429.082850] br-9189104c1c7a: port 1(vethf921150) entered forwarding state
+[ 1429.095577] eth1: renamed from veth557f025
+[ 1557.499214] traps: uvicorn[94635] general protection fault ip:7279161f4f5c sp:7fff14846cf0 error:0 in libpython3.11.so.1.0[727916143000+1da000]
+[ 1557.499922] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[ 1557.500248] CPU: 7 PID: 94635 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 1557.501026] RIP: 0033:0x7279161f4f5c
+[ 1557.501266] Code: 77 7c 8d 7e ff 48 8d 15 c2 43 25 00 c1 ef 04 8d 04 3f 48 8b 14 c2 4c 8b 42 10 4c 39 c2 0f 84 96 00 00 00 48 8b 42 08 83 02 01 <48> 8b 08 48 89 4a 08 48 85 c9 74 08 48 83 c4 18 c3 0f 1f 00 8b 4a
+[ 1557.502737] RSP: 002b:00007fff14846cf0 EFLAGS: 00010206
+[ 1557.503016] RAX: 007278d9faa74000 RBX: 0000000000000150 RCX: 0000000000000005
+[ 1557.503544] RDX: 00007278d9fa8000 RSI: 0000000000000190 RDI: 0000000000000018
+[ 1557.503849] RBP: 0000000000000005 R08: 00007278da1e0000 R09: 000000000000000d
+[ 1557.504042] R10: 0000596d8a03181c R11: 0000000000000001 R12: 0000000000000001
+[ 1557.504300] R13: 00007279148620d8 R14: 0000000000000015 R15: 0000000000000005
+[ 1557.504732] FS:  0000727915d67340 GS:  0000000000000000
+[ 1557.505390] WSL (5406 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[ 1561.316520] br-3c6d964c8af0: port 5(vethe144f3f) entered disabled state
+[ 1561.316939] veth77d4813: renamed from eth0
+[ 1561.394417] br-3c6d964c8af0: port 5(vethe144f3f) entered disabled state
+[ 1561.395758] vethe144f3f (unregistering): left allmulticast mode
+[ 1561.396323] vethe144f3f (unregistering): left promiscuous mode
+[ 1561.396585] br-3c6d964c8af0: port 5(vethe144f3f) entered disabled state
+[ 1561.460239] br-dfe7460d7979: port 3(vethaa12dec) entered disabled state
+[ 1561.460717] vethc7bae73: renamed from eth1
+[ 1561.551025] br-dfe7460d7979: port 3(vethaa12dec) entered disabled state
+[ 1561.552579] vethaa12dec (unregistering): left allmulticast mode
+[ 1561.552788] vethaa12dec (unregistering): left promiscuous mode
+[ 1561.553013] br-dfe7460d7979: port 3(vethaa12dec) entered disabled state
+[ 1561.809099] br-dfe7460d7979: port 3(vethe38798a) entered blocking state
+[ 1561.809438] br-dfe7460d7979: port 3(vethe38798a) entered disabled state
+[ 1561.809638] vethe38798a: entered allmulticast mode
+[ 1561.809820] vethe38798a: entered promiscuous mode
+[ 1561.811324] br-dfe7460d7979: port 3(vethe38798a) entered blocking state
+[ 1561.811640] br-dfe7460d7979: port 3(vethe38798a) entered forwarding state
+[ 1561.837554] eth0: renamed from veth6307ca7
+[ 1561.902588] br-3c6d964c8af0: port 5(veth4847413) entered blocking state
+[ 1561.903000] br-3c6d964c8af0: port 5(veth4847413) entered disabled state
+[ 1561.903330] veth4847413: entered allmulticast mode
+[ 1561.903685] veth4847413: entered promiscuous mode
+[ 1561.905411] br-3c6d964c8af0: port 5(veth4847413) entered blocking state
+[ 1561.905680] br-3c6d964c8af0: port 5(veth4847413) entered forwarding state
+[ 1561.916847] eth1: renamed from veth5cda214
+[ 1722.223396] docker0: port 4(vetha1f0989) entered blocking state
+[ 1722.223857] docker0: port 4(vetha1f0989) entered disabled state
+[ 1722.224190] vetha1f0989: entered allmulticast mode
+[ 1722.224483] vetha1f0989: entered promiscuous mode
+[ 1722.254737] eth0: renamed from vethdfc222c
+[ 1722.285764] docker0: port 4(vetha1f0989) entered blocking state
+[ 1722.286206] docker0: port 4(vetha1f0989) entered forwarding state
+[ 1722.406740] docker0: port 4(vetha1f0989) entered disabled state
+[ 1722.407328] vethdfc222c: renamed from eth0
+[ 1722.468452] docker0: port 4(vetha1f0989) entered disabled state
+[ 1722.470539] vetha1f0989 (unregistering): left allmulticast mode
+[ 1722.470929] vetha1f0989 (unregistering): left promiscuous mode
+[ 1722.471292] docker0: port 4(vetha1f0989) entered disabled state
+[ 1745.184323] docker0: port 4(veth7db5f9f) entered blocking state
+[ 1745.184804] docker0: port 4(veth7db5f9f) entered disabled state
+[ 1745.185188] veth7db5f9f: entered allmulticast mode
+[ 1745.185453] veth7db5f9f: entered promiscuous mode
+[ 1745.200703] eth0: renamed from vethddd172c
+[ 1745.240385] docker0: port 4(veth7db5f9f) entered blocking state
+[ 1745.240851] docker0: port 4(veth7db5f9f) entered forwarding state
+[ 1745.364880] docker0: port 4(veth7db5f9f) entered disabled state
+[ 1745.365410] vethddd172c: renamed from eth0
+[ 1745.433954] docker0: port 4(veth7db5f9f) entered disabled state
+[ 1745.435470] veth7db5f9f (unregistering): left allmulticast mode
+[ 1745.435770] veth7db5f9f (unregistering): left promiscuous mode
+[ 1745.436081] docker0: port 4(veth7db5f9f) entered disabled state
+[ 1804.920726] uvicorn[7636]: segfault at 1 ip 0000000000000001 sp 00007ffe6a680768 error 14 in python3.11[5d7b812b6000+1000] likely on CPU 7 (core 3, socket 0)
+[ 1804.921504] Code: Unable to access opcode bytes at 0xffffffffffffffd7.
+[ 1804.921774] python3.11: uvicorn: potentially unexpected fatal signal 11.
+[ 1804.921946] CPU: 7 PID: 7636 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 1804.922131] RIP: 0033:0x1
+[ 1804.922190] Code: Unable to access opcode bytes at 0xffffffffffffffd7.
+[ 1804.922327] RSP: 002b:00007ffe6a680768 EFLAGS: 00010202
+[ 1804.922458] RAX: 0000727b4e4ef220 RBX: 0000727b4e4ef1f0 RCX: 0000727b77f36420
+[ 1804.922622] RDX: 0000727b77d3e69c RSI: 0000727b4e4ef220 RDI: 0000727b4e522170
+[ 1804.922788] RBP: 0000727b4e522170 R08: 0000727b4e3f9e00 R09: 0000000000000007
+[ 1804.922983] R10: 00005d7b9b3316a8 R11: 0000002ebdca807d R12: 0000727b4e40e840
+[ 1804.923137] R13: 0000727b77b7bb50 R14: 0000727b4e522170 R15: 000000000000000e
+[ 1804.923303] FS:  0000727b77895340 GS:  0000000000000000
+[ 1804.923818] WSL (20961 - CaptureCrash): Capturing crash for pid: 20, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[ 1808.556384] br-9691b836969c: port 2(vethff9a1c7) entered disabled state
+[ 1808.556861] veth5466393: renamed from eth0
+[ 1808.643911] br-9691b836969c: port 2(vethff9a1c7) entered disabled state
+[ 1808.645427] vethff9a1c7 (unregistering): left allmulticast mode
+[ 1808.645655] vethff9a1c7 (unregistering): left promiscuous mode
+[ 1808.645817] br-9691b836969c: port 2(vethff9a1c7) entered disabled state
+[ 1808.883963] br-9691b836969c: port 2(veth0d122a0) entered blocking state
+[ 1808.884551] br-9691b836969c: port 2(veth0d122a0) entered disabled state
+[ 1808.884787] veth0d122a0: entered allmulticast mode
+[ 1808.884983] veth0d122a0: entered promiscuous mode
+[ 1808.886647] br-9691b836969c: port 2(veth0d122a0) entered blocking state
+[ 1808.886877] br-9691b836969c: port 2(veth0d122a0) entered forwarding state
+[ 1808.909898] eth0: renamed from veth7083c07
+[ 2155.268775] celery[44410]: segfault at a9 ip 00007f9fa0c72d9f sp 00007fff594c5710 error 4 in libpython3.11.so.1.0[7f9fa0b9b000+1da000] likely on CPU 3 (core 1, socket 0)
+[ 2155.269285] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[ 2155.269791] python3.11: celery: potentially unexpected fatal signal 11.
+[ 2155.270367] CPU: 3 PID: 44410 Comm: celery Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 2155.270869] RIP: 0033:0x7f9fa0c72d9f
+[ 2155.271116] Code: 0f 1f 84 00 00 00 00 00 0f 1f 00 f3 0f 1e fa 55 53 48 89 fb 48 83 ec 08 48 8b 05 ac af 21 00 48 8b a8 40 02 00 00 48 8b 47 08 <f6> 80 a9 00 00 00 08 74 28 48 8b 40 38 48 8b 04 07 48 85 c0 74 1b
+[ 2155.271623] RSP: 002b:00007fff594c5710 EFLAGS: 00010202
+[ 2155.271781] RAX: 0000000000000000 RBX: 00007f9f84f8a6a6 RCX: 0000000000000000
+[ 2155.271985] RDX: 8000000000000000 RSI: 00007f9fa0aaab18 RDI: 00007f9f84f8a6a6
+[ 2155.272159] RBP: 00007f9fa0fbfbf8 R08: 0000000000000000 R09: 0000000000000028
+[ 2155.272383] R10: 00007f9f9d7912f4 R11: 0000000000000003 R12: 00007f9fa0fbfbf8
+[ 2155.272597] R13: 00007f9fa0aaab18 R14: 0000000000000000 R15: 0000000000000000
+[ 2155.273119] FS:  00007f9fa07c0340 GS:  0000000000000000
+[ 2155.275218] WSL (44497 - CaptureCrash): Capturing crash for pid: 518, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[ 2217.435599] traps: celery[48122] general protection fault ip:749f508fbf5c sp:7ffe8bc056b0 error:0 in libpython3.11.so.1.0[749f5084a000+1da000]
+[ 2217.436232] python3.11: celery: potentially unexpected fatal signal 11.
+[ 2217.436680] CPU: 7 PID: 48122 Comm: celery Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 2217.437069] RIP: 0033:0x749f508fbf5c
+[ 2217.437277] Code: 77 7c 8d 7e ff 48 8d 15 c2 43 25 00 c1 ef 04 8d 04 3f 48 8b 14 c2 4c 8b 42 10 4c 39 c2 0f 84 96 00 00 00 48 8b 42 08 83 02 01 <48> 8b 08 48 89 4a 08 48 85 c9 74 08 48 83 c4 18 c3 0f 1f 00 8b 4a
+[ 2217.438163] RSP: 002b:00007ffe8bc056b0 EFLAGS: 00010202
+[ 2217.438321] RAX: 749f4c03f2700000 RBX: 0000000000000200 RCX: 0000000000000100
+[ 2217.438528] RDX: 0000749f4c03c000 RSI: 0000000000000038 RDI: 0000000000000003
+[ 2217.438715] RBP: 0000749f50c45ec0 R08: 0000749f50b50320 R09: 0000749f50228500
+[ 2217.438940] R10: 0000749f501b8ac2 R11: ec24c5a9884bf707 R12: 0000000000000000
+[ 2217.439134] R13: 0000749f503da650 R14: 0000749f4c03f5ee R15: 0000000000000001
+[ 2217.439507] FS:  0000749f5046f340 GS:  0000000000000000
+[ 2217.440075] WSL (48165 - CaptureCrash): Capturing crash for pid: 533, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[ 2279.528451] traps: celery[51646] general protection fault ip:78ba3f36b6ad sp:7ffcf08f0980 error:0 in libpython3.11.so.1.0[78ba3f2aa000+1da000]
+[ 2279.530204] python3.11: celery: potentially unexpected fatal signal 11.
+[ 2279.530691] CPU: 3 PID: 51646 Comm: celery Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 2279.531200] RIP: 0033:0x78ba3f36b6ad
+[ 2279.531407] Code: 24 18 4c 89 e7 48 01 c0 48 89 c6 e8 3d 05 00 00 85 c0 0f 84 5b ff ff ff e9 d3 6a f4 ff f3 0f 1e fa 53 48 83 ec 10 48 8b 5f 08 <48> 8b 83 d8 00 00 00 48 85 c0 74 2c ff d0 48 89 c3 48 85 c0 74 4c
+[ 2279.532217] RSP: 002b:00007ffcf08f0980 EFLAGS: 00010202
+[ 2279.532432] RAX: 0000000000000044 RBX: 6000000000000000 RCX: 0000000000000000
+[ 2279.532716] RDX: 000078ba3f377e41 RSI: 000078ba3f571420 RDI: 000078ba23050909
+[ 2279.532973] RBP: 000061cf7bb001e6 R08: 000078ba23674000 R09: 000078ba3ee4e830
+[ 2279.533515] R10: 000061cf7bb001e8 R11: 0000000000000002 R12: 000078ba3f6cebf8
+[ 2279.533963] R13: 000078ba3f1b9750 R14: 000078ba23050909 R15: 0000000000000000
+[ 2279.534185] FS:  000078ba3eecf340 GS:  0000000000000000
+[ 2279.534707] WSL (51779 - CaptureCrash): Capturing crash for pid: 541, executable: !usr!local!bin!python3.11, signal: 11, port: 50005
+[ 2322.480977] python3.11: uvicorn: potentially unexpected fatal signal 8.
+[ 2322.481412] CPU: 5 PID: 5752 Comm: uvicorn Not tainted 6.6.87.2-microsoft-standard-WSL2 #1
+[ 2322.481771] RIP: 0033:0x77af36f400d9
+[ 2322.481962] Code: f1 ff 66 89 44 24 40 d9 6c 24 40 48 8d 4c 24 38 48 8d 54 24 3c 89 de 4c 8d 44 24 40 e8 00 05 00 00 66 44 89 6c 24 36 49 89 c4 <d9> 6c 24 36 48 63 54 24 3c 48 89 d1 49 89 d2 48 85 c0 0f 84 dc ae
+[ 2322.482803] RSP: 002b:00007fff25631cc0 EFLAGS: 00010206
+[ 2322.483096] RAX: 000077af3723379c RBX: 0000000000000000 RCX: 000077af3723379d
+[ 2322.483450] RDX: 0000000000000001 RSI: 000077af37233610 RDI: 00000000ffffffff
+[ 2322.483818] RBP: 0000000000000072 R08: 00007fff25631d00 R09: 0000000000000000
+[ 2322.484139] R10: 0000000000000001 R11: 000077af370d34e0 R12: 000077af3723379c
+[ 2322.484460] R13: 000000000000037f R14: 0000000000000000 R15: 0000000000000002
+[ 2322.484815] FS:  000077af36a32340 GS:  0000000000000000
+[ 2322.485533] WSL (54253 - CaptureCrash): Capturing crash for pid: 1, executable: !usr!local!bin!python3.11, signal: 8, port: 50005
+[ 2327.663856] br-3c6d964c8af0: port 5(veth4847413) entered disabled state
+[ 2327.664358] veth5cda214: renamed from eth1
+[ 2327.730254] br-3c6d964c8af0: port 5(veth4847413) entered disabled state
+[ 2327.731741] veth4847413 (unregistering): left allmulticast mode
+[ 2327.732096] veth4847413 (unregistering): left promiscuous mode
+[ 2327.732412] br-3c6d964c8af0: port 5(veth4847413) entered disabled state
+[ 2327.822264] br-dfe7460d7979: port 3(vethe38798a) entered disabled state
+[ 2327.822761] veth6307ca7: renamed from eth0
+[ 2327.892970] br-dfe7460d7979: port 3(vethe38798a) entered disabled state
+[ 2327.894248] vethe38798a (unregistering): left allmulticast mode
+[ 2327.894627] vethe38798a (unregistering): left promiscuous mode
+[ 2327.895240] br-dfe7460d7979: port 3(vethe38798a) entered disabled state
+[ 2328.141881] br-dfe7460d7979: port 3(vethca762eb) entered blocking state
+[ 2328.142342] br-dfe7460d7979: port 3(vethca762eb) entered disabled state
+[ 2328.142721] vethca762eb: entered allmulticast mode
+[ 2328.143023] vethca762eb: entered promiscuous mode
+[ 2328.144774] br-dfe7460d7979: port 3(vethca762eb) entered blocking state
+[ 2328.145135] br-dfe7460d7979: port 3(vethca762eb) entered forwarding state
+[ 2328.168762] eth0: renamed from vethc4145d3
+[ 2328.230087] br-3c6d964c8af0: port 5(veth317267f) entered blocking state
+[ 2328.230622] br-3c6d964c8af0: port 5(veth317267f) entered disabled state
+[ 2328.231235] veth317267f: entered allmulticast mode
+[ 2328.231554] veth317267f: entered promiscuous mode
+[ 2328.233313] br-3c6d964c8af0: port 5(veth317267f) entered blocking state
+[ 2328.233598] br-3c6d964c8af0: port 5(veth317267f) entered forwarding state
+[ 2328.247709] eth1: renamed from veth31e9d2d
+[ 2499.937339] docker0: port 4(vethe0ea93b) entered blocking state
+[ 2499.937812] docker0: port 4(vethe0ea93b) entered disabled state
+[ 2499.938255] vethe0ea93b: entered allmulticast mode
+[ 2499.938593] vethe0ea93b: entered promiscuous mode
+[ 2499.954484] eth0: renamed from vethdc69542
+[ 2499.972013] docker0: port 4(vethe0ea93b) entered blocking state
+[ 2499.972405] docker0: port 4(vethe0ea93b) entered forwarding state

@@ -17,8 +17,33 @@
 | 16:0x–16:44 | dmesg 18 → 46；missive RestartCount 4 → 11（本 repo） |
 | 16:40–16:55 | **應用層放大**：容器被拉回後 mapper 懶配置競態毒化 ⇒ 每個 ORM 請求 500（含 Google 登入）15 分鐘（本 repo，已修 `2ccfe1d5`） |
 | 16:44–17:05 | 安靜 21 分鐘（dmesg 仍 46） |
+| **17:09–17:12** | **重開不是 owner 主動，是 Windows Update 發起**（CK_Website 實測 System 1074 ×2：17:09:30 MoNotificationUx「Service Pack 計劃之中」→ 17:11:27 開機 → TrustedInstaller 再重啟 → 17:12:32 開機）；**裝了三個新 KB**：KB5124007／KB5124008（Security）、KB5126052（17:12:33 Installed）。⇒ 主機層變更表多一列；08-12 那組 LCU 已被今天的取代，**選項 B「回退 08-12」已不可行**；而換到 9 月 LCU 後故障照樣 312 s 起 ⇒ 新 LCU 沒有讓它消失。`.wslconfig` 這次未改（見下） |
+| **17:17–17:25** | **第六波：開機後 312–762 s 共 21 筆**（hermes python3.13 ×8／uvicorn 3.11 ×8／celery ×1／python3 ×2）；missive backend 17:14–17:26 被拉回 **12 次**（每 1–2 分鐘一次，其中一次死在啟動中），公網間歇 502，owner 儲存公文失敗；swap 仍 0 used、MemAvailable 15.7 GB（本 repo 實測） |
+| 17:25–17:30 | 暫靜（dmesg 停在 21）；公網 3/3 200 |
+| 17:36–17:54 | 續發：dmesg 21→**27**；missive 拉回 **15** 次；CK_Website 量到 swap 首次有 14 MB 用量 |
+| **17:55–18:02** | **實驗①執行（owner 17:5x 拍板）**：先 `pg_dump -Fc`（容器內 15.14，173 MB／93 表）到 `backups/pre_wslconfig_revert/`；`.wslconfig` 還原為 08-19 版（memory=24GB／swap=4GB／processors=8；10:43 版另存 `.wslconfig.bak-20260909-104300-pagereporting-variant`）；`compose stop` Missive → `wsl --shutdown` 17:56:54 → Docker Desktop **3.5 分鐘沒自行拉回引擎**（distro Stopped、backend 行程還在）→ 18:00:47 重啟 Docker Desktop → 18:01:12 引擎回來 → `compose start` Missive。VM 新開機 `free -m` Swap 4096 ⇒ 設定生效。拉回後 57 容器全 Up、五站 200、`/uploads` 未登入 401、mapper 啟動期配置那一行有 |
+| **18:01（VM uptime 19–20 s）** | **⛔ 實驗①結果＝陰性**：新 VM 開機 **19.7 s** uvicorn segfault（`error 15`，ip＝資料位址）、**20.0 s** hermes segfault（`at ab ip 5625fb`，與 boot3 五筆同址）。pageReporting／autoMemoryReclaim／swap 8GB 都拿掉了，故障不但沒消失、還比任何一次冷開機都早（此前最早 168 s）。⇒ **10:43 那份 `.wslconfig` 既不是起因也不是放大器**；今天四波變密要另找解釋（候選：今天 17:12 新 LCU？但 12:04 那波在它之前）。 |
+
+> **崩潰位址不是隨機的（boot3 dmesg 27 筆統計）**：hermes（python3.13 靜態二進位）9 筆裡 **5 筆同一 ip `0x5625fb`、故障位址都是 `0xab`／`0xaa`／`0xa8`**；
+> uvicorn（libpython3.11.so）12 筆的頁內偏移只有 **三個值重複出現**（`…f5c` ×3、`…d9f` ×3、`…cfc` ×2；基址因 ASLR 不同、偏移相同）。
+> 讀法：兩個版本的直譯器都在**少數幾個固定的程式點**（讀物件標頭 `ob_type`／`tp_flags` 那類偏移 0xa8–0xab）踩到 NULL 或垃圾指標
+> ⇒ 是**堆上的 Python 物件指標被改壞**，不是指令本身壞。這與「RAM 位元翻轉」和「客體核心把使用者頁面弄壞」兩個假說都相容，
+> 與「某支程式的邏輯錯」不相容（四 repo、兩個 Python 版本、同一形狀）。**能分辨兩者的仍是 memtest 延長模式**。
 
 結論不變：**與程式無關、與記憶體壓力無關**（swap 未用即發作）。候選＝RAM 硬體／08-12 Windows 累積更新。
+
+> ⚠️ **17:30 新事實（本 repo 實測，推翻上面「`.wslconfig`（08-19）晚於起點排除」的一半）**：
+> `%UserProfile%\.wslconfig` 的 mtime 是 **今天 10:43**，由 `C:\Users\User1` 啟動的另一個 session 改的
+> （備份 `.wslconfig.bak-20260909-104301`，內容是 08-19 版）。diff：`swap=4GB → 8GB`，**新增 `pageReporting=true`、
+> `[experimental] autoMemoryReclaim=gradual`、`sparseVhd=true`**。⇒ **12:04 是第一次用這份設定開機**；
+> 今天四波（12:12／14:47／16:0x／17:17）全在它之後，（⚠️ 我原本把 dmesg 的 `hv_balloon: Cold memory discard hint enabled with order 9` 讀成「page reporting 生效的訊號」——
+> **錯**：18:01 拿掉 `pageReporting` 重開 VM 後這一行照印，它是 hv_balloon 的預設訊息，不能拿來判 `.wslconfig` 有沒有生效；
+> 判生效看 `free -m` 的 Swap total 4096）。08-15 起點早於它，所以它**不是起因**；但它是今天新加入、而且正好碰記憶體頁面的變數，
+> 段錯誤在今天明顯變密（此前最長安靜 3.51 h；今天 5 小時內四波）。**射程限制（CK_Website 17:45）**：08-15 起點用的是 03-24 版
+> （`.wslconfig.bak-20260819`），08-19 換 swap=4GB 版之後故障也在 ⇒ 還原只能回答「今天的速率是不是被 10:43 那組放大」，不能回答「原因」。
+> 實驗排序＝① 還原 `.wslconfig`（零成本）→ ② memtest 延長模式 → ③ 解除 KB5124008；一次一個、每個 ≥3.5 h 觀察窗；
+> 診斷期間應暫停 Windows Update 自動重啟（今天 17:12 就是不受控變數）。**這不是實驗，是把一個沒登記的變更還原到已知狀態** ——
+> 做法＝`cp .wslconfig.bak-20260909-104301 .wslconfig && wsl --shutdown`（全艦隊停 1–2 分鐘），要 owner 拍板，且做了就不能同時做選項 A／B。
 
 ## 1. 重啟前必做（owner）
 

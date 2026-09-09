@@ -260,6 +260,11 @@ docker run --rm --privileged alpine sh -c 'dmesg | grep -cE "segfault|general pr
 - ⇒ **「記憶體壓力」與「失控行程」兩條解釋都關閉**：swap=0 實驗已無必要（swap 根本沒被用到就發作）。
 - 新候選（**推論非實測**，CK_Website 列的主機層變更表）：**08-12 02:56 Windows 累積更新 KB5121003／KB5120708／KB5123304** 安裝並重啟，起點 08-15 前 3 天；Docker Desktop 4.89（08-28）、`.wslconfig`（08-19）晚於起點排除；WSL kernel 6.6.87.2（03-19）、NVIDIA（07-02）早太多。
   另兩行 VM 核心警告 `BUG: using __this_cpu_add() in preemptible code: containerd`／`smp_processor_id() … notify-rs`，指向這顆 kernel 對 Hyper-V per-CPU 假設不成立。
+- ⚠️ **17:30 訂正**：上一行「`.wslconfig`（08-19）晚於起點排除」只對了一半——那個檔**今天 10:43 又被改過一次**
+  （`C:\Users\User1` 啟動的另一個 session；備份 `.wslconfig.bak-20260909-104301`）：`swap=4GB→8GB`、新增 `pageReporting=true`、
+  `[experimental] autoMemoryReclaim=gradual`、`sparseVhd=true`。12:04 是第一次用它開機，今天四波段錯誤全在其後。
+  它不是 08-15 的起因，但是今天唯一新加入且直接碰記憶體頁面的變數；還原它不算實驗（是把未登記變更退回已知狀態），
+  細節見 `reboot-pre-flight-20260909-evening.md` §0。
 - CK_Website 登記為 P2-4，並明寫「**memtest 乾淨之後才做更新回退對照，不要兩個實驗同時做**」。
 - ⇒ A127 給 owner 的選項收斂為：**先排 memtest86+／mdsched Extended（一整夜）**；乾淨才做 08-12 更新回退對照。swap=0 從清單移除。
 

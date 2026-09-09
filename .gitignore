@@ -239,3 +239,6 @@ backend/tests/.artifacts/
 
 # 容器重啟偵測的 runtime 狀態（每次執行改寫，不是設定）
 scripts/checks/.container_restart_state.json
+
+# 2026-09-09 實驗①前的本機 pg_dump（173 MB，NAS 另有 02:00 那份）
+backups/pre_wslconfig_revert/
